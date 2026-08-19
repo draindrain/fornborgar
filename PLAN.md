@@ -22,18 +22,18 @@ Facts in this plan were researched against current (2025–2026) sources. Claims
 ## 1. Architecture overview
 
 ```
-┌─────────────────────────────┐      ┌──────────────────────────┐      ┌─────────────────────────┐
-│  pipeline/  (Python, local) │      │  app/public/data/<site>/ │      │  app/  (TypeScript,     │
-│                             │      │  (static, pre-built)     │      │  Vite, three.js)        │
-│  fetch: Lantmäteriet STAC   │─────▶│  dem.tif   (COG, EPSG:   │─────▶│  terrain mesh + normals │
-│         RAÄ GeoPackage      │      │            3006, m RH2000)│     │  first-person + orbit   │
-│         SGU OGC API / gpkg  │      │  sites.json (RAÄ vectors,│      │  viewshed (Web Worker)  │
-│  reproject / clip / derive  │      │            local coords) │      │  water plane + slider   │
-│  rampart line, land cover,  │      │  rampart.json            │      │  palisade (instanced)   │
-│  shoreline table            │      │  shoreline.json          │      │  land-cover vegetation  │
-│                             │      │  landcover.png + legend  │      │  methods/about panel    │
-│                             │      │  manifest.json           │      │                         │
-└─────────────────────────────┘      └──────────────────────────┘      └─────────────────────────┘
+┌─────────────────────────────┐      ┌───────────────────────────┐      ┌─────────────────────────┐
+│  pipeline/  (Python, local) │      │  app/public/data/<site>/  │      │  app/  (TypeScript,     │
+│                             │      │  (static, pre-built)      │      │  Vite, three.js)        │
+│  fetch: Lantmäteriet STAC   │─────▶│  dem_core.tif  (1 m COG)  │─────▶│  terrain mesh + normals │
+│         RAÄ GeoPackage      │      │  dem_context.tif (2 m)    │      │  first-person + orbit   │
+│         SGU OGC API / gpkg  │      │   (EPSG:3006, m RH 2000)  │      │  viewshed (Web Worker)  │
+│  reproject / clip / derive  │      │  sites.json (local coords)│      │  water plane + slider   │
+│  rampart line, land cover,  │      │  rampart.json             │      │  palisade (instanced)   │
+│  shoreline table            │      │  shoreline.json           │      │  land-cover vegetation  │
+│                             │      │  landcover.png + legend   │      │  methods/about panel    │
+│                             │      │  manifest.json            │      │                         │
+└─────────────────────────────┘      └───────────────────────────┘      └─────────────────────────┘
 ```
 
 Principles:
@@ -100,7 +100,7 @@ fornborgar/
 | Backup plan | **Laserdata Nedladdning, skog** (1–2 pts/m² classified point cloud, COPC LAZ, same STAC API since June 2026) if the 1 m grid under-resolves the ramparts — rasterize our own 0.5 m DEM from ground returns with PDAL. **[verified product; collection details reported]** |
 
 Workflow (single site): query STAC for the tile(s) intersecting the Broborg bbox → windowed
-`/vsicurl` read of just the ~2×2 km subset (avoids the full 100+ MB tile) → fill nodata →
+`/vsicurl` read of just the 4×4 km subset (avoids the full 100+ MB tile) → fill nodata →
 write a deflate-compressed COG for the app. Broborg sits at approximately **E 668 400,
 N 6 628 000** (SWEREF 99 TM; derived from reported WGS84 coords, confirm in Fornsök —
 **[reported]**), i.e. in the `66_6` 100-km index square. Regional extent later = same
@@ -168,7 +168,7 @@ Each phase ends with something viewable. Phases 0–6 are v1; 7–8 are designed
 
 ### Phase 0 — Data spike & the go/no-go gate (no app code)
 1. Create Geotorget account, order *Markhöjdmodell Nedladdning* (manual, free, one-time).
-2. Script: STAC query → windowed download of a ~2×2 km Broborg DEM subset.
+2. Script: STAC query → windowed download of the 4×4 km Broborg DEM extent (§7.11).
 3. Download RAÄ Uppsala-county GeoPackage; `ogrinfo` the **new (Oct 2025) schema**; locate
    Broborg's record; confirm its L-number and geometry type.
 4. **Gate: multidirectional hillshade of the 1 m DEM in QGIS/matplotlib — are the ramparts
@@ -182,7 +182,8 @@ Each phase ends with something viewable. Phases 0–6 are v1; 7–8 are designed
 corrections to this plan where the schema assumptions were wrong.
 
 ### Phase 1 — Broborg terrain on screen *(the plan's first milestone)*
-- Pipeline: clip/fill/compress DEM → `dem.tif` (web COG) + `manifest.json`.
+- Pipeline: clip/fill/compress DEM → `dem_core.tif` (1 m, 2×2 km) + `dem_context.tif`
+  (2 m, 4×4 km) + `manifest.json` (§4.1).
 - App: Vite + TS + three.js scaffold; geotiff.js decode → chunked heightfield mesh;
   central-difference normals; low-angle directional sun + hemisphere light; sun-azimuth
   and vertical-exaggeration controls; orbit camera.
@@ -241,25 +242,30 @@ corrections to this plan where the schema assumptions were wrong.
 ## 4. Technical decisions & rationale
 
 ### 4.1 Elevation encoding: one Cloud-Optimized GeoTIFF, decoded in-browser
-**Decision:** ship `dem.tif` (float32 or int32 centimeters, deflate + predictor, ~2–4 km²
-at 1 m ≈ 4–16 M samples ≈ **5–15 MB** compressed) and decode with **geotiff.js** into a
-single `Float32Array`.
+**Decision:** ship two grids per site (extent per §7.11: 4×4 km core+context) and decode
+with **geotiff.js** into `Float32Array`s:
+- `dem_core.tif` — 1 m, central 2×2 km (4 M samples), drives the core mesh and its normals;
+- `dem_context.tif` — 2 m, full 4×4 km (4 M samples), drives the context-ring mesh, the
+  viewshed, and the water shading.
+
+Both int16 decimeters (±5 cm quantization error, irrelevant vs. LiDAR accuracy) with
+deflate + predictor ≈ **4–10 MB total**.
 
 **Rationale:** the viewshed and water features need the *actual height grid* in JS anyway.
-A 16-bit PNG heightmap adds quantization, min/max packing metadata, and a 16-bit-PNG
-decode path (canvas APIs are 8-bit; you'd need fast-png/UPNG anyway — a dependency just
-like geotiff.js, but lossy-by-construction). Quantized mesh (Cesium-style) optimizes a
-streaming-LOD problem v1 doesn't have and would *separate* the render mesh from the
-analysis grid. Revisit tiled formats only at Phase 8. One risk to manage: 10–15 MB initial
-download — mitigate with deflate, a loading progress bar, and optionally int16
-decimeter quantization (±5 cm error, irrelevant vs. LiDAR accuracy) halving the size.
+A 16-bit PNG heightmap adds min/max packing metadata and a 16-bit-PNG decode path (canvas
+APIs are 8-bit; you'd need fast-png/UPNG anyway — a dependency just like geotiff.js).
+Quantized mesh (Cesium-style) optimizes a streaming-LOD problem v1 doesn't have and would
+*separate* the render mesh from the analysis grid. Revisit tiled formats only at Phase 8.
+Load UX: progress bar; context grid can load first for instant overview, core swapped in
+when ready.
 
 ### 4.2 Terrain mesh
-- Chunked grid (e.g. 16 chunks of ~500×500 quads for a 2000² grid) built from the shared
-  height array; index-buffered; frustum-cullable. 2000² ≈ 4 M vertices is heavy but
-  static; if low-end profiling hurts, drop mesh density to 2 m **but keep shading at 1 m**
-  via a normal map computed from the full-res grid — earthwork legibility lives in the
-  normals, not the silhouette.
+- Two-ring layout (per §7.11): a 1 m-resolution **core mesh** over the central 2×2 km
+  (2000² ≈ 4 M vertices, built as ~16 index-buffered, frustum-cullable chunks) and a 2 m
+  **context ring** out to 4×4 km (~3 M vertices), skirted at the seam to hide the
+  resolution step. If low-end profiling hurts, halve core mesh density **but keep shading
+  at 1 m** via a normal map computed from the full-res grid — earthwork legibility lives
+  in the normals, not the silhouette.
 - Normals from the height grid (central differences / Sobel), not from the possibly
   decimated mesh.
 - **Legibility lighting:** adjustable low-angle directional sun + hemisphere ambient;
@@ -281,8 +287,10 @@ decimeter quantization (±5 cm error, irrelevant vs. LiDAR accuracy) halving the
 
 ### 4.4 Viewshed: CPU reference-plane sweep in a Web Worker
 **Decision:** Wang et al.-style **XDraw/reference-plane algorithm** (O(n) per cell, single
-pass over the grid) in a Web Worker on the shared `Float32Array`; output a `Uint8Array`
-visibility mask uploaded as a `DataTexture` and blended in the terrain shader.
+pass over the grid) in a Web Worker on the **2 m full-extent grid** (4×4 km = 4 M cells,
+per §7.11); output a `Uint8Array` visibility mask uploaded as a `DataTexture` and blended
+in the terrain shader over both core and context meshes. 2 m resolution is ample for
+landscape-scale visibility; the 1 m core grid exists for shading, not line-of-sight.
 
 **Rationale & alternatives considered:**
 - Exhaustive per-cell Bresenham LOS is O(n²·r) — not interactive at 4 M cells.
@@ -290,7 +298,7 @@ visibility mask uploaded as a `DataTexture` and blended in the terrain shader.
   but has grazing-angle precision problems on *subtle* terrain (exactly our terrain),
   makes "target height" semantics awkward, and is hard to validate. Keep as a possible
   later enhancement for continuous-drag feedback.
-- XDraw at 4 M cells is an estimated 50–200 ms in a worker — fast enough for
+- XDraw at 4 M cells (the 2 m grid) is an estimated 50–200 ms in a worker — fast enough for
   recompute-on-drop plus throttled (~4–5 Hz) recompute during drag, with the UI thread
   never blocked. Deterministic and directly testable against `gdal_viewshed` (phase 3
   includes that test); its known approximation vs. exact LOS is acceptable and disclosed.
@@ -322,10 +330,12 @@ Plan:
    to ~0.5 m, sample heights → `rampart.json` polyline. This keeps the hard constraint:
    generated from data, reproducible, and it follows the *actual* earthwork rather than a
    registration boundary.
-2. **Fallback:** if ridge extraction is noisy, a one-time hand-*digitized* polyline traced
-   over the LiDAR hillshade in QGIS, stored as data in the repo. That is data tracing, not
-   3D modeling, but it bends the "everything from data" rule — **flagged for your call in
-   §7.**
+2. **Fallback (approved):** if ridge extraction is noisy, a one-time hand-*digitized*
+   polyline traced over the LiDAR hillshade in QGIS, committed as GeoJSON with a
+   provenance note ("digitized from Lantmäteriet 1 m hillshade, <date>") and surfaced as
+   such in the methods panel. Rationale: georeferenced tracing of a measured surface is
+   data capture, not asset modeling — the constraint targets hand-modeled 3D art, not
+   digitization.
 3. Rendering: `InstancedMesh` of tapered cylinders along the polyline (spacing ~0.4 m,
    height parameter default ~3 m, deterministic seeded jitter in height/lean so it reads
    as schematic, not reconstructed), ghosted semi-transparent material with fresnel edge
@@ -370,7 +380,7 @@ Plan:
 | **RAÄ Oct-2025 schema unknown** — layer/attribute names (`lamningstyp`, `ing_lamn`) unverified in the new GeoPackage | Breaks site filtering assumptions | Phase 0 inspects real file first; pipeline isolates schema mapping in one module |
 | **No per-rampart geometry in KMR** | Palisade can't extrude "the registered rampart geometry" as originally envisioned | §4.6: DEM ridge extraction (primary), hand-digitized trace (fallback, needs your sign-off) |
 | **Viewshed performance** at 4 M cells | Centerpiece feels sluggish | Worker + XDraw (est. 50–200 ms); throttled drag updates; radius cap; GPU path as a later upgrade, never a v1 dependency |
-| **Initial download size** (DEM 5–15 MB + assets) | Slow first load, GH Pages bandwidth | int16-cm quantization, deflate, progress UX; per-site lazy loading from day one |
+| **Initial download size** (DEM 4–10 MB + assets) | Slow first load, GH Pages bandwidth | int16-dm quantization, deflate, progress UX, context-grid-first loading; per-site lazy loading from day one |
 | **Shoreline model uncertainty** (±500 yr per SGU; datum subtleties; Mälaren regulation +0.86 m) | Overclaiming exactness would undermine the app's honesty premise | Slider is coarse (century steps), labeled as a model, uncertainty stated in-panel; fort's era predates Mälaren isolation so lake-regulation nuances don't bite v1 |
 | **Data hosting in repo** grows with more sites | Repo bloat | Fine for 1–3 sites; move to Releases/LFS or an object host at Phase 8 |
 | **Agency URL churn** (Lantmäteriet moved tiling schemes mid-2026; RAÄ restructured 2025) | Pipeline rot | Pipeline pins endpoints in one config module; PLAN and README record the "as of" date of every endpoint |
@@ -391,19 +401,23 @@ Plan:
 7. Whether false basins exist at Broborg within the slider range (§4.5 decision).
 8. K-samsök production key requirement (only matters for popup enrichment — optional).
 
-**For you to decide (blocking or shaping):**
-9. **Palisade fallback:** if DEM ridge-tracing is too noisy, is a one-time hand-digitized
-   polyline (traced over the LiDAR hillshade in QGIS, committed as data) acceptable under
-   your "everything from data" constraint? (My view: yes — it's georeferenced tracing of a
-   measured surface, not asset modeling — but it's your rule.)
-10. **Quantified pollen calibration:** no REVEALS-style openness percentage for Iron Age
-    Uppland was found; nearest is agrarian Scania (90–97 % open) plus qualitative Uppland
-    studies. OK to calibrate loosely against those and say so in the methods panel, or do
-    you want a deeper literature pass before phase 7?
-11. **Site area:** I've assumed a ~2×2 km clip centered on Broborg for v1 (fort + the
-    Långhundraleden valley floor). If you want the viewshed to reach farther down the
-    waterway (e.g. 5×5 km, ~25 M cells), say so now — it changes the mesh/viewshed budget
-    and argues for a coarser context ring around a fine core.
+**Resolved by decision (delegated by project owner, 2026-08-19):**
+9. **Palisade fallback — approved.** Hand-digitized rampart trace over the LiDAR
+   hillshade is an acceptable fallback: it is georeferenced data capture from a measured
+   surface, not asset modeling. Ships as GeoJSON with explicit provenance, used only if
+   automatic ridge extraction fails, disclosed in the methods panel. (§4.6 updated.)
+10. **Pollen calibration — loose calibration accepted.** The land-cover layer is already
+    labeled a rule-based model; calibrating its forest/open ratio qualitatively against
+    the Uppland studies plus the quantified Scania benchmark is proportionate. The
+    methods panel states plainly that no quantified openness estimate exists for Iron Age
+    Uppland. Revisit only if phase 7 results look implausible.
+11. **Site extent — 4×4 km, core + context.** A 2×2 km clip would cut the Långhundraleden
+    sightlines short; full 1 m over 5×5 km (25 M cells) buys detail only the earthworks
+    need. Decision: clip **4×4 km** centered on Broborg; terrain mesh at **1 m in the
+    central 2×2 km core** (rampart legibility) and **2 m in the context ring**; viewshed
+    computed at **2 m over the full extent** (4 M cells — same budget as before, at the
+    resolution that matters for landscape visibility). The 1 m core grid stays available
+    for shading/normals. (§4.1, §4.2, §4.4 updated.)
 
 ---
 
