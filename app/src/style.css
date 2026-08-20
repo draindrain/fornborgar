@@ -407,6 +407,10 @@ body {
   background: rgba(18, 20, 18, 0.9);
 }
 
+.methods-backdrop[hidden] {
+  display: none;
+}
+
 .methods-backdrop {
   position: fixed;
   inset: 0;
