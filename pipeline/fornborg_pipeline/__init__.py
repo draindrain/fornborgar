@@ -9,6 +9,7 @@ Module map:
   clip_dem     — pure array/transform functions: fill, crop, downsample, quantize, read/write
   shoreline    — century -> water level table from the SGU OGC API (contract §6)
   connectivity — priority-flood sea-connectivity grid, pure arrays (contract §7)
+  rampart      — click CLI + pure arrays: rampart crest lines from the DEM (contract §8)
   manifest     — pure dict assembly for manifest.json
   water        — click CLI: shoreline + connectivity off the committed grids
   build        — click CLI wiring fetch -> clip -> water -> manifest

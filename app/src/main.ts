@@ -14,13 +14,14 @@ import './style.css';
 import { CameraModes, type EnterOptions } from './camera/modes';
 import { createOrbitRig } from './camera/orbitCamera';
 import * as coords from './lib/coords';
-import { loadGrid, loadManifest, loadSites, loadWaterAssets, siteIdFromLocation } from './state/loader';
+import { PalisadeLayer } from './overlays/palisade';
+import { loadGrid, loadManifest, loadRampart, loadSites, loadWaterAssets, siteIdFromLocation } from './state/loader';
 import type { SiteManifest } from './state/manifest';
 import type { HeightGrid } from './terrain/heightGrid';
 import { Lighting } from './terrain/lighting';
 import { Terrain } from './terrain/terrain';
 import { SitesLayer } from './overlays/sites';
-import { addSitesControls, addWaterControls, createControls } from './ui/controls';
+import { addPalisadeControls, addSitesControls, addWaterControls, createControls } from './ui/controls';
 import { Hud } from './ui/hud';
 import { SitePanel } from './ui/sitePanel';
 import { ViewshedController } from './viewshed/controller';
@@ -128,6 +129,26 @@ function applySitesSettings(): void {
   sitesControls?.update();
 }
 
+// --- Phase 5: conjectural palisade (optional §8 asset; absent = feature off) --
+/** Built in start() only if the site ships `assets.rampart`. */
+let palisade: PalisadeLayer | null = null;
+let palisadeReadout: { update(): void } | null = null;
+
+const PALISADE_CAVEAT =
+  'Palisade is CONJECTURE: no palisade has been excavated at Broborg. The line follows the ' +
+  'measured rampart crest; posts, height and spacing are illustrative parameters.';
+
+/** Single funnel for the palisade UI and the `window.__app.palisade` dev hooks. */
+function applyPalisadeSettings(): void {
+  if (!palisade) return;
+  const s = controlState.palisade;
+  palisade.setParams({ heightM: s.heightM, spacingM: s.spacingM, seed: Math.round(s.seed) });
+  palisade.setEnabled(s.show);
+  palisadeReadout?.update();
+  if (s.show) hud.showCaveatOnce('palisade', 'conjecture', PALISADE_CAVEAT);
+}
+// -----------------------------------------------------------------------------
+
 /** Ask the worker for a mask at the marker's position (latest-wins throttled). */
 function requestViewshed(): void {
   if (!viewshed || !terrain.contextGrid) return;
@@ -144,6 +165,7 @@ const { gui, state: controlState } = createControls(document.body, {
     hud.setExaggeration(value);
     viewshed?.marker.refreshHeight();
     sitesLayer?.refreshHeights();
+    palisade?.refreshHeights(); // posts sit on the exaggerated ground, at true height
     refit();
   },
   onToggleFirstPerson: () => modes.toggle(groundAt, terrain.getExaggeration()),
@@ -336,6 +358,22 @@ async function start(): Promise<void> {
     applySitesSettings();
   }
 
+  // --- Phase 5: conjectural palisade along the §8 rampart crest -------------
+  // The mesh is added to the SCENE, not to `terrain.group`: posts must stand on
+  // the exaggerated ground while keeping their true metric height (contract §0).
+  const rampart = await loadRampart(siteId, manifest);
+  if (rampart) {
+    palisade = new PalisadeLayer(rampart, { groundAt, getExaggeration: () => terrain.getExaggeration() });
+    scene.add(palisade.group);
+    palisadeReadout = addPalisadeControls(gui, controlState, {
+      caveat: PALISADE_CAVEAT,
+      postCount: () => palisade?.count ?? 0,
+      onChange: () => applyPalisadeSettings(),
+    });
+    applyPalisadeSettings();
+  }
+  // -------------------------------------------------------------------------
+
   hud.setProgress('Ready', 1);
   hud.finishLoading();
 
@@ -410,6 +448,24 @@ async function start(): Promise<void> {
       },
       select(id: string | null) {
         sitesLayer?.select(id);
+      },
+    },
+    // Phase 5. Present (with `layer: null`) even when the site ships no rampart,
+    // so a headless check can tell "feature off" from "not wired up".
+    palisade: {
+      layer: palisade,
+      state: controlState.palisade,
+      rampart,
+      get count() {
+        return palisade?.count ?? 0;
+      },
+      setEnabled(on: boolean) {
+        controlState.palisade.show = on;
+        applyPalisadeSettings();
+      },
+      setParams(next: { heightM?: number; spacingM?: number; seed?: number }) {
+        Object.assign(controlState.palisade, next);
+        applyPalisadeSettings();
       },
     },
   };

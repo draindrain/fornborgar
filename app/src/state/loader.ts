@@ -1,6 +1,7 @@
 /**
- * Site data loading: manifest, the two DEM COGs, and the optional Phase-4 water
- * assets (contract §6 shoreline table + §7 connectivity grid).
+ * Site data loading: manifest, the two DEM COGs, the optional Phase-4 water
+ * assets (contract §6 shoreline table + §7 connectivity grid) and the optional
+ * Phase-5 rampart crest lines (§8).
  *
  * URL rule (docs/data-formats.md §0): every data URL is resolved against
  * `import.meta.env.BASE_URL` as `data/<siteId>/<path>` — never a leading slash —
@@ -17,6 +18,7 @@ import { boundsLocalFrom3006 } from '../lib/coords';
 import type { ConnectGrid } from '../water/connectGrid';
 import { validateShoreline, type ShorelineTable } from '../water/shoreline';
 import { validateSites, type SitesFile } from '../overlays/sites';
+import { validateRampart, type RampartFile } from '../overlays/palisade';
 
 export const DEFAULT_SITE_ID = 'broborg';
 
@@ -309,6 +311,46 @@ export async function loadSites(siteId: string, manifest: SiteManifest): Promise
   } catch (error) {
     console.error(
       `[fornborg] ${siteId}: registered-sites layer disabled — ` +
+        (error instanceof Error ? error.message : String(error)),
+    );
+    return null;
+  }
+}
+
+// ---------------------------------------------- Phase 5: rampart crest ------
+
+/**
+ * Fetch + validate the §8 rampart crest lines, or `null` for "feature off".
+ *
+ * No `assets.rampart` means the site simply has no derived crest (the plain v1
+ * manifests every earlier build shipped): no fetch, no warning, no UI. A *declared*
+ * asset that fails to load or violates §8 is a pipeline bug, so it is reported on the
+ * console — loudly, once — and still leaves the rest of the scene intact. Same shape
+ * as `loadWaterAssets`.
+ *
+ * Points are checked against the **core** grid's bounds: the palisade samples its
+ * ground heights there.
+ */
+export async function loadRampart(siteId: string, manifest: SiteManifest): Promise<RampartFile | null> {
+  const path = manifest.assets?.['rampart'];
+  if (!path) return null;
+  try {
+    const url = `${siteDataUrl(siteId)}${path}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`${res.status} ${res.statusText} while fetching ${url}`);
+    const text = await res.text();
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      throw new Error(
+        `${url} did not return JSON (got ${res.headers.get('content-type') ?? 'unknown content type'}).`,
+      );
+    }
+    return validateRampart(parsed, path, manifest.grids.core.boundsLocal);
+  } catch (error) {
+    console.error(
+      `[fornborg] ${siteId}: palisade layer disabled — ` +
         (error instanceof Error ? error.message : String(error)),
     );
     return null;

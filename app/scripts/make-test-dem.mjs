@@ -6,6 +6,7 @@
  *   app/public/data/testsite/dem_context.tif    256 x 256 @ 2 m, int16 decimeters
  *   app/public/data/testsite/water_connect.tif  256 x 256 @ 2 m, int16 dm (§7)
  *   app/public/data/testsite/shoreline.json     century -> water level (§6)
+ *   app/public/data/testsite/rampart.json       rampart crest polyline (§8)
  *   app/public/data/testsite/manifest.json      schemaVersion 1, fully conformant
  *
  * The point of this fixture is that the app never blocks on the Python pipeline:
@@ -47,6 +48,20 @@ const GRIDS = {
 
 const CONNECT_PATH = 'water_connect.tif';
 const SHORELINE_PATH = 'shoreline.json';
+const RAMPART_PATH = 'rampart.json';
+
+/**
+ * The inner rampart ring the terrain function draws, restated as the crest
+ * geometry (contract §8). No ridge *extraction* happens here: the generator knows
+ * its own ring analytically, which is exactly what makes the fixture a clean test
+ * of the app — the pipeline's DEM-ridge derivation is tested on the Python side.
+ */
+const RAMPART = {
+  centreX: 0,
+  centreZ: 0,
+  radius: 45, // matches the `ring({ radius: 45, ... })` call in heightAt()
+  densifyM: 0.5,
+};
 
 /**
  * The deliberate false basin (contract §5): a flat-floored bowl ringed by a
@@ -298,6 +313,37 @@ function buildShorelineSteps() {
   return steps;
 }
 
+// --------------------------------------------------- rampart: §8 crest ring --
+
+/**
+ * The crest ring as a closed polyline, densified to ~0.5 m (contract §8):
+ * local [x, z] pairs, last point != first, no heights (the app samples those).
+ */
+function buildRampartPath() {
+  const circumference = TAU * RAMPART.radius;
+  const count = Math.round(circumference / RAMPART.densifyM);
+  const points = [];
+  for (let i = 0; i < count; i++) {
+    const angle = (i / count) * TAU;
+    points.push([
+      Number((RAMPART.centreX + RAMPART.radius * Math.sin(angle)).toFixed(2)),
+      Number((RAMPART.centreZ - RAMPART.radius * Math.cos(angle)).toFixed(2)),
+    ]);
+  }
+
+  let lengthM = 0;
+  for (let i = 0; i < points.length; i++) {
+    const a = points[i];
+    const b = points[(i + 1) % points.length];
+    const step = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    if (step > 1.0) throw new Error(`rampart point spacing ${step.toFixed(2)} m exceeds the 1 m contract limit`);
+    lengthM += step;
+  }
+  if (points.length < 3) throw new Error('rampart needs >= 3 points');
+
+  return { id: 'inner', name: 'Inner rampart', closed: true, lengthM: Number(lengthM.toFixed(1)), points };
+}
+
 // ------------------------------------------------------------------ output --
 
 function buildGrid({ size, resolution }) {
@@ -457,6 +503,30 @@ function main() {
       `levels ${steps[0].levelM}–${steps[steps.length - 1].levelM} m`,
   );
 
+  // --- §8 rampart crest ------------------------------------------------------
+  const rampartPath = buildRampartPath();
+  const rampart = {
+    schemaVersion: 1,
+    site: 'testsite',
+    derivation: {
+      method: 'dem-ridge',
+      description:
+        'SYNTHETIC TEST DATA — no ridge extraction was run. The ring is the closed form used by ' +
+        `app/scripts/make-test-dem.mjs to draw the fixture's rampart into the DEM (radius ` +
+        `${RAMPART.radius} m about the site origin), densified to ${RAMPART.densifyM} m. It exists so the ` +
+        "app's Phase-5 palisade can be exercised end to end against app/public/data/testsite/ " +
+        'without the Python pipeline. A real site derives this line from its LiDAR DEM.',
+      generated: new Date().toISOString().slice(0, 10),
+      params: { radiusM: RAMPART.radius, densifyM: RAMPART.densifyM, synthetic: true },
+    },
+    paths: [rampartPath],
+  };
+  writeFileSync(join(OUT_DIR, RAMPART_PATH), `${JSON.stringify(rampart, null, 2)}\n`);
+  console.log(
+    `${RAMPART_PATH}: ${rampartPath.points.length} points, ${rampartPath.lengthM} m closed ring ` +
+      `at radius ${RAMPART.radius} m`,
+  );
+
   const gridManifest = (name) => {
     const { spec, grid } = built[name];
     return {
@@ -490,12 +560,16 @@ function main() {
     assets: {
       shoreline: SHORELINE_PATH,
       waterConnect: CONNECT_PATH,
+      rampart: RAMPART_PATH,
     },
     layers: [
       { id: 'terrain', name: 'Terrain (synthetic)', provenance: 'model' },
       // Same shape as Broborg's `water` entry (contract §2/§6); the name says
       // "synthetic" because nothing here came from SGU (PLAN §6.1 honesty).
       { id: 'water', name: 'Paleo-shoreline (synthetic model)', provenance: 'model' },
+      // Contract order: terrain, sites, water, palisade. The provenance is the one
+      // value the pipeline validator allows here (PLAN §6.1).
+      { id: 'palisade', name: 'Palisade (conjectural)', provenance: 'conjecture' },
     ],
     attribution: [
       {
@@ -519,6 +593,7 @@ function main() {
         'uncompressed single-strip GeoTIFF',
         'priority-flood sea connectivity over the context grid (4-connected, every edge cell a sea entry)',
         'synthetic century -> level table on SGU-shaped BP centuries',
+        'rampart crest ring restated from the same closed form that drew it (no ridge extraction)',
       ],
     },
   };

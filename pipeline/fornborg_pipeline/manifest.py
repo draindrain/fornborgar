@@ -33,6 +33,11 @@ SGU_ATTRIBUTION = {
 }
 WATER_LAYER = {"id": "water", "name": "Paleo-shoreline (SGU model)", "provenance": "model"}
 
+# v1.1 §8: the crest *line* is measured, the palisade drawn on it is not. PLAN §6.1
+# makes the provenance tag load-bearing, so `validate_manifest` refuses any other
+# value for this layer — see `_validate_palisade`.
+PALISADE_LAYER = {"id": "palisade", "name": "Palisade (conjectural)", "provenance": "conjecture"}
+
 
 def _raa_attribution(fetched: str) -> dict:
     return {
@@ -172,6 +177,32 @@ def add_water_assets(
     return manifest
 
 
+def add_rampart_asset(
+    manifest: dict,
+    rampart_path: str,
+    processing: Iterable[str] = (),
+) -> dict:
+    """Patch the v1.1 §8 rampart asset into an existing manifest, in place. Idempotent.
+
+    Additive per the contract's versioning policy — `schemaVersion` stays 1. No new
+    attribution: the crest is derived from the Lantmäteriet DEM and the RAÄ extent
+    polygon, both already credited. The asset and the conjectural `palisade` layer
+    travel together (see `validate_manifest`).
+    """
+    manifest.setdefault("assets", {})["rampart"] = rampart_path
+
+    layers = manifest.setdefault("layers", [])
+    if not any(layer.get("id") == PALISADE_LAYER["id"] for layer in layers):
+        # Contract order: terrain, sites, water, palisade — palisade goes last.
+        layers.append(dict(PALISADE_LAYER))
+
+    steps = manifest.setdefault("provenance", {}).setdefault("processing", [])
+    for entry in processing:
+        if entry not in steps:
+            steps.append(entry)
+    return manifest
+
+
 # --------------------------------------------------------------------------- #
 # validation — the invariants docs/data-formats.md §2 says the pipeline guarantees
 # --------------------------------------------------------------------------- #
@@ -245,6 +276,7 @@ def validate_manifest(manifest: dict) -> None:
             raise ValueError(f"asset path {entry!r} must be relative and contain no '..'")
 
     _validate_water(manifest, assets)
+    _validate_palisade(manifest, assets)
 
 
 def _validate_water(manifest: dict, assets: dict) -> None:
@@ -276,6 +308,27 @@ def _validate_water(manifest: dict, assets: dict) -> None:
         raise ValueError(
             "the SGU shoreline attribution is present but assets.shoreline is not — "
             "the app would credit a source it never loads"
+        )
+
+
+def _validate_palisade(manifest: dict, assets: dict) -> None:
+    """v1.1 §8 + PLAN §6.1: the palisade layer is conjecture, and says so.
+
+    The honesty rule is the whole point of the layer entry, so a wrong provenance is
+    a hard failure rather than a warning: a manifest that shipped
+    `{"id": "palisade", "provenance": "measured"}` would have the app label a
+    reconstruction as evidence.
+    """
+    palisade = next((layer for layer in manifest["layers"] if layer.get("id") == "palisade"), None)
+    if palisade is not None and palisade.get("provenance") != PALISADE_LAYER["provenance"]:
+        raise ValueError(
+            "the 'palisade' layer is a conjectural reconstruction; provenance must be "
+            f"{PALISADE_LAYER['provenance']!r}, got {palisade.get('provenance')!r} (PLAN.md §6.1)"
+        )
+    if "rampart" in assets and palisade is None:
+        raise ValueError(
+            "assets.rampart is present but there is no 'palisade' layer entry — the app "
+            "would draw a conjectural layer with no provenance label (contract §8, PLAN.md §6.1)"
         )
 
 

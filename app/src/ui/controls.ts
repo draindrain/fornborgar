@@ -7,9 +7,12 @@
  * because the feature only exists for sites that ship the §6/§7 assets, and
  * because PLAN §6.1 requires a model layer to be labelled as a model with its
  * uncertainty next to the control.
+ * Phase 5: the conjectural palisade's appearance parameters — added lazily by
+ * `addPalisadeControls`, for sites that ship a rampart crest (contract §8).
  */
 
 import GUI from 'lil-gui';
+import { DEFAULT_PALISADE_PARAMS } from '../overlays/palisade';
 import { DEFAULT_SUN_AZIMUTH, DEFAULT_SUN_ELEVATION } from '../terrain/lighting';
 import { formatLevel, formatYear } from '../water/shoreline';
 
@@ -33,6 +36,13 @@ export interface ControlState {
   };
   sites: {
     show: boolean;
+  };
+  /** Phase 5 — appearance parameters of the conjectural palisade (contract §8). */
+  palisade: {
+    show: boolean;
+    heightM: number;
+    spacingM: number;
+    seed: number;
   };
 }
 
@@ -63,6 +73,12 @@ export function createControls(parent: HTMLElement, handlers: ControlHandlers): 
     },
     sites: {
       show: true,
+    },
+    palisade: {
+      show: false, // conjecture is opt-in (PLAN §6.1)
+      heightM: DEFAULT_PALISADE_PARAMS.heightM,
+      spacingM: DEFAULT_PALISADE_PARAMS.spacingM,
+      seed: DEFAULT_PALISADE_PARAMS.seed,
     },
   };
 
@@ -118,9 +134,15 @@ export interface WaterControlOptions {
   onChange(): void;
 }
 
-/** A static, non-interactive line inside a lil-gui folder. */
+/**
+ * A static, non-interactive line inside a lil-gui folder.
+ *
+ * The child container is `.lil-children` in lil-gui 0.21 (`.children` in older
+ * builds); matching both matters, because anything appended to the folder root
+ * instead stays visible when the folder is collapsed.
+ */
 function note(folder: GUI, className: string, text: string): HTMLElement {
-  const host = folder.domElement.querySelector('.children') ?? folder.domElement;
+  const host = folder.domElement.querySelector('.lil-children, .children') ?? folder.domElement;
   const div = document.createElement('div');
   div.className = className;
   div.textContent = text;
@@ -192,4 +214,42 @@ export function addSitesControls(gui: GUI, state: ControlState, options: SitesCo
       show.updateDisplay();
     },
   };
+}
+
+export interface PalisadeControlOptions {
+  /** The one-line caveat shown permanently under the controls (PLAN §6.1). */
+  caveat: string;
+  /** Post count for the readout, read after every change. */
+  postCount(): number;
+  onChange(): void;
+}
+
+/**
+ * Phase-5 palisade folder (PLAN §4.6.3, §6.1).
+ *
+ * Only created for sites that ship `assets.rampart`. The title shouts CONJECTURAL,
+ * the caveat sits permanently under the sliders, and every control is an *appearance*
+ * parameter — the contract keeps them out of the data on purpose (§8), because
+ * nothing about the posts is measured.
+ */
+export function addPalisadeControls(gui: GUI, state: ControlState, options: PalisadeControlOptions): { update(): void } {
+  const folder = gui.addFolder('Palisade (CONJECTURAL)');
+  const changed = (): void => options.onChange();
+
+  const show = folder.add(state.palisade, 'show').name('show palisade').onChange(changed);
+  const height = folder.add(state.palisade, 'heightM', 1, 5, 0.1).name('post height (m)').onChange(changed);
+  const spacing = folder.add(state.palisade, 'spacingM', 0.3, 2, 0.05).name('spacing (m)').onChange(changed);
+  const seed = folder.add(state.palisade, 'seed', 1, 999, 1).name('jitter seed').onChange(changed);
+
+  const readout = note(folder, 'control-readout', '');
+  note(folder, 'control-note', options.caveat);
+
+  const update = (): void => {
+    for (const control of [show, height, spacing, seed]) control.updateDisplay();
+    readout.textContent = `${options.postCount()} posts · ${state.palisade.spacingM.toFixed(2)} m apart`;
+  };
+  update();
+  folder.close();
+
+  return { update };
 }

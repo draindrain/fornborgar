@@ -66,7 +66,8 @@
   },
   "assets": {
     "shoreline": "shoreline.json",
-    "waterConnect": "water_connect.tif"
+    "waterConnect": "water_connect.tif",
+    "rampart": "rampart.json"
   },
   "layers": [
     {
@@ -78,6 +79,11 @@
       "id": "water",
       "name": "Paleo-shoreline (synthetic model)",
       "provenance": "model"
+    },
+    {
+      "id": "palisade",
+      "name": "Palisade (conjectural)",
+      "provenance": "conjecture"
     }
   ],
   "attribution": [
@@ -91,7 +97,7 @@
     }
   ],
   "provenance": {
-    "generated": "2026-08-20T16:40:19Z",
+    "generated": "2026-08-20T19:19:40Z",
     "pipeline": "app/scripts/make-test-dem.mjs",
     "sources": [],
     "processing": [
@@ -100,7 +106,8 @@
       "int16 dm quantization",
       "uncompressed single-strip GeoTIFF",
       "priority-flood sea connectivity over the context grid (4-connected, every edge cell a sea entry)",
-      "synthetic century -> level table on SGU-shaped BP centuries"
+      "synthetic century -> level table on SGU-shaped BP centuries",
+      "rampart crest ring restated from the same closed form that drew it (no ridge extraction)"
     ]
   }
 }

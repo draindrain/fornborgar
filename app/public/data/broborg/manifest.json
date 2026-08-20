@@ -73,7 +73,8 @@
   "assets": {
     "sites": "sites.json",
     "shoreline": "shoreline.json",
-    "waterConnect": "water_connect.tif"
+    "waterConnect": "water_connect.tif",
+    "rampart": "rampart.json"
   },
   "layers": [
     {
@@ -90,6 +91,11 @@
       "id": "water",
       "name": "Paleo-shoreline (SGU model)",
       "provenance": "model"
+    },
+    {
+      "id": "palisade",
+      "name": "Palisade (conjectural)",
+      "provenance": "conjecture"
     }
   ],
   "attribution": [
@@ -141,7 +147,8 @@
       "int16 dm quantization",
       "COG deflate",
       "SGU strandförskjutning boundary sampling (median vs. context DEM)",
-      "priority-flood sea-connectivity grid (int16 dm, ceil-quantized)"
+      "priority-flood sea-connectivity grid (int16 dm, ceil-quantized)",
+      "rampart crest from DEM transect ridge (detrended per-transect maximum)"
     ]
   }
 }
