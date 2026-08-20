@@ -1,0 +1,300 @@
+/**
+ * Fornborg Explorer — Phase 1 entry point.
+ *
+ * Load order (PLAN §4.1): manifest -> context grid (instant 2 m overview of the
+ * full 4x4 km extent) -> core grid (1 m over the central 2x2 km, swapped in when
+ * ready). Both decoded grids stay live on `window.__app` so the Phase-3 viewshed
+ * worker and the Phase-4 water logic read the *same* arrays the mesh was built
+ * from — one analysis grid, one source of truth.
+ */
+
+import * as THREE from 'three';
+import './style.css';
+
+import { CameraModes, type EnterOptions } from './camera/modes';
+import { createOrbitRig } from './camera/orbitCamera';
+import * as coords from './lib/coords';
+import { loadGrid, loadManifest, siteIdFromLocation } from './state/loader';
+import type { SiteManifest } from './state/manifest';
+import type { HeightGrid } from './terrain/heightGrid';
+import { Lighting } from './terrain/lighting';
+import { Terrain } from './terrain/terrain';
+import { createControls } from './ui/controls';
+import { Hud } from './ui/hud';
+import { ViewshedController } from './viewshed/controller';
+import { ObserverMarker } from './viewshed/observer';
+import { ViewshedOverlay } from './viewshed/overlay';
+
+declare global {
+  interface Window {
+    /** Minimal, deliberately loose dev hook for later phases and headless tests. */
+    __app?: Record<string, unknown>;
+    /** Deterministic "the scene is built and has rendered" signal. */
+    __terrainReady?: boolean;
+    /** Increments every time a viewshed mask is applied to the overlay. */
+    __viewshedStamp?: number;
+  }
+}
+
+const viewport = document.getElementById('viewport') as HTMLDivElement;
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.toneMapping = THREE.NeutralToneMapping ?? THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+viewport.append(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color().setStyle('#8fa3b4', THREE.SRGBColorSpace);
+
+const terrain = new Terrain();
+const lighting = new Lighting();
+scene.add(terrain.group, lighting.group);
+
+const rig = createOrbitRig(renderer.domElement, window.innerWidth / window.innerHeight);
+scene.add(rig.camera);
+
+/**
+ * Unexaggerated ground height at local (x, z): the 1 m core grid where it
+ * covers, the 2 m context grid elsewhere. Phase-2 walking and the camera
+ * transitions both sample through here.
+ */
+function groundAt(x: number, z: number): number {
+  const core = terrain.coreGrid;
+  if (
+    core &&
+    x >= core.boundsLocal.minX &&
+    x <= core.boundsLocal.maxX &&
+    z >= core.boundsLocal.minZ &&
+    z <= core.boundsLocal.maxZ
+  ) {
+    return coords.heightAtLocal(core.heights, x, z, core);
+  }
+  const grid = terrain.contextGrid;
+  return grid ? coords.heightAtLocal(grid.heights, x, z, grid) : 0;
+}
+
+const modes = new CameraModes(rig, renderer.domElement);
+
+/** Phase-3 viewshed rig; built in start() once the context grid is decoded. */
+interface ViewshedRig {
+  controller: ViewshedController;
+  overlay: ViewshedOverlay;
+  marker: ObserverMarker;
+  hasMask: boolean;
+}
+let viewshed: ViewshedRig | null = null;
+
+function applyViewshedSettings(): void {
+  if (!viewshed) return;
+  const s = controlState.viewshed;
+  viewshed.marker.setVisible(s.show);
+  viewshed.overlay.setEnabled(s.show && viewshed.hasMask);
+  if (s.show) requestViewshed();
+}
+
+/** Ask the worker for a mask at the marker's position (latest-wins throttled). */
+function requestViewshed(): void {
+  if (!viewshed || !terrain.contextGrid) return;
+  const grid = terrain.contextGrid;
+  const { col, row } = coords.gridFromLocal(viewshed.marker.x, viewshed.marker.z, grid);
+  viewshed.controller.request(col, row, controlState.viewshed);
+}
+
+const hud = new Hud(document.body);
+const { state: controlState } = createControls(document.body, {
+  onSunChange: (azimuth, elevation) => lighting.setSun(azimuth, elevation),
+  onExaggerationChange: (value) => {
+    terrain.setExaggeration(value);
+    hud.setExaggeration(value);
+    viewshed?.marker.refreshHeight();
+    refit();
+  },
+  onToggleFirstPerson: () => modes.toggle(groundAt, terrain.getExaggeration()),
+  onViewshedChange: () => applyViewshedSettings(),
+});
+
+const ORBIT_HINT = 'F — first person';
+const FP_HINT = 'WASD walk · Shift run · click to lock mouse & look · F back to orbit';
+hud.setModeHint(ORBIT_HINT);
+modes.onModeChange = (mode) => {
+  if (mode === 'transition') hud.setModeHint('');
+  else hud.setModeHint(mode === 'firstPerson' ? FP_HINT : ORBIT_HINT);
+};
+window.addEventListener('keydown', (event) => {
+  const inField = event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement;
+  if (event.code === 'KeyF' && !event.repeat && !inField) modes.toggle(groundAt, terrain.getExaggeration());
+});
+
+terrain.setExaggeration(controlState.exaggeration);
+hud.setExaggeration(controlState.exaggeration);
+lighting.setSun(controlState.sunAzimuth, controlState.sunElevation);
+
+/** Keep the orbit target sitting on the ground when exaggeration changes. */
+function refit(): void {
+  if (modes.mode !== 'orbit') return; // first-person re-clamps every frame anyway
+  const grid = terrain.coreGrid ?? terrain.contextGrid;
+  if (!grid) return;
+  const t = rig.controls.target;
+  t.y = coords.heightAtLocal(grid.heights, t.x, t.z, grid) * terrain.getExaggeration();
+  rig.controls.update();
+}
+
+function onResize(): void {
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  renderer.setSize(w, h);
+  rig.camera.aspect = w / h;
+  rig.camera.updateProjectionMatrix();
+}
+window.addEventListener('resize', onResize);
+
+const clock = new THREE.Clock();
+renderer.setAnimationLoop(() => {
+  const dt = clock.getDelta();
+  const walkable = terrain.contextGrid?.boundsLocal ?? { minX: -1, minZ: -1, maxX: 1, maxZ: 1 };
+  modes.update(dt, groundAt, terrain.getExaggeration(), walkable);
+  if (modes.mode === 'orbit') rig.controls.update();
+  renderer.render(scene, rig.camera);
+});
+
+function describeSite(manifest: SiteManifest): string {
+  const core = manifest.grids.core;
+  const context = manifest.grids.context;
+  const extent = (g: typeof core) => {
+    const m = g.width * g.resolution;
+    return m >= 1000 ? `${(m / 1000).toFixed(m % 1000 === 0 ? 0 : 1)} km` : `${Math.round(m)} m`;
+  };
+  return (
+    `Ground elevation model — ${extent(core)} square at ${core.resolution} m, ` +
+    `${extent(context)} context at ${context.resolution} m. Heights RH 2000, SWEREF 99 TM.`
+  );
+}
+
+async function start(): Promise<void> {
+  const siteId = siteIdFromLocation();
+  console.info(`[fornborg] site=${siteId} base=${import.meta.env.BASE_URL}`);
+  hud.setProgress('Reading manifest…', 0.02);
+
+  const manifest = await loadManifest(siteId);
+  hud.setSite(manifest.site.name, describeSite(manifest));
+  hud.setAttribution(manifest.attribution ?? []);
+
+  // Elevation tint spans both grids so core and context stay colour-consistent.
+  terrain.setElevationRange(
+    Math.min(manifest.grids.core.minElevation, manifest.grids.context.minElevation),
+    Math.max(manifest.grids.core.maxElevation, manifest.grids.context.maxElevation),
+  );
+
+  const contextExtent = manifest.grids.context.boundsLocal;
+  lighting.setRadius(Math.max(contextExtent.maxX - contextExtent.minX, 2000) * 1.5);
+
+  // --- context first: instant full-extent overview -------------------------
+  const contextGrid: HeightGrid = await loadGrid(siteId, 'context', manifest, (f) =>
+    hud.setProgress('Loading context elevation (2 m)…', 0.05 + f * 0.35),
+  );
+  await terrain.setContext(contextGrid, (f) => hud.setProgress('Building context terrain…', 0.40 + f * 0.1));
+  rig.frameSite(contextGrid, terrain.getExaggeration());
+
+  const half = (contextExtent.maxX - contextExtent.minX) / 2;
+  scene.fog = new THREE.Fog(scene.background as THREE.Color, half * 1.1, half * 3.4);
+
+  window.__app = { ...(window.__app ?? {}), contextGrid };
+
+  // --- then the 1 m core ---------------------------------------------------
+  const coreGrid: HeightGrid = await loadGrid(siteId, 'core', manifest, (f) =>
+    hud.setProgress('Loading core elevation (1 m)…', 0.5 + f * 0.32),
+  );
+  await terrain.setCore(coreGrid, (f) => hud.setProgress('Building core terrain…', 0.82 + f * 0.18));
+  rig.frameSite(coreGrid, terrain.getExaggeration());
+
+  // --- Phase 3: viewshed worker + overlay + draggable observer --------------
+  // Analysis runs on the 2 m context grid (contract §4); the overlay texture is
+  // addressed by world XZ so it shades core and context meshes alike.
+  const overlay = new ViewshedOverlay(contextGrid.width, contextGrid.height, contextGrid.boundsLocal);
+  for (const material of terrain.overlayMaterials) overlay.attach(material);
+
+  const controller = new ViewshedController(contextGrid);
+  const marker = new ObserverMarker(
+    rig.camera,
+    renderer.domElement,
+    groundAt,
+    () => terrain.getExaggeration(),
+    () => contextGrid.boundsLocal,
+    { onMove: () => requestViewshed() },
+  );
+  marker.onDragStateChange = (dragging) => {
+    if (modes.mode === 'orbit') rig.controls.enabled = !dragging;
+  };
+  marker.setPosition(0, 0); // site center; for Broborg that is the fort crown
+  marker.setVisible(false);
+  scene.add(marker.group);
+
+  viewshed = { controller, overlay, marker, hasMask: false };
+  controller.onResult = (mask, elapsedMs) => {
+    if (!viewshed) return;
+    overlay.setMask(mask);
+    viewshed.hasMask = true;
+    overlay.setEnabled(controlState.viewshed.show);
+    window.__app = { ...(window.__app ?? {}), viewshedElapsedMs: elapsedMs };
+    window.__viewshedStamp = (window.__viewshedStamp ?? 0) + 1;
+  };
+
+  hud.setProgress('Ready', 1);
+  hud.finishLoading();
+
+  window.__app = {
+    ...(window.__app ?? {}),
+    scene,
+    camera: rig.camera,
+    renderer,
+    controls: rig.controls,
+    terrain,
+    lighting,
+    manifest,
+    coreGrid,
+    contextGrid,
+    coords,
+    siteId,
+    setCamera(position: [number, number, number], target?: [number, number, number]) {
+      rig.camera.position.set(...position);
+      if (target) rig.controls.target.set(...target);
+      rig.controls.update();
+    },
+    modes,
+    groundAt,
+    enterFirstPerson(opts: EnterOptions = {}) {
+      modes.enterFirstPerson({ instant: true, ...opts }, groundAt, terrain.getExaggeration());
+    },
+    exitFirstPerson() {
+      modes.exitToOrbit(true, groundAt, terrain.getExaggeration());
+    },
+    setLook(azimuthDeg: number, pitchDeg: number) {
+      const fp = modes.firstPerson;
+      fp.setPose(fp.x, fp.z, azimuthDeg, pitchDeg);
+    },
+    viewshed: {
+      controlState: controlState.viewshed,
+      overlay,
+      marker,
+      setObserver(x: number, z: number) {
+        marker.setPosition(x, z);
+        requestViewshed();
+      },
+      apply: applyViewshedSettings,
+    },
+  };
+
+  // One more rendered frame, then the deterministic ready flag.
+  renderer.render(scene, rig.camera);
+  requestAnimationFrame(() => {
+    window.__terrainReady = true;
+  });
+}
+
+start().catch((error: unknown) => {
+  hud.showError(error);
+  window.__app = { ...(window.__app ?? {}), error: String(error) };
+  window.__terrainReady = false;
+});

@@ -1,0 +1,109 @@
+{
+ "schemaVersion": 1,
+ "fetched": "2026-08-20",
+ "sites": [
+  {
+   "id": "L1943:7827",
+   "name": "Broborg",
+   "lamningstyp": "Fornborg",
+   "provenance": "measured",
+   "position": {
+    "x": -1.57,
+    "z": -0.87
+   },
+   "geometryLocal": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -38.7,
+       -20.83
+      ],
+      [
+       -45.16,
+       -8.75
+      ],
+      [
+       -48.61,
+       5.09
+      ],
+      [
+       -47.48,
+       16.88
+      ],
+      [
+       -41.17,
+       26.81
+      ],
+      [
+       -33.48,
+       35.13
+      ],
+      [
+       -22.21,
+       41.61
+      ],
+      [
+       -9.19,
+       44.26
+      ],
+      [
+       5.79,
+       42.49
+      ],
+      [
+       18.51,
+       35.35
+      ],
+      [
+       34.17,
+       23.17
+      ],
+      [
+       40.78,
+       6.09
+      ],
+      [
+       44.38,
+       -12.75
+      ],
+      [
+       40.42,
+       -26.91
+      ],
+      [
+       33.3,
+       -37.84
+      ],
+      [
+       22.44,
+       -43.12
+      ],
+      [
+       4.03,
+       -44.71
+      ],
+      [
+       -9.76,
+       -43.76
+      ],
+      [
+       -21.29,
+       -37.43
+      ],
+      [
+       -30.19,
+       -28.73
+      ],
+      [
+       -38.7,
+       -20.83
+      ]
+     ]
+    ]
+   },
+   "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/184ca0f6-16f9-4de8-bbec-99aa959f9824",
+   "description": "Fornborg, 95x85 m (NÖ-SV), bestående av en inre och en yttre ringvall. I N och V begränsas borgen av branta sluttningar. Den inre vallen är ca 300 m l, 8-15 m br och 1-2 m h, av i allmänhet 0,3-1 m st stenar, enstaka större. Insidan av muren är förstärkt med jord. Ställvis 1 m h kallmurning. I VNV och ÖSÖ är vallen försedd med ingångar, 3-5 m br. Förslaggad och skörbränd sten finns på flera platser, men särskilt i S. Den yttre vallen är ca 140 m l, 7-10 m br och 0,5-1,5 m h, av i allmänhet 0,3-1 m st stenar, enstaka större. Ställvis 1,5 m h kallmurning. I ÖSÖ och NNÖ har vallen ingångar, 3-5 m br. Från SÖ leder en stig in i borgen. Den inre muren är huvudsakligen raserad utåt, medan den yttre är raserad både inåt och utåt. Borgens centrala del utgörs av röjda ytor omgivna av grovblockig morän samt berg i dagen. I anläggningens centrala krönparti finns en ev. stensättning, rund, 7 m i diam och 0,4 m h. Övertorvad med i ytan mycket talrika plockstenar samt enstaka 0,5-1,5 m st stenar. Smågropig i ytan."
+  }
+ ]
+}
