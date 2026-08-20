@@ -80,6 +80,22 @@ body {
   color: #f2d9a8;
 }
 
+.hud-mode-hint {
+  position: absolute;
+  left: 50%;
+  bottom: 46px;
+  transform: translateX(-50%);
+  padding: 5px 12px;
+  border: 1px solid var(--edge);
+  border-radius: 999px;
+  background: var(--panel);
+  backdrop-filter: blur(6px);
+  font-size: 12px;
+  letter-spacing: 0.03em;
+  color: var(--ink-dim);
+  white-space: nowrap;
+}
+
 .hud-loading {
   position: absolute;
   left: 50%;

@@ -26,6 +26,7 @@ export class Hud {
   private readonly loadingLabel: HTMLElement;
   private readonly loadingBar: HTMLElement;
   private readonly exaggerationEl: HTMLElement;
+  private readonly modeHintEl: HTMLElement;
   private readonly footerEl: HTMLElement;
 
   constructor(parent: HTMLElement) {
@@ -46,9 +47,12 @@ export class Hud {
     track.append(this.loadingBar);
     this.loadingEl.append(this.loadingLabel, track);
 
+    this.modeHintEl = el('div', 'hud-mode-hint');
+    this.modeHintEl.hidden = true;
+
     this.footerEl = el('footer', 'hud-footer');
 
-    this.root.append(header, this.exaggerationEl, this.loadingEl, this.footerEl);
+    this.root.append(header, this.exaggerationEl, this.loadingEl, this.modeHintEl, this.footerEl);
     parent.append(this.root);
   }
 
@@ -75,6 +79,12 @@ export class Hud {
     const on = Math.abs(value - 1) > 1e-6;
     this.exaggerationEl.hidden = !on;
     this.exaggerationEl.textContent = `terrain ×${Number(value.toFixed(2))}`;
+  }
+
+  /** Camera-mode key hint just above the footer. Empty string hides it. */
+  setModeHint(text: string): void {
+    this.modeHintEl.hidden = text === '';
+    this.modeHintEl.textContent = text;
   }
 
   setAttribution(entries: AttributionEntry[]): void {

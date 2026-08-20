@@ -19,6 +19,8 @@ export interface ControlState {
 export interface ControlHandlers {
   onSunChange(azimuth: number, elevation: number): void;
   onExaggerationChange(value: number): void;
+  /** Phase 2: orbit <-> first-person toggle (also bound to the F key). */
+  onToggleFirstPerson(): void;
 }
 
 export function createControls(parent: HTMLElement, handlers: ControlHandlers): { gui: GUI; state: ControlState } {
@@ -50,6 +52,8 @@ export function createControls(parent: HTMLElement, handlers: ControlHandlers): 
     .add(state, 'exaggeration', 1.0, 2.5, 0.05)
     .name('vertical ×')
     .onChange(() => handlers.onExaggerationChange(state.exaggeration));
+
+  gui.add({ firstPerson: () => handlers.onToggleFirstPerson() }, 'firstPerson').name('first person (F)');
 
   return { gui, state };
 }

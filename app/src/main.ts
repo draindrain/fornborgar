@@ -11,6 +11,7 @@
 import * as THREE from 'three';
 import './style.css';
 
+import { CameraModes, type EnterOptions } from './camera/modes';
 import { createOrbitRig } from './camera/orbitCamera';
 import * as coords from './lib/coords';
 import { loadGrid, loadManifest, siteIdFromLocation } from './state/loader';
@@ -49,6 +50,28 @@ scene.add(terrain.group, lighting.group);
 const rig = createOrbitRig(renderer.domElement, window.innerWidth / window.innerHeight);
 scene.add(rig.camera);
 
+/**
+ * Unexaggerated ground height at local (x, z): the 1 m core grid where it
+ * covers, the 2 m context grid elsewhere. Phase-2 walking and the camera
+ * transitions both sample through here.
+ */
+function groundAt(x: number, z: number): number {
+  const core = terrain.coreGrid;
+  if (
+    core &&
+    x >= core.boundsLocal.minX &&
+    x <= core.boundsLocal.maxX &&
+    z >= core.boundsLocal.minZ &&
+    z <= core.boundsLocal.maxZ
+  ) {
+    return coords.heightAtLocal(core.heights, x, z, core);
+  }
+  const grid = terrain.contextGrid;
+  return grid ? coords.heightAtLocal(grid.heights, x, z, grid) : 0;
+}
+
+const modes = new CameraModes(rig, renderer.domElement);
+
 const hud = new Hud(document.body);
 const { state: controlState } = createControls(document.body, {
   onSunChange: (azimuth, elevation) => lighting.setSun(azimuth, elevation),
@@ -57,6 +80,19 @@ const { state: controlState } = createControls(document.body, {
     hud.setExaggeration(value);
     refit();
   },
+  onToggleFirstPerson: () => modes.toggle(groundAt, terrain.getExaggeration()),
+});
+
+const ORBIT_HINT = 'F — first person';
+const FP_HINT = 'WASD walk · Shift run · click to lock mouse & look · F back to orbit';
+hud.setModeHint(ORBIT_HINT);
+modes.onModeChange = (mode) => {
+  if (mode === 'transition') hud.setModeHint('');
+  else hud.setModeHint(mode === 'firstPerson' ? FP_HINT : ORBIT_HINT);
+};
+window.addEventListener('keydown', (event) => {
+  const inField = event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement;
+  if (event.code === 'KeyF' && !event.repeat && !inField) modes.toggle(groundAt, terrain.getExaggeration());
 });
 
 terrain.setExaggeration(controlState.exaggeration);
@@ -65,6 +101,7 @@ lighting.setSun(controlState.sunAzimuth, controlState.sunElevation);
 
 /** Keep the orbit target sitting on the ground when exaggeration changes. */
 function refit(): void {
+  if (modes.mode !== 'orbit') return; // first-person re-clamps every frame anyway
   const grid = terrain.coreGrid ?? terrain.contextGrid;
   if (!grid) return;
   const t = rig.controls.target;
@@ -81,8 +118,12 @@ function onResize(): void {
 }
 window.addEventListener('resize', onResize);
 
+const clock = new THREE.Clock();
 renderer.setAnimationLoop(() => {
-  rig.controls.update();
+  const dt = clock.getDelta();
+  const walkable = terrain.contextGrid?.boundsLocal ?? { minX: -1, minZ: -1, maxX: 1, maxZ: 1 };
+  modes.update(dt, groundAt, terrain.getExaggeration(), walkable);
+  if (modes.mode === 'orbit') rig.controls.update();
   renderer.render(scene, rig.camera);
 });
 
@@ -156,6 +197,18 @@ async function start(): Promise<void> {
       rig.camera.position.set(...position);
       if (target) rig.controls.target.set(...target);
       rig.controls.update();
+    },
+    modes,
+    groundAt,
+    enterFirstPerson(opts: EnterOptions = {}) {
+      modes.enterFirstPerson({ instant: true, ...opts }, groundAt, terrain.getExaggeration());
+    },
+    exitFirstPerson() {
+      modes.exitToOrbit(true, groundAt, terrain.getExaggeration());
+    },
+    setLook(azimuthDeg: number, pitchDeg: number) {
+      const fp = modes.firstPerson;
+      fp.setPose(fp.x, fp.z, azimuthDeg, pitchDeg);
     },
   };
 
