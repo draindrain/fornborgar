@@ -1,0 +1,124 @@
+{
+  "schemaVersion": 1,
+  "site": "broborg",
+  "method": "For each 100-year step of SGU's strandförskjutningsmodell, the modelled sea (Hav) polygons overlapping this site's 4×4 km context extent were fetched from the SGU OGC API, their boundaries densified to the 2 m grid spacing, and every boundary point sampled against our own LiDAR DEM; the median of those samples is that century's water level in meters RH 2000. Points within 2 cells of the extent edge are discarded — there the polygon follows the clip boundary, not a shoreline. SGU models on a 50 m DEM, so a single boundary point is coarse; the median over 92,422 samples across 17 steps is the estimator. By 650 CE the modelled sea has withdrawn beyond the extent, leaving no boundary in frame: the remaining 5 step(s) (650 to 1150 CE) are extrapolated from a least-squares linear fit through the 17 measured steps (RMS residual 0.33 m) rather than measured. BP 1100 (850 CE) is absent from the SGU product and therefore has no entry. The table is clamped monotone non-increasing (post-glacial uplift only lowers the sea over this range) and checked against published shoreline estimates for the Uppsala/Knivsta area before it ships.",
+  "uncertainty": "SGU strandförskjutningsmodell: dating margins up to ±500 years; general progression, not for detailed studies.",
+  "datumNote": "Levels are meters RH 2000; 'above present sea level' agrees to within decimetres here.",
+  "source": {
+    "product": "SGU Strandförskjutningsmodell",
+    "api": "https://api.sgu.se/oppnadata/strandforskjutningsmodell/ogc/features/v1",
+    "fetched": "2026-08-20T16:27:52+00:00"
+  },
+  "steps": [
+    {
+      "yearCE": -1050,
+      "bp": 3000,
+      "levelM": 16.7
+    },
+    {
+      "yearCE": -950,
+      "bp": 2900,
+      "levelM": 16.0
+    },
+    {
+      "yearCE": -850,
+      "bp": 2800,
+      "levelM": 15.6
+    },
+    {
+      "yearCE": -750,
+      "bp": 2700,
+      "levelM": 15.3
+    },
+    {
+      "yearCE": -650,
+      "bp": 2600,
+      "levelM": 14.8
+    },
+    {
+      "yearCE": -550,
+      "bp": 2500,
+      "levelM": 14.2
+    },
+    {
+      "yearCE": -450,
+      "bp": 2400,
+      "levelM": 13.3
+    },
+    {
+      "yearCE": -350,
+      "bp": 2300,
+      "levelM": 12.0
+    },
+    {
+      "yearCE": -250,
+      "bp": 2200,
+      "levelM": 11.6
+    },
+    {
+      "yearCE": -150,
+      "bp": 2100,
+      "levelM": 11.5
+    },
+    {
+      "yearCE": -50,
+      "bp": 2000,
+      "levelM": 11.2
+    },
+    {
+      "yearCE": 50,
+      "bp": 1900,
+      "levelM": 10.6
+    },
+    {
+      "yearCE": 150,
+      "bp": 1800,
+      "levelM": 10.2
+    },
+    {
+      "yearCE": 250,
+      "bp": 1700,
+      "levelM": 9.6
+    },
+    {
+      "yearCE": 350,
+      "bp": 1600,
+      "levelM": 9.4
+    },
+    {
+      "yearCE": 450,
+      "bp": 1500,
+      "levelM": 8.9
+    },
+    {
+      "yearCE": 550,
+      "bp": 1400,
+      "levelM": 8.2
+    },
+    {
+      "yearCE": 650,
+      "bp": 1300,
+      "levelM": 7.5
+    },
+    {
+      "yearCE": 750,
+      "bp": 1200,
+      "levelM": 7.0
+    },
+    {
+      "yearCE": 950,
+      "bp": 1000,
+      "levelM": 5.9
+    },
+    {
+      "yearCE": 1050,
+      "bp": 900,
+      "levelM": 5.4
+    },
+    {
+      "yearCE": 1150,
+      "bp": 800,
+      "levelM": 4.8
+    }
+  ]
+}

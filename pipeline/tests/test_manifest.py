@@ -10,6 +10,8 @@ import pytest
 from fornborg_pipeline.clip_dem import build_grids
 from fornborg_pipeline.manifest import (
     SCHEMA_VERSION,
+    SGU_ATTRIBUTION,
+    add_water_assets,
     build_manifest,
     local_bounds,
     validate_manifest,
@@ -22,6 +24,12 @@ SOURCE_META = {
     "stacItems": ["662_66"],
     "product": "Markhöjdmodell Nedladdning (dtm-cog)",
     "fetched": "2026-08-20T10:00:00+00:00",
+}
+WATER_META = {
+    "product": "SGU Strandförskjutningsmodell",
+    "api": "https://api.sgu.se/oppnadata/strandforskjutningsmodell/ogc/features/v1",
+    "collections": ["bp1-900", "bp1000-1900", "bp2000-2900", "bp3000-3900"],
+    "fetched": "2026-08-20T11:00:00+00:00",
 }
 
 
@@ -192,3 +200,102 @@ def test_data_licenses_names_every_source(tmp_path, fake_site):
     assert "Lantmäteriet" in text and "Riksantikvarieämbetet" in text
     assert "662_66" in text
     assert "RH 2000" in text and "EPSG:3006" in text
+    assert "shoreline.json" not in text  # no water assets shipped for this site
+
+
+# --------------------------------------------------------------------------- #
+# v1.1 water assets (docs/data-formats.md §6/§7 + the amendment preamble)
+# --------------------------------------------------------------------------- #
+
+
+@pytest.fixture
+def water_manifest(manifest):
+    patched = copy.deepcopy(manifest)
+    add_water_assets(
+        patched,
+        "shoreline.json",
+        "water_connect.tif",
+        source={"id": "sgu-strandforskjutning", "fetched": WATER_META["fetched"]},
+        processing=["priority-flood sea-connectivity grid"],
+    )
+    return patched
+
+
+def test_add_water_assets_wires_up_the_whole_v11_bundle(water_manifest):
+    assert water_manifest["schemaVersion"] == SCHEMA_VERSION  # additive: no bump
+    assert water_manifest["assets"]["shoreline"] == "shoreline.json"
+    assert water_manifest["assets"]["waterConnect"] == "water_connect.tif"
+    assert [layer["id"] for layer in water_manifest["layers"]] == ["terrain", "sites", "water"]
+    water = water_manifest["layers"][-1]
+    assert water == {"id": "water", "name": "Paleo-shoreline (SGU model)", "provenance": "model"}
+    assert SGU_ATTRIBUTION in water_manifest["attribution"]
+    assert water_manifest["attribution"][-1]["license"] == "CC0"
+    assert any(
+        s["id"] == "sgu-strandforskjutning" for s in water_manifest["provenance"]["sources"]
+    )
+    validate_manifest(water_manifest)
+
+
+def test_add_water_assets_is_idempotent(water_manifest):
+    twice = copy.deepcopy(water_manifest)
+    add_water_assets(twice, "shoreline.json", "water_connect.tif")
+    assert twice["layers"] == water_manifest["layers"]
+    assert twice["attribution"] == water_manifest["attribution"]
+    assert twice["assets"] == water_manifest["assets"]
+
+
+def test_water_layer_is_inserted_before_the_palisade_layer(manifest):
+    patched = copy.deepcopy(manifest)
+    patched["layers"].append(
+        {"id": "palisade", "name": "Palisade (conjecture)", "provenance": "conjecture"}
+    )
+    add_water_assets(patched, "shoreline.json", "water_connect.tif")
+    assert [layer["id"] for layer in patched["layers"]] == [
+        "terrain",
+        "sites",
+        "water",
+        "palisade",
+    ]
+
+
+@pytest.mark.parametrize(
+    "mutate, match",
+    [
+        (lambda m: m["assets"].pop("waterConnect"), "pair"),
+        (lambda m: m["assets"].pop("shoreline"), "pair"),
+        (lambda m: m["layers"][-1].update(provenance="measured"), "must be 'model'"),
+        (
+            lambda m: (m["assets"].pop("shoreline"), m["assets"].pop("waterConnect")),
+            "credit a source it never loads",
+        ),
+        (
+            lambda m: m["attribution"].remove(SGU_ATTRIBUTION),
+            "SGU attribution entry is missing",
+        ),
+        (lambda m: m["assets"].update(shoreline="/data/shoreline.json"), "relative"),
+    ],
+)
+def test_validator_rejects_broken_water_wiring(water_manifest, mutate, match):
+    broken = copy.deepcopy(water_manifest)
+    mutate(broken)
+    with pytest.raises(ValueError, match=match):
+        validate_manifest(broken)
+
+
+def test_a_v1_manifest_without_water_still_validates(manifest):
+    """A missing assets entry always means 'feature off', never an error."""
+    assert "shoreline" not in manifest["assets"]
+    validate_manifest(manifest)
+
+
+def test_data_licenses_gains_an_sgu_section_when_water_ships(tmp_path, fake_site):
+    path = write_data_licenses(
+        tmp_path / "DATA-LICENSES.md", fake_site, SOURCE_META, water_meta=WATER_META
+    )
+    text = path.read_text(encoding="utf-8")
+    assert "Strandförskjutningsmodell" in text
+    assert "`shoreline.json`, `water_connect.tif`" in text
+    assert "`bp1000-1900`" in text
+    assert WATER_META["fetched"] in text
+    assert "±500" in text
+    assert SGU_ATTRIBUTION["text"].split("(")[0].strip() in text

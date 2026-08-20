@@ -1,0 +1,128 @@
+{
+  "schemaVersion": 1,
+  "site": "testsite",
+  "method": "SYNTHETIC TEST DATA — no shoreline model was consulted. Levels come from the closed form 2 + 12·t^1.35 m (t = 1 at the oldest step, 0 at the newest), a plausible decelerating post-glacial uplift curve over SGU-shaped BP centuries (yearCE = 1950 − bp). It exists so the app's Phase-4 water feature can be exercised end to end against app/public/data/testsite/ without the Python pipeline.",
+  "uncertainty": "Synthetic test data — not a shoreline model. (A real site states the SGU ±500 yr caveat here.)",
+  "datumNote": "Levels are meters in the fixture's notional RH 2000 datum, same datum as the synthetic DEM.",
+  "source": {
+    "product": "Synthetic — app/scripts/make-test-dem.mjs",
+    "fetched": "2026-08-20"
+  },
+  "steps": [
+    {
+      "yearCE": -1050,
+      "bp": 3000,
+      "levelM": 14
+    },
+    {
+      "yearCE": -950,
+      "bp": 2900,
+      "levelM": 13.3
+    },
+    {
+      "yearCE": -850,
+      "bp": 2800,
+      "levelM": 12.6
+    },
+    {
+      "yearCE": -750,
+      "bp": 2700,
+      "levelM": 11.8
+    },
+    {
+      "yearCE": -650,
+      "bp": 2600,
+      "levelM": 11.2
+    },
+    {
+      "yearCE": -550,
+      "bp": 2500,
+      "levelM": 10.5
+    },
+    {
+      "yearCE": -450,
+      "bp": 2400,
+      "levelM": 9.8
+    },
+    {
+      "yearCE": -350,
+      "bp": 2300,
+      "levelM": 9.2
+    },
+    {
+      "yearCE": -250,
+      "bp": 2200,
+      "levelM": 8.5
+    },
+    {
+      "yearCE": -150,
+      "bp": 2100,
+      "levelM": 7.9
+    },
+    {
+      "yearCE": -50,
+      "bp": 2000,
+      "levelM": 7.3
+    },
+    {
+      "yearCE": 50,
+      "bp": 1900,
+      "levelM": 6.7
+    },
+    {
+      "yearCE": 150,
+      "bp": 1800,
+      "levelM": 6.1
+    },
+    {
+      "yearCE": 250,
+      "bp": 1700,
+      "levelM": 5.6
+    },
+    {
+      "yearCE": 350,
+      "bp": 1600,
+      "levelM": 5.1
+    },
+    {
+      "yearCE": 450,
+      "bp": 1500,
+      "levelM": 4.6
+    },
+    {
+      "yearCE": 550,
+      "bp": 1400,
+      "levelM": 4.1
+    },
+    {
+      "yearCE": 650,
+      "bp": 1300,
+      "levelM": 3.6
+    },
+    {
+      "yearCE": 750,
+      "bp": 1200,
+      "levelM": 3.2
+    },
+    {
+      "yearCE": 850,
+      "bp": 1100,
+      "levelM": 2.8
+    },
+    {
+      "yearCE": 950,
+      "bp": 1000,
+      "levelM": 2.5
+    },
+    {
+      "yearCE": 1050,
+      "bp": 900,
+      "levelM": 2.2
+    },
+    {
+      "yearCE": 1150,
+      "bp": 800,
+      "levelM": 2
+    }
+  ]
+}

@@ -71,7 +71,10 @@
     }
   },
   "assets": {
-    "sites": "sites.json"
+    "sites": "sites.json",
+    "shoreline": "shoreline.json",
+    "waterConnect": "water_connect.tif",
+    "rampart": "rampart.json"
   },
   "layers": [
     {
@@ -83,6 +86,16 @@
       "id": "sites",
       "name": "Registered sites (KMR)",
       "provenance": "measured"
+    },
+    {
+      "id": "water",
+      "name": "Paleo-shoreline (SGU model)",
+      "provenance": "model"
+    },
+    {
+      "id": "palisade",
+      "name": "Palisade (conjectural)",
+      "provenance": "conjecture"
     }
   ],
   "attribution": [
@@ -95,6 +108,11 @@
       "text": "Fornlämningsinformation från Riksantikvarieämbetet, Kulturmiljöregistret (CC0), hämtad 2026-08-20",
       "license": "CC0",
       "url": "https://pub.raa.se"
+    },
+    {
+      "text": "Strandförskjutningsdata från Sveriges geologiska undersökning (CC0)",
+      "license": "CC0",
+      "url": "https://www.sgu.se"
     }
   ],
   "provenance": {
@@ -108,13 +126,29 @@
           "662_66"
         ],
         "fetched": "2026-08-20T13:13:20+00:00"
+      },
+      {
+        "id": "sgu-strandforskjutning",
+        "product": "SGU Strandförskjutningsmodell",
+        "api": "https://api.sgu.se/oppnadata/strandforskjutningsmodell/ogc/features/v1",
+        "collections": [
+          "bp1-900",
+          "bp1000-1900",
+          "bp2000-2900",
+          "bp3000-3900"
+        ],
+        "tiles": [],
+        "fetched": "2026-08-20T16:27:52+00:00"
       }
     ],
     "processing": [
       "windowed /vsicurl read",
       "nodata fill (0 cells)",
       "int16 dm quantization",
-      "COG deflate"
+      "COG deflate",
+      "SGU strandförskjutning boundary sampling (median vs. context DEM)",
+      "priority-flood sea-connectivity grid (int16 dm, ceil-quantized)",
+      "rampart crest from DEM transect ridge (detrended per-transect maximum)"
     ]
   }
 }

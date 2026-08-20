@@ -14,16 +14,23 @@ import './style.css';
 import { CameraModes, type EnterOptions } from './camera/modes';
 import { createOrbitRig } from './camera/orbitCamera';
 import * as coords from './lib/coords';
-import { loadGrid, loadManifest, siteIdFromLocation } from './state/loader';
+import { PalisadeLayer } from './overlays/palisade';
+import { loadGrid, loadManifest, loadRampart, loadSites, loadWaterAssets, siteIdFromLocation } from './state/loader';
 import type { SiteManifest } from './state/manifest';
 import type { HeightGrid } from './terrain/heightGrid';
 import { Lighting } from './terrain/lighting';
 import { Terrain } from './terrain/terrain';
-import { createControls } from './ui/controls';
+import { SitesLayer } from './overlays/sites';
+import { addPalisadeControls, addSitesControls, addWaterControls, createControls } from './ui/controls';
 import { Hud } from './ui/hud';
+import { Legend } from './ui/legend';
+import { buildMethodsModel } from './ui/methodsModel';
+import { MethodsPanel } from './ui/methodsPanel';
+import { SitePanel } from './ui/sitePanel';
 import { ViewshedController } from './viewshed/controller';
 import { ObserverMarker } from './viewshed/observer';
 import { ViewshedOverlay } from './viewshed/overlay';
+import { WaterLayer } from './water/water';
 
 declare global {
   interface Window {
@@ -94,6 +101,57 @@ function applyViewshedSettings(): void {
   if (s.show) requestViewshed();
 }
 
+/** Phase-4 water layer; built in start() only if the site ships §6/§7 assets. */
+let water: WaterLayer | null = null;
+let waterReadout: { update(): void } | null = null;
+/** The layer's one-line caveat, surfaced on first enable (PLAN §6.1). */
+let waterCaveat: { badge: string; text: string } | null = null;
+
+/**
+ * Single funnel for every way the water layer can change — the slider, the
+ * toggle, and the `window.__app.water` dev hooks all land here, so a headless
+ * driver sees exactly what a click produces, caveat included.
+ */
+function applyWaterSettings(): void {
+  if (!water) return;
+  water.setYear(controlState.water.yearCE);
+  water.setEnabled(controlState.water.show);
+  waterReadout?.update();
+  if (controlState.water.show && waterCaveat) {
+    hud.showCaveatOnce('water', waterCaveat.badge, waterCaveat.text);
+  }
+}
+
+/** Phase-5 registered-sites overlay; built in start() if `assets.sites` exists. */
+let sitesLayer: SitesLayer | null = null;
+let sitesControls: { update(): void } | null = null;
+
+function applySitesSettings(): void {
+  if (!sitesLayer) return;
+  sitesLayer.setVisible(controlState.sites.show);
+  sitesControls?.update();
+}
+
+// --- Phase 5: conjectural palisade (optional §8 asset; absent = feature off) --
+/** Built in start() only if the site ships `assets.rampart`. */
+let palisade: PalisadeLayer | null = null;
+let palisadeReadout: { update(): void } | null = null;
+
+const PALISADE_CAVEAT =
+  'Palisade is CONJECTURE: no palisade has been excavated at Broborg. The line follows the ' +
+  'measured rampart crest; posts, height and spacing are illustrative parameters.';
+
+/** Single funnel for the palisade UI and the `window.__app.palisade` dev hooks. */
+function applyPalisadeSettings(): void {
+  if (!palisade) return;
+  const s = controlState.palisade;
+  palisade.setParams({ heightM: s.heightM, spacingM: s.spacingM, seed: Math.round(s.seed) });
+  palisade.setEnabled(s.show);
+  palisadeReadout?.update();
+  if (s.show) hud.showCaveatOnce('palisade', 'conjecture', PALISADE_CAVEAT);
+}
+// -----------------------------------------------------------------------------
+
 /** Ask the worker for a mask at the marker's position (latest-wins throttled). */
 function requestViewshed(): void {
   if (!viewshed || !terrain.contextGrid) return;
@@ -103,12 +161,14 @@ function requestViewshed(): void {
 }
 
 const hud = new Hud(document.body);
-const { state: controlState } = createControls(document.body, {
+const { gui, state: controlState } = createControls(document.body, {
   onSunChange: (azimuth, elevation) => lighting.setSun(azimuth, elevation),
   onExaggerationChange: (value) => {
     terrain.setExaggeration(value);
     hud.setExaggeration(value);
     viewshed?.marker.refreshHeight();
+    sitesLayer?.refreshHeights();
+    palisade?.refreshHeights(); // posts sit on the exaggerated ground, at true height
     refit();
   },
   onToggleFirstPerson: () => modes.toggle(groundAt, terrain.getExaggeration()),
@@ -241,6 +301,101 @@ async function start(): Promise<void> {
     window.__viewshedStamp = (window.__viewshedStamp ?? 0) + 1;
   };
 
+  // --- Phase 4: paleo-shoreline (optional assets; absent = feature off) -----
+  // Both §6/§7 assets or nothing. The water plane is parented under the terrain
+  // group so it inherits vertical exaggeration (contract §0 / PLAN §4.5), and
+  // its tint is chained onto the same materials the viewshed overlay injected
+  // into — see water/water.ts for how the two shader injections compose.
+  const assets = await loadWaterAssets(siteId, manifest, (f) =>
+    hud.setProgress('Loading paleo-shoreline model…', 0.97 + f * 0.03),
+  );
+  if (assets) {
+    water = new WaterLayer(assets.table, assets.connect);
+    terrain.group.add(water.mesh);
+    for (const material of terrain.overlayMaterials) water.attachTerrain(material);
+
+    const layerName = manifest.layers?.find((l) => l.id === 'water')?.name ?? 'Paleo-shoreline';
+    const caveat = assets.table.uncertainty ?? 'Modeled water level — see the methods panel.';
+    waterCaveat = { badge: 'model', text: `${layerName}. ${caveat}` };
+    waterReadout = addWaterControls(gui, controlState, {
+      name: layerName,
+      years: water.years,
+      uncertainty: caveat,
+      // Start in the middle of the fort era rather than at an endpoint.
+      initialYear: 400,
+      levelAt: (yearCE) => water?.levelAt(yearCE) ?? 0,
+      onChange: () => applyWaterSettings(),
+    });
+    applyWaterSettings();
+  }
+
+  // --- Phase 5: registered-sites overlay (optional asset; absent = off) -----
+  // Flat cartographic markers + Fornsök popups from the KMR extract. The layer
+  // lives in the scene (not the Y-scaled terrain group) and re-seats itself on
+  // exaggeration changes, like the viewshed observer.
+  const sitesFile = await loadSites(siteId, manifest);
+  if (sitesFile) {
+    const panel = new SitePanel(document.body);
+    sitesLayer = new SitesLayer(
+      sitesFile,
+      rig.camera,
+      renderer.domElement,
+      groundAt,
+      () => terrain.getExaggeration(),
+      {
+        onSelect: (site) => {
+          if (site) panel.show(site);
+          else panel.hide();
+        },
+      },
+    );
+    panel.onClose = () => sitesLayer?.select(null);
+    scene.add(sitesLayer.group);
+
+    const sitesName = manifest.layers?.find((l) => l.id === 'sites')?.name ?? 'Registered sites (KMR)';
+    sitesControls = addSitesControls(gui, controlState, {
+      name: sitesName,
+      count: sitesLayer.count,
+      onChange: () => applySitesSettings(),
+    });
+    applySitesSettings();
+  }
+
+  // --- Phase 5: conjectural palisade along the §8 rampart crest -------------
+  // The mesh is added to the SCENE, not to `terrain.group`: posts must stand on
+  // the exaggerated ground while keeping their true metric height (contract §0).
+  const rampart = await loadRampart(siteId, manifest);
+  if (rampart) {
+    palisade = new PalisadeLayer(rampart, { groundAt, getExaggeration: () => terrain.getExaggeration() });
+    scene.add(palisade.group);
+    palisadeReadout = addPalisadeControls(gui, controlState, {
+      caveat: PALISADE_CAVEAT,
+      postCount: () => palisade?.count ?? 0,
+      onChange: () => applyPalisadeSettings(),
+    });
+    applyPalisadeSettings();
+  }
+  // -------------------------------------------------------------------------
+
+  // --- Phase 6: methods panel + legend (PLAN §6.1/§6.2) ---------------------
+  // Built after every optional asset has resolved, so the panel describes only
+  // the layers this site actually ships, in the data's own words.
+  const methods = new MethodsPanel(document.body);
+  methods.setContent(buildMethodsModel(manifest, assets?.table ?? null, rampart, sitesFile));
+  hud.mountAction(methods.button);
+
+  const legend = new Legend(document.body);
+  legend.setContent(manifest.layers ?? [], sitesFile?.sites ?? null);
+  // -------------------------------------------------------------------------
+
+  // The sites overlay is cartographic (flat map symbols): standing on the
+  // ground it reads as floating sheets, so it hides in first person.
+  modes.onModeChange = (mode) => {
+    if (mode === 'transition') hud.setModeHint('');
+    else hud.setModeHint(mode === 'firstPerson' ? FP_HINT : ORBIT_HINT);
+    sitesLayer?.setVisible(controlState.sites.show && mode !== 'firstPerson');
+  };
+
   hud.setProgress('Ready', 1);
   hud.finishLoading();
 
@@ -284,6 +439,66 @@ async function start(): Promise<void> {
       },
       apply: applyViewshedSettings,
     },
+    // Phase 4. Present (with `layer: null`) even when the site ships no water
+    // assets, so a headless check can tell "feature off" from "not wired up".
+    water: {
+      layer: water,
+      state: controlState.water,
+      table: assets?.table ?? null,
+      connect: assets?.connect ?? null,
+      setYear(yearCE: number) {
+        controlState.water.yearCE = yearCE;
+        applyWaterSettings();
+      },
+      setEnabled(on: boolean) {
+        controlState.water.show = on;
+        applyWaterSettings();
+      },
+      levelAt(yearCE: number) {
+        return water ? water.levelAt(yearCE) : null;
+      },
+    },
+    // Phase 5. Same convention as `water`: present with `layer: null` when the
+    // site ships no sites.json, so headless checks can tell off from missing.
+    sites: {
+      layer: sitesLayer,
+      state: controlState.sites,
+      count: sitesLayer?.count ?? 0,
+      setEnabled(on: boolean) {
+        controlState.sites.show = on;
+        applySitesSettings();
+      },
+      select(id: string | null) {
+        sitesLayer?.select(id);
+      },
+    },
+    // Phase 5. Present (with `layer: null`) even when the site ships no rampart,
+    // so a headless check can tell "feature off" from "not wired up".
+    palisade: {
+      layer: palisade,
+      state: controlState.palisade,
+      rampart,
+      get count() {
+        return palisade?.count ?? 0;
+      },
+      setEnabled(on: boolean) {
+        controlState.palisade.show = on;
+        applyPalisadeSettings();
+      },
+      setParams(next: { heightM?: number; spacingM?: number; seed?: number }) {
+        Object.assign(controlState.palisade, next);
+        applyPalisadeSettings();
+      },
+    },
+    // Phase 6.
+    methods: {
+      open: () => methods.show(),
+      close: () => methods.hide(),
+      get isOpen() {
+        return methods.open;
+      },
+    },
+    legend,
   };
 
   // One more rendered frame, then the deterministic ready flag.

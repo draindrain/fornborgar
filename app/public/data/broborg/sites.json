@@ -1,109 +1,4260 @@
 {
- "schemaVersion": 1,
- "fetched": "2026-08-20",
- "sites": [
-  {
-   "id": "L1943:7827",
-   "name": "Broborg",
-   "lamningstyp": "Fornborg",
-   "provenance": "measured",
-   "position": {
-    "x": -1.57,
-    "z": -0.87
-   },
-   "geometryLocal": {
-    "type": "Polygon",
-    "coordinates": [
-     [
-      [
-       -38.7,
-       -20.83
-      ],
-      [
-       -45.16,
-       -8.75
-      ],
-      [
-       -48.61,
-       5.09
-      ],
-      [
-       -47.48,
-       16.88
-      ],
-      [
-       -41.17,
-       26.81
-      ],
-      [
-       -33.48,
-       35.13
-      ],
-      [
-       -22.21,
-       41.61
-      ],
-      [
-       -9.19,
-       44.26
-      ],
-      [
-       5.79,
-       42.49
-      ],
-      [
-       18.51,
-       35.35
-      ],
-      [
-       34.17,
-       23.17
-      ],
-      [
-       40.78,
-       6.09
-      ],
-      [
-       44.38,
-       -12.75
-      ],
-      [
-       40.42,
-       -26.91
-      ],
-      [
-       33.3,
-       -37.84
-      ],
-      [
-       22.44,
-       -43.12
-      ],
-      [
-       4.03,
-       -44.71
-      ],
-      [
-       -9.76,
-       -43.76
-      ],
-      [
-       -21.29,
-       -37.43
-      ],
-      [
-       -30.19,
-       -28.73
-      ],
-      [
-       -38.7,
-       -20.83
-      ]
-     ]
-    ]
-   },
-   "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/184ca0f6-16f9-4de8-bbec-99aa959f9824",
-   "description": "Fornborg, 95x85 m (NÖ-SV), bestående av en inre och en yttre ringvall. I N och V begränsas borgen av branta sluttningar. Den inre vallen är ca 300 m l, 8-15 m br och 1-2 m h, av i allmänhet 0,3-1 m st stenar, enstaka större. Insidan av muren är förstärkt med jord. Ställvis 1 m h kallmurning. I VNV och ÖSÖ är vallen försedd med ingångar, 3-5 m br. Förslaggad och skörbränd sten finns på flera platser, men särskilt i S. Den yttre vallen är ca 140 m l, 7-10 m br och 0,5-1,5 m h, av i allmänhet 0,3-1 m st stenar, enstaka större. Ställvis 1,5 m h kallmurning. I ÖSÖ och NNÖ har vallen ingångar, 3-5 m br. Från SÖ leder en stig in i borgen. Den inre muren är huvudsakligen raserad utåt, medan den yttre är raserad både inåt och utåt. Borgens centrala del utgörs av röjda ytor omgivna av grovblockig morän samt berg i dagen. I anläggningens centrala krönparti finns en ev. stensättning, rund, 7 m i diam och 0,4 m h. Övertorvad med i ytan mycket talrika plockstenar samt enstaka 0,5-1,5 m st stenar. Smågropig i ytan."
-  }
- ]
+  "schemaVersion": 1,
+  "fetched": "2026-08-20",
+  "sites": [
+    {
+      "id": "L1941:4705",
+      "name": "L1941:4705",
+      "lamningstyp": "Gravfält",
+      "provenance": "measured",
+      "position": {
+        "x": -1885.37,
+        "z": 216.16
+      },
+      "geometryLocal": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -1889.8,
+              252.4
+            ],
+            [
+              -1870.4,
+              251.0
+            ],
+            [
+              -1864.6,
+              247.0
+            ],
+            [
+              -1862.0,
+              236.9
+            ],
+            [
+              -1862.0,
+              229.0
+            ],
+            [
+              -1864.2,
+              216.0
+            ],
+            [
+              -1867.8,
+              194.5
+            ],
+            [
+              -1872.0,
+              177.2
+            ],
+            [
+              -1876.5,
+              173.4
+            ],
+            [
+              -1887.3,
+              168.9
+            ],
+            [
+              -1897.3,
+              172.6
+            ],
+            [
+              -1900.9,
+              183.0
+            ],
+            [
+              -1902.5,
+              201.2
+            ],
+            [
+              -1908.4,
+              213.5
+            ],
+            [
+              -1911.1,
+              223.7
+            ],
+            [
+              -1909.4,
+              246.3
+            ],
+            [
+              -1900.6,
+              251.8
+            ],
+            [
+              -1889.8,
+              252.4
+            ]
+          ]
+        ]
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/a64de120-5ebd-4a11-adb5-9e1c9649918f",
+      "description": "Gravfält, 80x45 m (N-S) bestående av 15 fornlämningar. Dessa utgöres av 4 högar, ca 8 runda fyllda stensättningar samt 3 resta stenar. Den största högen är ca 10-11 m diam ca 2 m h, övertorvad,i toppen en del sten i ytan 0,3-0,5 m st. Bevuxen i kanterna medmedelstora lövträd. V om högen i en sluttning mot V finnes en plan åt V avrundad terrassformig utbyggnad. Möjligen är dett en förstörd hög. De övriga högarna är 7-8 m i diam, 1-1,5 m h. 2 är stenblandade 0,5-1,5 m st block gropiga och ojämna i ytan. Den tredjehar i V kanten en gammal utgrävning. De resta stenarna är placerade i fältets SÖ hörn i rad (Ö-V). De två västra är omkullfallna.Den stående är 0,85 m h. 0,65 m br, 0,60 m tj de övriga 1,3 m l,0,70 m br, 0,45 m tj samt 1,10 m l, 0,80 m br, 0,45 m tj. Stensättningarna är 3-6 m diam, 0,2-0,5 m h. Övertorvade några högliknande. Revidering 1979. Gravfältet är beväxt med ask och rönn. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1941:4717",
+      "name": "L1941:4717",
+      "lamningstyp": "Runristning",
+      "provenance": "measured",
+      "position": {
+        "x": -1142.7,
+        "z": -183.1
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/59430be1-9e4b-47eb-b535-7a54863088fe",
+      "description": "1) Stensättning, rund, ca 8 m diam fylld, ca 0,5 m h, delvis övertorvad gropig och ojämn yta med talrika stenar 0,2-0,5 m st. Endel sten påförd i sen tid. Ca 5 m S 20cg Ö om nr 1 är 2) Hög, ca7 m diam, 0,8 m h, överrtorvad något grynig ovanpå. Ca 25 m S 30cg Ö om nr 2 är 3) Hög ca 7 m diam, 0,8 m h, övertorvad. Ca 30 m Ö10cg N om nr 3 är 4) Stensättning, (?) rund ca 4,0 m diam fylld0,2-0,3 m h, övertorvad med i ytan talrika 0,2-0,3 m st stenar. IÖ kantställd (?) ca 0,4 m st sten. I närheten av nr 4 ligger några förhöjningar varav ett par med 0,2-0,4 m st stenar i ytan. Möjligen rester av sönderodlade fornlämningar. Utmed vägen med ån (vid x på fotokartan) ligger en sten 2,5 m l, 1,0 m br och 0,35 m tj. Avsmalnande åt ändarna skrovliga ytor. Den har blivit funnen liggande uti åkern (vid x på kartan). Möjligen har den varit rest.Flera dylika ehuru mindre, har bortförts ut åkern. 10 m NNÖ om 1är: 5) Runstensfragment, 1,4 m l, 0,8 m br och 0,3 m tj. Nyligenimålad. Ligger med den ristade sidan uppåt. Anläggning nr 4 är helt täckt med ris och halm. Nr 1 är mycket tätt beväxt med hallonbuskar samt påförd odlingssten. Unders och fynd Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1941:5480",
+      "name": "L1941:5480",
+      "lamningstyp": "Gravfält",
+      "provenance": "measured",
+      "position": {
+        "x": -1385.47,
+        "z": -1083.52
+      },
+      "geometryLocal": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -1455.7,
+              -1085.2
+            ],
+            [
+              -1456.2,
+              -1080.9
+            ],
+            [
+              -1460.0,
+              -1061.2
+            ],
+            [
+              -1441.2,
+              -1043.9
+            ],
+            [
+              -1429.3,
+              -1018.3
+            ],
+            [
+              -1426.3,
+              -995.1
+            ],
+            [
+              -1422.7,
+              -980.2
+            ],
+            [
+              -1412.8,
+              -971.1
+            ],
+            [
+              -1397.8,
+              -965.1
+            ],
+            [
+              -1382.7,
+              -963.1
+            ],
+            [
+              -1369.0,
+              -971.4
+            ],
+            [
+              -1362.6,
+              -981.9
+            ],
+            [
+              -1357.1,
+              -996.9
+            ],
+            [
+              -1357.3,
+              -1049.7
+            ],
+            [
+              -1348.0,
+              -1058.4
+            ],
+            [
+              -1324.9,
+              -1076.3
+            ],
+            [
+              -1319.0,
+              -1089.7
+            ],
+            [
+              -1316.0,
+              -1103.3
+            ],
+            [
+              -1319.8,
+              -1111.3
+            ],
+            [
+              -1330.7,
+              -1119.5
+            ],
+            [
+              -1335.6,
+              -1125.7
+            ],
+            [
+              -1335.7,
+              -1135.1
+            ],
+            [
+              -1331.4,
+              -1159.3
+            ],
+            [
+              -1339.7,
+              -1176.2
+            ],
+            [
+              -1354.5,
+              -1192.6
+            ],
+            [
+              -1386.7,
+              -1210.6
+            ],
+            [
+              -1398.7,
+              -1209.1
+            ],
+            [
+              -1411.7,
+              -1193.2
+            ],
+            [
+              -1420.1,
+              -1174.5
+            ],
+            [
+              -1426.2,
+              -1154.0
+            ],
+            [
+              -1450.0,
+              -1134.5
+            ],
+            [
+              -1455.7,
+              -1085.2
+            ]
+          ]
+        ]
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/d748c49a-687a-42b1-a7a9-fef4dd8a2808",
+      "description": "Gravfält, 245x140 m (N-S) bestående av ca 65 fornlämningar. Dessa utgörs av 5 högar, 2 rösen och ca 57 runda fyllda stensättningar samt 1 rest sten (osäker fornlämning, sannolikt naturbildning). Stensättningarna är 3-8 m diam, 0,2-0,6 m h, helt övertorvade eller med enstaka eller talrika stenar i ytan, 0,3-0,6 m st. Några högliknande, några med klumpsten eller jordfast sten i centrum. Högarna är 6-9 m diam, 0,6-1,2 m st. Övertorvade med i ytan enstaka eller talrika stenar, 0,3-0,5 m st. Rösena ligger intill varandra på åsens högsta höjd och är ca 10 m i diam, ca 1 m h. Delvis övermossade med ca 0,5-0,7 m st stenar. Ytan är gropig och ojämn. Rest sten i granit, 2,0 m h vid basen, 1,4x1,2 m st, avsmalnande uppåt. Mot NÖ en bakåtsluttande plan yta. Osäker fornlämning, troligen ett naturligt flyttblock. Inom området finns en gammal husgrund."
+    },
+    {
+      "id": "L1941:5542",
+      "name": "L1941:5542",
+      "lamningstyp": "Gravfält",
+      "provenance": "measured",
+      "position": {
+        "x": -1032.89,
+        "z": 1281.53
+      },
+      "geometryLocal": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -979.4,
+              1371.2
+            ],
+            [
+              -924.2,
+              1297.6
+            ],
+            [
+              -927.9,
+              1291.5
+            ],
+            [
+              -939.8,
+              1284.6
+            ],
+            [
+              -956.5,
+              1269.4
+            ],
+            [
+              -982.7,
+              1247.2
+            ],
+            [
+              -995.5,
+              1264.5
+            ],
+            [
+              -1023.2,
+              1248.6
+            ],
+            [
+              -1028.2,
+              1244.0
+            ],
+            [
+              -1033.8,
+              1239.0
+            ],
+            [
+              -1038.3,
+              1232.5
+            ],
+            [
+              -1041.2,
+              1227.7
+            ],
+            [
+              -1046.6,
+              1224.0
+            ],
+            [
+              -1051.5,
+              1222.2
+            ],
+            [
+              -1058.4,
+              1220.0
+            ],
+            [
+              -1064.9,
+              1216.5
+            ],
+            [
+              -1075.1,
+              1208.6
+            ],
+            [
+              -1079.8,
+              1206.2
+            ],
+            [
+              -1084.1,
+              1206.9
+            ],
+            [
+              -1092.9,
+              1211.4
+            ],
+            [
+              -1118.0,
+              1227.8
+            ],
+            [
+              -1121.0,
+              1242.4
+            ],
+            [
+              -1120.5,
+              1268.3
+            ],
+            [
+              -1114.2,
+              1277.3
+            ],
+            [
+              -1076.8,
+              1298.8
+            ],
+            [
+              -1061.8,
+              1321.2
+            ],
+            [
+              -1033.4,
+              1302.3
+            ],
+            [
+              -1029.2,
+              1303.4
+            ],
+            [
+              -1020.8,
+              1308.5
+            ],
+            [
+              -1016.1,
+              1318.1
+            ],
+            [
+              -1017.2,
+              1330.3
+            ],
+            [
+              -1026.9,
+              1336.4
+            ],
+            [
+              -1031.3,
+              1334.4
+            ],
+            [
+              -1034.7,
+              1333.1
+            ],
+            [
+              -1036.5,
+              1335.9
+            ],
+            [
+              -1037.0,
+              1344.7
+            ],
+            [
+              -1026.5,
+              1348.0
+            ],
+            [
+              -1001.3,
+              1356.7
+            ],
+            [
+              -989.2,
+              1368.9
+            ],
+            [
+              -979.4,
+              1371.2
+            ]
+          ]
+        ]
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/46f91f52-9881-46bd-a378-2cb4c3e1366c",
+      "description": "Gravfält, ca 190x100 m (NV-SÖ) bestående av ca 80 fornlämningar. Dessa utgörs av ca 2 högar, ca 40 runda stensättningar, 4 kvadratiska stensättningar, 1 rektangulär stensättning, 3 trekantiga stensättningar samt ca 30 st resta stenar. Högarna är ca 7-8 m diam, ca 1,0 m h. Övertorvade med enstaka stenar, 0,2-0,5 m st, i ytan. De runda stensättningarna är 3-8 m diam, 0,2-0,5 m h, några högliknande. Övertorvade med enstaka eller talrika stenar, 0,2-0,5 m st i ytan. Några har kantkedja (?) delvis synlig. De kvadratiska stensättningarna är 2x2-7x7 m st (NV-SÖ), ca 0,2-0,4 m h. Övertorvade med sten i ytan. Den rektangulära stensättningen är ca 9x5 m (NV-SÖ), ca 0,2 m h. Övertorvad med sten i ytan. De trekantiga stensättningarna har 3-6 m i sida (Ö-V, NV-SÖ, NÖ-SV), ca 0,1-0,2 m h. Övertorvade med sten i ytan. En är uppgrävd och åter igenlagd. De resta stenarna består av granit och är 0,8-1,5 m h med rund eller kantig genomskärningsyta. De är samlade till gravfältets NV del. I gravfältets NÖ kant finns en husgrund och en jordkällare vilka utgör resterna efter torpet Testugan. "
+    },
+    {
+      "id": "L1941:5552",
+      "name": "L1941:5552",
+      "lamningstyp": "Gravfält",
+      "provenance": "measured",
+      "position": {
+        "x": -1544.91,
+        "z": -1068.8
+      },
+      "geometryLocal": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -1496.4,
+              -1099.2
+            ],
+            [
+              -1504.7,
+              -1114.1
+            ],
+            [
+              -1521.0,
+              -1119.7
+            ],
+            [
+              -1534.9,
+              -1116.4
+            ],
+            [
+              -1545.3,
+              -1102.5
+            ],
+            [
+              -1560.8,
+              -1068.5
+            ],
+            [
+              -1579.6,
+              -1058.7
+            ],
+            [
+              -1589.5,
+              -1044.4
+            ],
+            [
+              -1587.6,
+              -1034.8
+            ],
+            [
+              -1580.1,
+              -1024.7
+            ],
+            [
+              -1565.4,
+              -1016.1
+            ],
+            [
+              -1545.5,
+              -1015.3
+            ],
+            [
+              -1521.6,
+              -1049.6
+            ],
+            [
+              -1496.4,
+              -1099.2
+            ]
+          ]
+        ]
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/71a5d8b0-e358-4b28-95bf-5827da8952d7",
+      "description": "Gravfält, ca 110x50 m (NÖ-SV) bestående av ca 20 runda fyllda stensättningar. Dessa är 3-9 m i diam 0,2-0,8 m h övertorvade medi ytan enstaka eller talrika stenar 0,3-0,6 m st. Flera har kantkedjor av ca 0,5-0,7 m st stenar. De två största stensättningarna ,som ligger på krönet av moränryggen är klart röseliknande, stenstorlek 0,5-0,7 m, delvis övertorvade med gropig ojämn yta. Den norra har i centrum ett större flyttblock, ca 3x2 m, 1,5 m h. Den södra har två liknande block i S kanten."
+    },
+    {
+      "id": "L1941:9321",
+      "name": "L1941:9321",
+      "lamningstyp": "Gravfält",
+      "provenance": "measured",
+      "position": {
+        "x": -1880.04,
+        "z": -1797.86
+      },
+      "geometryLocal": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -1889.8,
+              -1783.5
+            ],
+            [
+              -1881.8,
+              -1784.7
+            ],
+            [
+              -1873.2,
+              -1786.5
+            ],
+            [
+              -1863.5,
+              -1789.1
+            ],
+            [
+              -1858.9,
+              -1791.0
+            ],
+            [
+              -1856.0,
+              -1795.8
+            ],
+            [
+              -1855.1,
+              -1802.3
+            ],
+            [
+              -1860.5,
+              -1811.3
+            ],
+            [
+              -1867.8,
+              -1813.8
+            ],
+            [
+              -1877.4,
+              -1813.2
+            ],
+            [
+              -1886.0,
+              -1812.6
+            ],
+            [
+              -1895.2,
+              -1811.8
+            ],
+            [
+              -1902.3,
+              -1807.0
+            ],
+            [
+              -1903.7,
+              -1799.2
+            ],
+            [
+              -1902.2,
+              -1792.4
+            ],
+            [
+              -1897.4,
+              -1785.9
+            ],
+            [
+              -1889.8,
+              -1783.5
+            ]
+          ]
+        ]
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/62fc05d1-f684-4a95-9699-bdff018c7930",
+      "description": "Gravfält 45x30 m (Ö-V) bestående av 7 fornlämningar (varav ett par är osäkra). Dessa utgörs av runda eller närmast runda stensättningar, 2,5-6 m i diam, 0,1-0,25 m h. Övertorvade med i ytan talrika 0,2-0,5 m st stenar. Flertalet har tydlig kantkedja, 0,1-0,4 m h av 0,2-0,8 m l stenar. Tre har mittblock, 0,6-1,5 m st och 0,4-0,8 m h. Inom och i omedelbar anslutning till området finns några oregelbundna stensträngar, av vanligen 0,3-0,4 m st stenar. Gravfältet skärs av kraftledning (N-S). "
+    },
+    {
+      "id": "L1941:9481",
+      "name": "L1941:9481",
+      "lamningstyp": "Gravfält",
+      "provenance": "measured",
+      "position": {
+        "x": -1176.92,
+        "z": 1987.81
+      },
+      "geometryLocal": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -1189.8,
+              2013.3
+            ],
+            [
+              -1178.2,
+              2011.0
+            ],
+            [
+              -1156.8,
+              2014.5
+            ],
+            [
+              -1146.4,
+              2016.2
+            ],
+            [
+              -1139.7,
+              2010.5
+            ],
+            [
+              -1136.2,
+              2003.7
+            ],
+            [
+              -1139.3,
+              1996.1
+            ],
+            [
+              -1160.3,
+              1952.2
+            ],
+            [
+              -1168.8,
+              1943.1
+            ],
+            [
+              -1177.0,
+              1941.4
+            ],
+            [
+              -1220.0,
+              1956.9
+            ],
+            [
+              -1223.5,
+              1962.9
+            ],
+            [
+              -1223.4,
+              1967.9
+            ],
+            [
+              -1204.6,
+              2014.1
+            ],
+            [
+              -1189.8,
+              2013.3
+            ]
+          ]
+        ]
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/2d611608-689d-42be-a4ae-96eecb2eb421",
+      "description": "Gravfält, ca 90x70 m. (NV-SÖ) bestående av ca 20 fornlämningar.Dessa utgöres av 2 högar ca 15 runda stensättningar, 1 kvadratiskfylld stensättning, 1 rektangulär fylld stensättning. 1 trekantig fylld stensättning. En av högarna är närmast rektangulär ca 13x10 m (VNV-ÖSÖ) ca 1,6 m h. Övertorvad flat yta med enstaka 0,3-0,5 m st stenar. Oredig kantkedja av 0,5-1,0 m stora stenar. Uppe ihögen ligger omkull i ytan en toppig sten ca 1x0,6 m stor, möjligen har den varit rest. Den andra högen är ca 10 m i diam 1,5 m h, delvis övertorvad ojämn yta med 0,3-0,6 m stora stenar. Närmaströseliknande. De runda stensättningarna är 3-6 m i diam 0,2-0,4m h. Övertorvad med i ytan enstaka eller talrika 0,3-0,4 m st stenar. Den rektangulära stensättningen är ca 8x6 m (VNV-ÖSÖ) ca 0,3m h. Övertorvad. Kantkedja av intill 1 m stora stenar. Den trekantiga stensättningen som ligger i fältets SV del har 4 m S sida (N-S, SÖ-NV, SV-NÖ) 0,3 m hög. Övertorvad med i ytan talrika 0,2-0,4 m stora stenar. Kantkedja av 0,3-0,6 m stora stenar. I S och Nhörnen klumpstenar 0,6-0,8 m stora och intill 0,6 m h. Den kvadratiska stensättningen är 4x4 m. (NV-SÖ) ca 0,2 m h. Övertorvad. Otydlig kantkedja av 0,3-0,4 m stora stenar. Inom fältet finns enäldre oredig husgrund ca 10-8 m (V-Ö). Även är fältet delvis förstört genom äldre nu övervältrad grustäkt. S om fältet spår efterhusgrunder. Granskad av Gerhard Winberg 1952. Utförd av Åke Rydelius den 11/6 1952. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1941:9635",
+      "name": "L1941:9635",
+      "lamningstyp": "Gravfält",
+      "provenance": "measured",
+      "position": {
+        "x": -1405.5,
+        "z": -1496.92
+      },
+      "geometryLocal": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -1419.7,
+              -1482.2
+            ],
+            [
+              -1416.4,
+              -1477.1
+            ],
+            [
+              -1397.1,
+              -1479.7
+            ],
+            [
+              -1391.1,
+              -1483.2
+            ],
+            [
+              -1383.0,
+              -1509.8
+            ],
+            [
+              -1388.3,
+              -1518.4
+            ],
+            [
+              -1413.3,
+              -1523.1
+            ],
+            [
+              -1420.9,
+              -1516.6
+            ],
+            [
+              -1419.7,
+              -1482.2
+            ]
+          ]
+        ]
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/9145df89-c261-4da6-82ee-534968b5c9a5",
+      "description": "Gravfält 40x35 m (N-S) bestående av 6 fornlämningar. Dessa utgöres av runda stensättningar. De runda stensättningarna är 2,5-5 mdiam och 0,1-0,3 m h. Övertorvade, flertalet med i ytan tämligentalrika 0,2-0,5 m st stenar, samt enstaka intill 1 m st stenar idet centrala partiet. Fyra har kantkedja 0,1-0,2 m h av 0,2-0,6 ml stenar. Två har en grop i mitten, 1 m diam och 0,1-0,2 m dj. Gravfältet är tämligen tätt beväxt med asp och björksly samt enstaka större björkar och ekar. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1943:6881",
+      "name": "L1943:6881",
+      "lamningstyp": "Gravfält",
+      "provenance": "measured",
+      "position": {
+        "x": 167.1,
+        "z": 1830.62
+      },
+      "geometryLocal": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              183.2,
+              1832.9
+            ],
+            [
+              182.4,
+              1817.0
+            ],
+            [
+              179.5,
+              1809.0
+            ],
+            [
+              171.8,
+              1804.0
+            ],
+            [
+              164.1,
+              1800.4
+            ],
+            [
+              153.7,
+              1803.0
+            ],
+            [
+              149.3,
+              1810.5
+            ],
+            [
+              144.5,
+              1821.0
+            ],
+            [
+              144.6,
+              1834.0
+            ],
+            [
+              147.8,
+              1842.7
+            ],
+            [
+              152.4,
+              1851.8
+            ],
+            [
+              161.9,
+              1854.0
+            ],
+            [
+              172.7,
+              1857.2
+            ],
+            [
+              181.3,
+              1854.0
+            ],
+            [
+              184.4,
+              1850.1
+            ],
+            [
+              183.9,
+              1846.1
+            ],
+            [
+              183.2,
+              1832.9
+            ]
+          ]
+        ]
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/da6ba98d-08ff-42cc-8b50-6a3b6dc50bcc",
+      "description": "Gravfält, 55x40 m (N-S), bestående av 1 hög, 4 runda stensättningar och 3 rektangulära stensättningar. Högen är 10 m i diam och 0,8 m h. I ytan enstaka synliga stenar, 0,2-0,3 m st. Kantkedja, 0,2-0,3 m h, av 0,2-0,6 m l stenar. I mitten en grop, 3 m diam och0,4 m dj. De runda stensättningarna är 4-7 m diam och 0,2-0,5 mh. Övertorvade med i ytan enstaka synliga stenar, 0,2-0,4 m st. Några har i mitten grop, 0,5-1,5 m diam och 0,2-0,3 m dj. De rektangulära stensättningarna, en är 7x6 m (N 15cg Ö-S 15cg V) och 0,3m h. Övertorvad med i ytan enstaka synliga stenar, 0,2-0,3 m st.Kantkedja, 0,2-0,3 m h, av 0,2-0,4 m l stenar. I hörnen resta krumstenar, 0,5-0,7 m st. I mitten är 2 stenar, 1x0,4-0,5 m st och0,3-0,5 m h. (Har troligen varit resta). De andra rektangulära stensättningarna är 5-6x3-4 m (N-S) och 0,2-0,3 m h. Övertorvade med i ytan enstaka synliga stenar, 0,2-0,3 m st. Kantkedja, 0,2 m h, av 0,2-0,5 m l stenar. Beväxt med några björkar samt en- och nyponbuskar. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1943:6937",
+      "name": "L1943:6937",
+      "lamningstyp": "Gravfält",
+      "provenance": "measured",
+      "position": {
+        "x": 124.3,
+        "z": 1785.19
+      },
+      "geometryLocal": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              105.4,
+              1786.3
+            ],
+            [
+              101.9,
+              1801.0
+            ],
+            [
+              102.0,
+              1806.2
+            ],
+            [
+              110.6,
+              1812.6
+            ],
+            [
+              121.2,
+              1815.5
+            ],
+            [
+              126.4,
+              1816.4
+            ],
+            [
+              129.4,
+              1814.0
+            ],
+            [
+              129.8,
+              1806.5
+            ],
+            [
+              131.6,
+              1794.9
+            ],
+            [
+              136.1,
+              1791.8
+            ],
+            [
+              142.8,
+              1785.8
+            ],
+            [
+              146.2,
+              1778.6
+            ],
+            [
+              149.1,
+              1766.1
+            ],
+            [
+              146.3,
+              1755.8
+            ],
+            [
+              137.2,
+              1751.4
+            ],
+            [
+              126.0,
+              1749.8
+            ],
+            [
+              117.8,
+              1752.6
+            ],
+            [
+              112.5,
+              1762.3
+            ],
+            [
+              108.4,
+              1770.0
+            ],
+            [
+              105.4,
+              1786.3
+            ]
+          ]
+        ]
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/e7fdb6b9-67f6-42e1-94ac-d1428356f28e",
+      "description": "Gravfält, 60x35 m (NNÖ-SSV), bestående av 8 fornlämningar. Dessautgöres av 6 runda stensättningar och 2 rektangulära stensättningar. De runda stensättningarna är 4-7 m diam (varav en 9) och 0,2-0,4 m h. Övertorvade med i ytan enstaka synliga stenar, 0,2-0,6m st. Några har delvis synlig kantkedja, 0,2-0,6 m h, av 0,2-0,8m l stenar. En stensättning är till hälften bortschaktad. Några av stensättningarna är tämligen osäkra. De rektangulära stensättningarana är 8x6 resp 5x4 m (Ö 40cg N-V 40cg S) och 0,2 m h. Övertorvade med i ytan enstaka synliga stenar, 0,2-0,3 m st. Kantkedja,0,1-0,4 m h, av 0,3-0,6 m l stenar. Beväxt med tall, björk samten- och nyponbuskar. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1943:6944",
+      "name": "L1943:6944",
+      "lamningstyp": "Grav- och boplatsområde",
+      "provenance": "measured",
+      "position": {
+        "x": 1586.66,
+        "z": -14.96
+      },
+      "geometryLocal": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              1566.3,
+              -34.5
+            ],
+            [
+              1571.6,
+              -25.5
+            ],
+            [
+              1574.7,
+              -15.8
+            ],
+            [
+              1577.2,
+              -4.2
+            ],
+            [
+              1580.1,
+              4.4
+            ],
+            [
+              1588.0,
+              12.9
+            ],
+            [
+              1599.0,
+              19.2
+            ],
+            [
+              1612.1,
+              24.4
+            ],
+            [
+              1622.9,
+              26.1
+            ],
+            [
+              1628.3,
+              23.6
+            ],
+            [
+              1629.0,
+              17.8
+            ],
+            [
+              1626.2,
+              12.3
+            ],
+            [
+              1619.9,
+              9.1
+            ],
+            [
+              1608.1,
+              7.7
+            ],
+            [
+              1600.3,
+              4.2
+            ],
+            [
+              1598.0,
+              1.0
+            ],
+            [
+              1597.1,
+              -9.2
+            ],
+            [
+              1595.0,
+              -22.6
+            ],
+            [
+              1590.9,
+              -33.4
+            ],
+            [
+              1585.0,
+              -42.9
+            ],
+            [
+              1575.7,
+              -51.6
+            ],
+            [
+              1557.6,
+              -59.8
+            ],
+            [
+              1553.0,
+              -59.7
+            ],
+            [
+              1550.2,
+              -55.1
+            ],
+            [
+              1546.9,
+              -49.1
+            ],
+            [
+              1549.3,
+              -44.7
+            ],
+            [
+              1557.8,
+              -39.0
+            ],
+            [
+              1566.3,
+              -34.5
+            ]
+          ]
+        ]
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/77959ce4-a16d-4150-979b-8f6e27d86e22",
+      "description": "Grav och boplatsområde 115x25 m (NN-SÖ) bestående av 7 fornlämningar. Dessa utgöres av 5 runda stensättningar, varav 1 osäker, och 2 skärvstenshögar. De runda stensättningarna är 5-7 cm diam och0,2-0,3 m h. övertorvad med i ytan enstaka till talrika 0,2-0,8m st stenar. En är kantskadad av dike. En har kantkedja 0,2 m h av 0,2-0,6 m l stenar. Skärvstenshögarna är runda, 3,5 m diam och0,3 m h övertorvade med i ytan måttligt med 0,3-1,0 m st stenar.Området skärs av en väg (N-S). Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1943:6957",
+      "name": "L1943:6957",
+      "lamningstyp": "Gravfält",
+      "provenance": "measured",
+      "position": {
+        "x": -270.76,
+        "z": 1208.8
+      },
+      "geometryLocal": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -292.5,
+              1332.4
+            ],
+            [
+              -279.2,
+              1336.3
+            ],
+            [
+              -270.4,
+              1336.3
+            ],
+            [
+              -262.1,
+              1332.2
+            ],
+            [
+              -252.6,
+              1325.7
+            ],
+            [
+              -245.6,
+              1320.0
+            ],
+            [
+              -239.5,
+              1304.6
+            ],
+            [
+              -235.6,
+              1290.8
+            ],
+            [
+              -230.3,
+              1268.4
+            ],
+            [
+              -229.6,
+              1254.2
+            ],
+            [
+              -230.4,
+              1244.4
+            ],
+            [
+              -235.3,
+              1233.3
+            ],
+            [
+              -235.1,
+              1222.7
+            ],
+            [
+              -231.0,
+              1209.6
+            ],
+            [
+              -230.4,
+              1199.2
+            ],
+            [
+              -231.9,
+              1177.5
+            ],
+            [
+              -239.0,
+              1146.6
+            ],
+            [
+              -246.1,
+              1113.6
+            ],
+            [
+              -251.4,
+              1089.3
+            ],
+            [
+              -255.7,
+              1068.0
+            ],
+            [
+              -256.1,
+              1051.0
+            ],
+            [
+              -258.4,
+              1043.7
+            ],
+            [
+              -262.7,
+              1040.5
+            ],
+            [
+              -269.2,
+              1042.5
+            ],
+            [
+              -274.6,
+              1053.0
+            ],
+            [
+              -275.4,
+              1063.4
+            ],
+            [
+              -274.4,
+              1071.4
+            ],
+            [
+              -270.4,
+              1091.9
+            ],
+            [
+              -265.8,
+              1135.0
+            ],
+            [
+              -264.4,
+              1153.4
+            ],
+            [
+              -268.9,
+              1167.9
+            ],
+            [
+              -276.9,
+              1178.3
+            ],
+            [
+              -293.7,
+              1193.7
+            ],
+            [
+              -297.0,
+              1199.9
+            ],
+            [
+              -295.0,
+              1208.1
+            ],
+            [
+              -293.8,
+              1216.5
+            ],
+            [
+              -294.8,
+              1227.7
+            ],
+            [
+              -297.8,
+              1235.4
+            ],
+            [
+              -308.4,
+              1245.2
+            ],
+            [
+              -313.1,
+              1266.5
+            ],
+            [
+              -315.9,
+              1276.2
+            ],
+            [
+              -320.4,
+              1283.1
+            ],
+            [
+              -321.9,
+              1294.5
+            ],
+            [
+              -321.4,
+              1300.9
+            ],
+            [
+              -316.5,
+              1312.2
+            ],
+            [
+              -302.7,
+              1324.3
+            ],
+            [
+              -292.5,
+              1332.4
+            ]
+          ]
+        ]
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/5910a835-6ba8-4d21-b495-ba4ede09fe74",
+      "description": "Gravfält, 240x90 m (N-S), bestående av ca 100 fornlämningar. Dessa utgöres av 1 hög, 65 runda stensättningar och 34 resta stenar.Högen är 9 m i diam och 0,9 m h. I ytan enstaka synliga stenar,0,2-0,4 m st. I mitten grop, 2 m diam och 0,5 m dj. En rund stensättning är 10 m i diam och 0,6 m h. Övertorvad. Kantkedja, 0,2-0,4 m h, av 0,4-0,8 m l stenar. De övriga runda stensättningarna är4-8 m i diam och 0,2-0,4 m h. Övertorvade med i ytan enstaka talrika synliga stenar, 0,2-0,3 m st. Flera har mittgrop, 0,5-2,0 mdiam och 0,2-0,4 m dj. De resta stenarna är 0,3-2,0 m h, 0,5-1,3m br och 0,2-0,8 m tj. Några är resta i anslutning till stensättningarna. Några är omkullfallna. Resta i grupper. Gravfältet är skadat genom grustäkt. Beväxt med gran, enbuskar och lövskog. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1943:6962",
+      "name": "L1943:6962",
+      "lamningstyp": "Gravfält",
+      "provenance": "measured",
+      "position": {
+        "x": 1173.27,
+        "z": 1054.54
+      },
+      "geometryLocal": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              1176.0,
+              1026.4
+            ],
+            [
+              1158.9,
+              1017.1
+            ],
+            [
+              1148.5,
+              1013.9
+            ],
+            [
+              1138.9,
+              1014.4
+            ],
+            [
+              1126.9,
+              1020.6
+            ],
+            [
+              1112.0,
+              1028.9
+            ],
+            [
+              1082.6,
+              1041.4
+            ],
+            [
+              1062.7,
+              1052.1
+            ],
+            [
+              1052.9,
+              1057.6
+            ],
+            [
+              1049.5,
+              1062.8
+            ],
+            [
+              1052.6,
+              1070.0
+            ],
+            [
+              1064.0,
+              1071.1
+            ],
+            [
+              1156.0,
+              1084.3
+            ],
+            [
+              1196.4,
+              1088.9
+            ],
+            [
+              1213.5,
+              1092.8
+            ],
+            [
+              1223.1,
+              1096.7
+            ],
+            [
+              1232.5,
+              1094.7
+            ],
+            [
+              1241.6,
+              1089.7
+            ],
+            [
+              1251.2,
+              1078.2
+            ],
+            [
+              1254.8,
+              1070.2
+            ],
+            [
+              1254.9,
+              1062.4
+            ],
+            [
+              1253.7,
+              1057.0
+            ],
+            [
+              1249.3,
+              1052.4
+            ],
+            [
+              1243.7,
+              1047.2
+            ],
+            [
+              1236.2,
+              1044.5
+            ],
+            [
+              1220.8,
+              1042.2
+            ],
+            [
+              1203.2,
+              1040.2
+            ],
+            [
+              1192.4,
+              1037.5
+            ],
+            [
+              1176.0,
+              1026.4
+            ]
+          ]
+        ]
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/ba316564-d9dd-47cd-9075-e4f10bb9ec28",
+      "description": "Gravfält, 160x75 m (Ö-V), bestående av 110 fornlämningar. Dessa utgörs av 6 högar och 104 runda stensättningar. Högarna är 7-11 m diam och 0,6-1,2 m h. I ytan enstaka synliga stenar, 0,2-0,3 m st. Flertalet har i mitten grop, 1,5-2,5 m diam och 0,4-0,8 m dj. De runda stensättningarna är 3-10 m diam och 0,2-0,5 m h. Övertorvade med i ytan enstaka synliga stenar, 0,2-0,4 m st. Några har mittsten, 0,6-0,8 m st. Några har delvis synlig kantkedja, 0,1-0,3 m h, av 0,6-0,8 m l stenar. I gravfältets NNÖ kant finns en tjärdal. "
+    },
+    {
+      "id": "L1943:7035",
+      "name": "L1943:7035",
+      "lamningstyp": "Gravfält",
+      "provenance": "measured",
+      "position": {
+        "x": -351.76,
+        "z": 1523.25
+      },
+      "geometryLocal": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -357.1,
+              1445.7
+            ],
+            [
+              -359.1,
+              1453.1
+            ],
+            [
+              -363.9,
+              1463.7
+            ],
+            [
+              -377.6,
+              1462.4
+            ],
+            [
+              -378.5,
+              1467.6
+            ],
+            [
+              -377.2,
+              1473.4
+            ],
+            [
+              -369.1,
+              1484.2
+            ],
+            [
+              -368.8,
+              1497.6
+            ],
+            [
+              -372.4,
+              1508.0
+            ],
+            [
+              -381.4,
+              1525.4
+            ],
+            [
+              -388.0,
+              1539.0
+            ],
+            [
+              -391.8,
+              1552.4
+            ],
+            [
+              -417.1,
+              1582.7
+            ],
+            [
+              -437.4,
+              1605.5
+            ],
+            [
+              -452.1,
+              1622.4
+            ],
+            [
+              -454.2,
+              1635.2
+            ],
+            [
+              -450.6,
+              1649.2
+            ],
+            [
+              -447.0,
+              1652.9
+            ],
+            [
+              -439.4,
+              1657.2
+            ],
+            [
+              -419.8,
+              1655.5
+            ],
+            [
+              -415.5,
+              1656.2
+            ],
+            [
+              -408.4,
+              1655.8
+            ],
+            [
+              -400.2,
+              1653.1
+            ],
+            [
+              -396.8,
+              1650.6
+            ],
+            [
+              -385.5,
+              1639.7
+            ],
+            [
+              -376.9,
+              1620.2
+            ],
+            [
+              -361.7,
+              1602.9
+            ],
+            [
+              -351.6,
+              1592.9
+            ],
+            [
+              -344.2,
+              1586.7
+            ],
+            [
+              -316.3,
+              1586.4
+            ],
+            [
+              -316.7,
+              1566.3
+            ],
+            [
+              -316.7,
+              1545.0
+            ],
+            [
+              -311.1,
+              1532.6
+            ],
+            [
+              -274.6,
+              1487.5
+            ],
+            [
+              -268.0,
+              1479.4
+            ],
+            [
+              -261.3,
+              1475.4
+            ],
+            [
+              -251.5,
+              1467.5
+            ],
+            [
+              -246.4,
+              1454.4
+            ],
+            [
+              -250.3,
+              1439.1
+            ],
+            [
+              -257.6,
+              1416.7
+            ],
+            [
+              -266.0,
+              1398.0
+            ],
+            [
+              -272.8,
+              1390.0
+            ],
+            [
+              -280.9,
+              1387.2
+            ],
+            [
+              -289.4,
+              1391.6
+            ],
+            [
+              -298.3,
+              1404.6
+            ],
+            [
+              -308.9,
+              1414.4
+            ],
+            [
+              -320.1,
+              1423.7
+            ],
+            [
+              -334.5,
+              1429.8
+            ],
+            [
+              -346.2,
+              1435.9
+            ],
+            [
+              -357.1,
+              1445.7
+            ]
+          ]
+        ]
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/0a3a693d-b661-439a-93a1-49cb82d38b26",
+      "description": "Gravfält, 310x90 m (NNÖ-SSV) bestående av 230 fornlämningar. Dessa utgöres av 15 högar, ca 155 runda stensättningar, ca 20 rektangulära stensättningar och ca 40 resta stenar. Högarna är 6-11 m idiam och 0,6-1,5 m h. I ytan enstaka-talrika synliga stenar, 0,2-0,4 m st. Några har delvis synlig kantkedja, 0,2-0,3 m h, av 0,2-0,6 m l stenar. Flertalet har mittgrop, 0,5-2,0 m diam och 0,2-0,6 m dj. De runda stensättningarna äf 4-10 m diam och 0,2-0,6 m h. Övertorvade med i ytan enstaka synliga stenar, 0,2-0,3 m st. Ett tiotal stensättningar har resta mittstenar, omkullfallna. Någrahar delvis synlig kantkedja, 0,2-0,3 m h, av 0,2-0,4 m l stenar.Några har i mitten grop, 0,5-2,5 m diam och 0,2-0,7 m dj. De rektangulära stensättningarna är 4-12x3-6 m (huvudsakligen NV-SV) och 0,2-0,4 m h. Övertorvade med i ytan enstaka synliga stenar, 0,2-0,3 m st. Flertalet har kantkedja 0,2-0,4 m h, av 0,2-0,8 m l stenar. De resta stenarna är 0,5-1,5 m h, 0,4-1,2 m br och 0,2-0,9m tj. Flera är omkullfallna. Flertalet är samlade i grupper ellerrader, några har sannolikt bildat domarring. Gravfältet är skadat och delvis bortgrävt i sin N-del genom grustäkt. I V och Ö är gravfältet delvis skadat genom odling. Hela gravfältet är illa skadat genom ytlig grustäkt. Beväxt med tall, gran, björk och enbuskar. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1943:7041",
+      "name": "L1943:7041",
+      "lamningstyp": "Gravfält",
+      "provenance": "measured",
+      "position": {
+        "x": 1641.9,
+        "z": -140.31
+      },
+      "geometryLocal": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              1631.3,
+              -141.4
+            ],
+            [
+              1632.0,
+              -132.2
+            ],
+            [
+              1631.3,
+              -122.4
+            ],
+            [
+              1631.5,
+              -115.2
+            ],
+            [
+              1636.4,
+              -112.3
+            ],
+            [
+              1644.6,
+              -112.0
+            ],
+            [
+              1649.5,
+              -115.4
+            ],
+            [
+              1653.9,
+              -122.5
+            ],
+            [
+              1657.6,
+              -131.5
+            ],
+            [
+              1658.7,
+              -141.7
+            ],
+            [
+              1657.7,
+              -151.9
+            ],
+            [
+              1653.6,
+              -161.1
+            ],
+            [
+              1649.2,
+              -166.8
+            ],
+            [
+              1640.3,
+              -169.5
+            ],
+            [
+              1634.4,
+              -168.7
+            ],
+            [
+              1630.4,
+              -164.4
+            ],
+            [
+              1630.5,
+              -155.2
+            ],
+            [
+              1631.3,
+              -141.4
+            ]
+          ]
+        ]
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/034cf9f9-0263-427f-8a9b-d85cbbeff15f",
+      "description": "Gravfält 60x30 m (N-S) bestående av 5 fornlämningar. Dessa utgöres av 6 runda stensättningar. Dessa är 3,5-9 m diam och 0,2-0,6 mh. Samtliga har fyllning av 0,3-0,8 m st stenar. Fem har delvissekundär övertorvning. Tre har en 1,0-1,4 m st sten i kanten. Enhar delvis kantkedja 0,1-0,2 m h av 0,6-0,7 m l stenar. En har engrop i mitten 2 m diam och 0,3 m dj. I områdets V kant finns enstensträng 8 m l (Ö-V) 0,2 m h av 0,4-0,8 m st stenar. Gravfältetär beväxt med ett fåtal lövträd. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1943:7106",
+      "name": "L1943:7106",
+      "lamningstyp": "Gravfält",
+      "provenance": "measured",
+      "position": {
+        "x": 871.61,
+        "z": 1388.01
+      },
+      "geometryLocal": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              873.1,
+              1363.0
+            ],
+            [
+              873.9,
+              1377.9
+            ],
+            [
+              873.7,
+              1389.5
+            ],
+            [
+              869.5,
+              1398.4
+            ],
+            [
+              863.2,
+              1403.0
+            ],
+            [
+              852.4,
+              1404.0
+            ],
+            [
+              843.6,
+              1402.2
+            ],
+            [
+              837.1,
+              1404.8
+            ],
+            [
+              835.4,
+              1411.0
+            ],
+            [
+              836.8,
+              1418.8
+            ],
+            [
+              841.5,
+              1425.9
+            ],
+            [
+              849.0,
+              1430.5
+            ],
+            [
+              860.5,
+              1433.4
+            ],
+            [
+              873.6,
+              1431.6
+            ],
+            [
+              883.3,
+              1427.1
+            ],
+            [
+              891.1,
+              1415.0
+            ],
+            [
+              898.9,
+              1396.8
+            ],
+            [
+              905.2,
+              1382.0
+            ],
+            [
+              905.1,
+              1374.3
+            ],
+            [
+              904.8,
+              1365.4
+            ],
+            [
+              897.0,
+              1347.4
+            ],
+            [
+              892.2,
+              1337.7
+            ],
+            [
+              880.7,
+              1335.0
+            ],
+            [
+              873.4,
+              1336.6
+            ],
+            [
+              871.4,
+              1345.6
+            ],
+            [
+              874.0,
+              1356.5
+            ],
+            [
+              873.1,
+              1363.0
+            ]
+          ]
+        ]
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/2cfa2965-1bc7-47bc-83ce-7382b216ffb8",
+      "description": "Gravfält, 100x55 m (N-S), bestående av 14 fornlämningar. Dessa utgörs av 14 runda stensättningar. Stensättningarna är 3-6 m i diam (3 är 8-9 m) och 0,2-0,5 m h, vanligen 0,2-0,3 m h. Övertorvade med i ytan enstaka synliga stenar, 0,2-0,4 m st. Några har delvis synlig kantkedja, 0,2-0,3 m h av 0,2-0,6 m l stenar. Fyra har i mitten grop, 2-4 m diam och 0,2-0,7 m dj."
+    },
+    {
+      "id": "L1943:7229",
+      "name": "L1943:7229",
+      "lamningstyp": "Gravfält",
+      "provenance": "measured",
+      "position": {
+        "x": -402.13,
+        "z": -577.23
+      },
+      "geometryLocal": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -430.0,
+              -577.4
+            ],
+            [
+              -433.1,
+              -571.0
+            ],
+            [
+              -432.2,
+              -566.0
+            ],
+            [
+              -427.6,
+              -563.3
+            ],
+            [
+              -420.4,
+              -562.9
+            ],
+            [
+              -406.8,
+              -564.7
+            ],
+            [
+              -388.5,
+              -568.5
+            ],
+            [
+              -375.9,
+              -571.2
+            ],
+            [
+              -372.5,
+              -573.7
+            ],
+            [
+              -370.6,
+              -580.1
+            ],
+            [
+              -370.5,
+              -589.7
+            ],
+            [
+              -375.0,
+              -595.3
+            ],
+            [
+              -382.8,
+              -597.2
+            ],
+            [
+              -398.8,
+              -593.8
+            ],
+            [
+              -419.4,
+              -583.4
+            ],
+            [
+              -430.0,
+              -577.4
+            ]
+          ]
+        ]
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/10e96916-f1ab-4ec0-a35c-4e9d3b0b098a",
+      "description": "Gravfält, 65x35 m (ÖNÖ-VSV), bestående av ca 7 fornlämningar. Dessa utgöres av 1 hög, 4 runda stensättningar och 2 rektangulära stensättningar. Högen är 8 m diam och 0,9 m h. I ytan enstaka synliga stenar, 0,2-0,4 m st. I mitten med dragning åt S är en grop,1 m diam och 0,3 m dj. De runda stensättningarna är 4-6 m diam och 0,2-0,4 m h. Övertorvade med i ytan enstaka synliga stenar, 0,2-0,3 m st. Flertalet är skadade och delvis bortgrävda. De rektangulära stensättningarna är 4-6x3 m (Ö 10cg S-V 10cg N och NV-SÖ).Övertorvade med i ytan enstaka synliga stenar, 0,1-0,3 m st. Kantkedja, 0,2-0,3 m h, av 0,4-0,7 m l stenar. En har resta krumstenar i NV och SÖ, 0,4-0,6 m st och 0,4-0,6 m h. Beväxt med gran, ekoch rönn. Stubbar. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1943:7246",
+      "name": "L1943:7246",
+      "lamningstyp": "Runristning",
+      "provenance": "measured",
+      "position": {
+        "x": 503.1,
+        "z": 1940.6
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/67c90fd8-2ec3-4b87-af92-7ffb5cd7ecfb",
+      "description": "Runstensfragment, 0,3 m hög, 0,1-0,2 m bred och 0,12 m tjock. Inskriften är 5 cm hög. Stenen ligger lös på verandans golv. Enligt uppgift upphittad i Husby-Långhundra. Borttaget av den tidigare ägaren till huset. Han bor numera i Norrtälje. Gunnar Andersson, Norrtälje (Tidigare fastighetsägare).\nSe skiss i inventeringsboken!\nEnligt Upplands runinskrifter eftersöktes fragmentet 1936 och 1945, men återfanns inte.\nEnligt Runverket lyder inskriften.\"...- - - - k...\""
+    },
+    {
+      "id": "L1943:7247",
+      "name": "L1943:7247",
+      "lamningstyp": "Gravfält",
+      "provenance": "measured",
+      "position": {
+        "x": -160.88,
+        "z": 1512.71
+      },
+      "geometryLocal": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -179.1,
+              1515.7
+            ],
+            [
+              -178.6,
+              1526.5
+            ],
+            [
+              -172.8,
+              1535.5
+            ],
+            [
+              -166.4,
+              1538.0
+            ],
+            [
+              -162.0,
+              1537.1
+            ],
+            [
+              -153.1,
+              1532.3
+            ],
+            [
+              -140.5,
+              1525.0
+            ],
+            [
+              -135.4,
+              1520.5
+            ],
+            [
+              -137.6,
+              1513.0
+            ],
+            [
+              -141.9,
+              1506.8
+            ],
+            [
+              -152.1,
+              1489.3
+            ],
+            [
+              -158.2,
+              1483.6
+            ],
+            [
+              -163.7,
+              1485.5
+            ],
+            [
+              -166.9,
+              1489.2
+            ],
+            [
+              -172.1,
+              1495.3
+            ],
+            [
+              -175.5,
+              1507.0
+            ],
+            [
+              -179.1,
+              1515.7
+            ]
+          ]
+        ]
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/16d16f8f-51ae-4b57-8513-4c3dbfcd97dc",
+      "description": "Gravfält, 60x40 m (N-S), bestående av 5 fornlämningar. Dessa utgöres av 2 runda stensättningar, 1 rektangulär stensättning och 2resta stenar? De runda stensättningarna är 6-9 m i diam och 0,3-0,4 m h. Övertorvade med i ytan enstaka synliga stenar, 0,2-0,4 mst. Den minsta har kantkedja, 0,2-0,3 m h, av 0,2-0,6 m l stenar.En har mittgrop, 2 m diam och 0,5 m dj. Den rektangulära stensättningen är 12x10 m (Ö-V) och 0,3 m h. Övertorvad med i ytan enstaka synliga stenar, 0,2-0,4 m st. Kantkedja, 0,2-0,3 m h, av 0,4-0,8 m l stenar. De resta stenarna 0,6 resp 0,8 m h utgör möjligenkonstruktionsdetaljer i den rektangulära stensättningen. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1943:7307",
+      "name": "L1943:7307",
+      "lamningstyp": "Gravfält",
+      "provenance": "measured",
+      "position": {
+        "x": 592.07,
+        "z": 1450.21
+      },
+      "geometryLocal": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              557.1,
+              1430.7
+            ],
+            [
+              573.6,
+              1434.1
+            ],
+            [
+              573.9,
+              1439.7
+            ],
+            [
+              571.9,
+              1451.0
+            ],
+            [
+              571.3,
+              1466.4
+            ],
+            [
+              574.3,
+              1475.1
+            ],
+            [
+              574.9,
+              1485.5
+            ],
+            [
+              570.8,
+              1497.8
+            ],
+            [
+              572.0,
+              1506.4
+            ],
+            [
+              577.9,
+              1514.4
+            ],
+            [
+              586.1,
+              1513.4
+            ],
+            [
+              591.8,
+              1508.1
+            ],
+            [
+              597.5,
+              1496.4
+            ],
+            [
+              602.1,
+              1483.9
+            ],
+            [
+              609.5,
+              1478.9
+            ],
+            [
+              625.9,
+              1469.5
+            ],
+            [
+              629.8,
+              1464.7
+            ],
+            [
+              629.6,
+              1454.7
+            ],
+            [
+              628.6,
+              1446.1
+            ],
+            [
+              624.6,
+              1436.8
+            ],
+            [
+              621.3,
+              1423.8
+            ],
+            [
+              621.2,
+              1409.6
+            ],
+            [
+              619.4,
+              1399.1
+            ],
+            [
+              613.3,
+              1395.2
+            ],
+            [
+              605.3,
+              1394.8
+            ],
+            [
+              587.9,
+              1396.2
+            ],
+            [
+              570.6,
+              1397.2
+            ],
+            [
+              562.4,
+              1399.8
+            ],
+            [
+              560.4,
+              1406.2
+            ],
+            [
+              557.1,
+              1430.7
+            ]
+          ]
+        ]
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/b25df6ba-fad8-4319-a105-cd3aac042362",
+      "description": "Gravfält, 120x60 m (N-S), bestående av ca 50 fornlämningar. Dessa utgöres av 6 högar och 44 runda stensättningar. Högarna är 7-9m diam och 0,7-1,1 m h. I ytan enstaka synliga stenar, 0,2-0,3 mst. Flertalet har i mitten en grop, 1-1,5 m diam och 0,3-0,5 m h.En hög är bortgärvd 6 m l och intill ett djup av 2 m. De runda stensättningarna är 4-8 m diam och 0,2-0,5 m h. Övertorvade med iytan enstaka synliga stenar, 0,2-0,4 m st. Några har delvis synlig kantkedja, 0,2-0,3 m h, av 0,2-0,6 m l. Ett fåtal har i mittengrop, 0,5-2,0 m diam och 0,2-0,6 m dj. Några är kantskadade genomvägbygge och trädgårdsanläggning. Beväxt med tall, björk, lönn och nyponbuskar. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1943:7459",
+      "name": "L1943:7459",
+      "lamningstyp": "Gravfält",
+      "provenance": "measured",
+      "position": {
+        "x": 615.38,
+        "z": 1850.62
+      },
+      "geometryLocal": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              512.7,
+              1878.5
+            ],
+            [
+              507.6,
+              1890.0
+            ],
+            [
+              505.4,
+              1901.5
+            ],
+            [
+              507.3,
+              1906.8
+            ],
+            [
+              518.6,
+              1911.2
+            ],
+            [
+              530.5,
+              1915.5
+            ],
+            [
+              552.4,
+              1925.8
+            ],
+            [
+              562.6,
+              1928.8
+            ],
+            [
+              567.6,
+              1926.3
+            ],
+            [
+              568.1,
+              1923.5
+            ],
+            [
+              568.3,
+              1912.7
+            ],
+            [
+              571.2,
+              1901.4
+            ],
+            [
+              577.1,
+              1898.1
+            ],
+            [
+              589.9,
+              1898.6
+            ],
+            [
+              596.6,
+              1901.6
+            ],
+            [
+              598.0,
+              1908.2
+            ],
+            [
+              600.4,
+              1920.5
+            ],
+            [
+              604.8,
+              1930.6
+            ],
+            [
+              611.3,
+              1933.9
+            ],
+            [
+              620.3,
+              1933.7
+            ],
+            [
+              627.4,
+              1928.3
+            ],
+            [
+              630.1,
+              1914.3
+            ],
+            [
+              632.5,
+              1889.2
+            ],
+            [
+              635.9,
+              1871.1
+            ],
+            [
+              641.9,
+              1859.4
+            ],
+            [
+              651.4,
+              1854.4
+            ],
+            [
+              661.9,
+              1851.7
+            ],
+            [
+              684.9,
+              1852.2
+            ],
+            [
+              700.2,
+              1856.1
+            ],
+            [
+              709.5,
+              1861.1
+            ],
+            [
+              715.8,
+              1876.5
+            ],
+            [
+              720.9,
+              1890.0
+            ],
+            [
+              725.8,
+              1900.9
+            ],
+            [
+              736.4,
+              1910.5
+            ],
+            [
+              743.2,
+              1912.1
+            ],
+            [
+              750.6,
+              1909.6
+            ],
+            [
+              754.1,
+              1898.5
+            ],
+            [
+              753.8,
+              1882.7
+            ],
+            [
+              746.0,
+              1858.3
+            ],
+            [
+              741.8,
+              1845.7
+            ],
+            [
+              735.3,
+              1836.1
+            ],
+            [
+              719.5,
+              1826.4
+            ],
+            [
+              704.8,
+              1820.4
+            ],
+            [
+              682.3,
+              1815.3
+            ],
+            [
+              660.0,
+              1810.0
+            ],
+            [
+              648.7,
+              1805.4
+            ],
+            [
+              641.3,
+              1797.8
+            ],
+            [
+              634.7,
+              1785.2
+            ],
+            [
+              630.1,
+              1762.1
+            ],
+            [
+              624.7,
+              1741.2
+            ],
+            [
+              619.6,
+              1728.7
+            ],
+            [
+              613.9,
+              1724.6
+            ],
+            [
+              600.3,
+              1721.5
+            ],
+            [
+              587.4,
+              1720.0
+            ],
+            [
+              569.0,
+              1719.0
+            ],
+            [
+              556.9,
+              1722.1
+            ],
+            [
+              546.2,
+              1728.9
+            ],
+            [
+              537.9,
+              1738.9
+            ],
+            [
+              531.7,
+              1750.7
+            ],
+            [
+              524.9,
+              1768.8
+            ],
+            [
+              521.1,
+              1784.5
+            ],
+            [
+              518.7,
+              1797.6
+            ],
+            [
+              517.4,
+              1809.8
+            ],
+            [
+              519.4,
+              1826.0
+            ],
+            [
+              519.6,
+              1843.8
+            ],
+            [
+              517.7,
+              1858.4
+            ],
+            [
+              512.7,
+              1878.5
+            ]
+          ]
+        ]
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/5c7434d2-e52f-49de-9092-cc5d98b1a379",
+      "description": "Gravfält, 160x180 m (N-S), bestående av ca 162 fornlämningar. Dessa utgörs av 1 röse, 8 högar, 1 skeppsformig stensättning, ca 151 runda stensättningar och 1 rest sten. Röset är 11 m diam och 0,9 m h. Fyllning av i allmänhet 0,2-0,4 m st stenar. Delvis synlig kantkedja, 0,2-0,4 m h av 0,4-0,8 m l stenar. Röset är gropigt då sten omplockats. Högarna är 7-9 m diam och 0,6-1,1 m h. I ytan syns enstaka synliga stenar, 0,2-0,3 m st. Några har i mitten grop, 1,5-2,0 m diam och 0,3-0,5 m dj. Den skeppsformiga stensättningen är 17x3 m (NNÖ-SSV) och 0,2-0,3 m h. Övertorvad med i ytan talrika synliga stenar, 0,2-0,4 m st. Kantkedja, 0,2-0,3 m h av 0,4-0,8 m l stenar. I S del är en sten, 0,6x0,3 m st och 0,5 m h. Skeppssättningen ligger i gravfältets SÖ hörn. De runda stensättningarna är 2-10 m diam (vanligen 4-10) och 0,2-0,5 m h. Övertorvade med i ytan talrika synliga stenar, 0,2-0,4 m st. Några har jordfast mittsten, 0,8-3,5 m st. Flertalet har kantkedja, 0,1-0,3 m h (vanligen 0,2-0,3 m) av 0,2-0,6 m l stenar. Ett fåtal har i mitten grop, 0,5-2,0 m diam och 0,2-0,4 m dj. Den resta stenen är 0,4x0,35 m st och 0,6 m h. "
+    },
+    {
+      "id": "L1943:7532",
+      "name": "L1943:7532",
+      "lamningstyp": "Grav- och boplatsområde",
+      "provenance": "measured",
+      "position": {
+        "x": 1762.15,
+        "z": -79.79
+      },
+      "geometryLocal": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              1687.3,
+              -80.8
+            ],
+            [
+              1684.9,
+              -66.6
+            ],
+            [
+              1684.8,
+              -57.2
+            ],
+            [
+              1688.8,
+              -53.7
+            ],
+            [
+              1695.4,
+              -52.3
+            ],
+            [
+              1700.8,
+              -56.4
+            ],
+            [
+              1704.3,
+              -68.0
+            ],
+            [
+              1709.8,
+              -76.3
+            ],
+            [
+              1716.5,
+              -80.0
+            ],
+            [
+              1727.1,
+              -78.3
+            ],
+            [
+              1738.6,
+              -72.0
+            ],
+            [
+              1741.3,
+              -64.0
+            ],
+            [
+              1739.9,
+              -47.6
+            ],
+            [
+              1739.6,
+              -33.4
+            ],
+            [
+              1744.3,
+              -26.1
+            ],
+            [
+              1749.0,
+              -21.1
+            ],
+            [
+              1760.6,
+              -16.8
+            ],
+            [
+              1778.4,
+              -16.2
+            ],
+            [
+              1796.4,
+              -16.2
+            ],
+            [
+              1807.8,
+              -15.4
+            ],
+            [
+              1813.0,
+              -19.4
+            ],
+            [
+              1815.9,
+              -27.3
+            ],
+            [
+              1820.4,
+              -38.7
+            ],
+            [
+              1825.3,
+              -42.8
+            ],
+            [
+              1832.9,
+              -45.7
+            ],
+            [
+              1843.9,
+              -48.0
+            ],
+            [
+              1849.4,
+              -54.4
+            ],
+            [
+              1848.5,
+              -60.2
+            ],
+            [
+              1840.7,
+              -63.9
+            ],
+            [
+              1834.1,
+              -63.5
+            ],
+            [
+              1823.7,
+              -58.6
+            ],
+            [
+              1811.6,
+              -57.8
+            ],
+            [
+              1803.5,
+              -61.1
+            ],
+            [
+              1797.0,
+              -67.9
+            ],
+            [
+              1791.7,
+              -81.0
+            ],
+            [
+              1786.8,
+              -94.0
+            ],
+            [
+              1781.9,
+              -99.9
+            ],
+            [
+              1777.7,
+              -100.9
+            ],
+            [
+              1773.9,
+              -99.6
+            ],
+            [
+              1770.1,
+              -97.6
+            ],
+            [
+              1764.1,
+              -95.1
+            ],
+            [
+              1758.9,
+              -95.8
+            ],
+            [
+              1754.7,
+              -99.2
+            ],
+            [
+              1753.3,
+              -102.8
+            ],
+            [
+              1756.8,
+              -108.8
+            ],
+            [
+              1767.7,
+              -112.9
+            ],
+            [
+              1784.1,
+              -117.7
+            ],
+            [
+              1790.4,
+              -121.6
+            ],
+            [
+              1791.6,
+              -127.2
+            ],
+            [
+              1789.1,
+              -131.0
+            ],
+            [
+              1785.5,
+              -133.5
+            ],
+            [
+              1775.9,
+              -135.6
+            ],
+            [
+              1768.7,
+              -135.2
+            ],
+            [
+              1760.3,
+              -132.7
+            ],
+            [
+              1752.6,
+              -128.8
+            ],
+            [
+              1743.1,
+              -120.1
+            ],
+            [
+              1737.7,
+              -115.8
+            ],
+            [
+              1734.3,
+              -114.8
+            ],
+            [
+              1729.1,
+              -115.9
+            ],
+            [
+              1719.1,
+              -118.4
+            ],
+            [
+              1709.7,
+              -121.5
+            ],
+            [
+              1700.5,
+              -121.2
+            ],
+            [
+              1695.3,
+              -115.9
+            ],
+            [
+              1692.5,
+              -103.5
+            ],
+            [
+              1687.3,
+              -80.8
+            ]
+          ]
+        ]
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/e0450cfe-8843-4e20-ada4-7f1bd41275e9",
+      "description": "Grav och boplatsområde, 165x30-8 m (NV-SÖ) bestående av 26 fornlämningar. Dessa utgöres av 18 runda stensättningar, 1 skeppsformig stensättning, 1 rest sten, 4 skärvstenshögar, 1 hyddbotten och1 skålad yta. De runda stensättningarna är 3-9 m diam och 0,2-0,5m h. Fyllning av 0,2-0,5 m st stenar. Flertalet har relativt kraftig sekundär övertorvning. Sex har kantkedja 0,1-0,6 m h av 0,2-0,9 m l stenar. En har mittblock 1,0 m st och 0,5 m h. Den skeppsformiga stensättningen är 9 m l (ÖNÖ-VSV) 2,5 m br och 0,25 m h.fyllning, delvis övertorvad av 0,3-0,8 m st stenar. Delvis bevarad kantkedja 0,2-0,3 m h av 0,4-0,6 m l stenar. I NÖ delen tre 0,5-0,9 m st block. Den resta stenen som står 1 m N om en stensättning är 1,2 m h 0,8 m br (N-S) och 0,5 m t. Nordsten? Skärvstenshögarna är runda eller närmast runda, 4-8 m diam och 0,2-0,6 m h. övertorvade med i ytan enstaka till talrika 0,4-0,9 m st stenar samt enstaka intill 1,5 m st block i ytan. Tre har 1,2, 3 resp 4 m st block i kanten. En har delvis kantskoning 0,2-0,3 m h av 0,3-0,6 m l stenar. Hyddbottnen i områdets N spets är närmast oval 10x13 m (NÖ-SV) bestående av en vall 3-5 m br och intill 0,5 m h. I NV delen innanför vallen ett 1 cm st något eldsprängt block. öppning mot SÖ, öppningen avgränsas mot N av ett 1 m st block. Vid provstick i vallen framkommer rikligt med 0,05 m st. skörbrända stenar. Den skålade och röjda ytan i områdets centrala S del är rund6 m diam, omgiven av 0,6-02,0 m st block. öppning mot SSÖ. Hyddbotten? Området är delvis tätt beväxt med hassel och annan lövsly vilket försvårar besiktningen. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1943:7552",
+      "name": "L1943:7552",
+      "lamningstyp": "Gravfält",
+      "provenance": "measured",
+      "position": {
+        "x": 1408.77,
+        "z": 353.74
+      },
+      "geometryLocal": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              1396.4,
+              379.8
+            ],
+            [
+              1412.6,
+              386.1
+            ],
+            [
+              1435.2,
+              392.8
+            ],
+            [
+              1452.1,
+              396.5
+            ],
+            [
+              1466.3,
+              396.4
+            ],
+            [
+              1479.9,
+              396.0
+            ],
+            [
+              1492.6,
+              393.7
+            ],
+            [
+              1497.6,
+              386.5
+            ],
+            [
+              1502.0,
+              376.4
+            ],
+            [
+              1501.1,
+              366.3
+            ],
+            [
+              1497.3,
+              358.7
+            ],
+            [
+              1490.3,
+              353.9
+            ],
+            [
+              1482.5,
+              351.7
+            ],
+            [
+              1466.2,
+              350.4
+            ],
+            [
+              1453.7,
+              352.3
+            ],
+            [
+              1440.1,
+              356.9
+            ],
+            [
+              1430.5,
+              355.4
+            ],
+            [
+              1425.1,
+              350.4
+            ],
+            [
+              1422.8,
+              341.8
+            ],
+            [
+              1420.9,
+              327.0
+            ],
+            [
+              1420.5,
+              319.2
+            ],
+            [
+              1417.7,
+              313.5
+            ],
+            [
+              1412.7,
+              311.3
+            ],
+            [
+              1391.6,
+              304.8
+            ],
+            [
+              1369.2,
+              298.3
+            ],
+            [
+              1314.3,
+              311.8
+            ],
+            [
+              1302.5,
+              320.2
+            ],
+            [
+              1298.4,
+              329.4
+            ],
+            [
+              1299.4,
+              341.6
+            ],
+            [
+              1305.1,
+              350.8
+            ],
+            [
+              1309.3,
+              350.8
+            ],
+            [
+              1317.5,
+              348.7
+            ],
+            [
+              1327.2,
+              346.9
+            ],
+            [
+              1338.1,
+              351.8
+            ],
+            [
+              1356.1,
+              364.1
+            ],
+            [
+              1383.2,
+              376.2
+            ],
+            [
+              1396.4,
+              379.8
+            ]
+          ]
+        ]
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/c5c6780f-4f86-464f-a874-d53afe28631b",
+      "description": "Gravfält, 210c70 m (VNV-ÖSÖ) bestående av 60 fornlämningar. Dessa utgöras 3 högar och 57 runda stensättningar. Högarna är 5-8 m diam och 0,5-1,0 m h. 2 har delvis synlig kantkedja, 0,2-0,3 m h,av 0,2-0,6 m l stenar. 3 har mittgrop, 0,5-1,5 m diam och 0,2-0,4m dj. En av stensättningarna är 11 m diam och 0,4 m h. Fyllningav 0,2-0,5 m st stenar. Odlingssten har påförts. De andra runda stensättningarna är 3-7 m diam och 0,2-0,4 m h. övertorvade med iytan enstaka-talrika synliga stenar, 0,2-0,3 m st. Några har delvis synlig kantkedja, 0,2-0,3 m h, av 0,2-0,6 m l. Flera har mittgrop 0,5-2,0 m diam och 0,2-0,4 m dj. Några av stensättningarna ärskadade i gravfältets mitt och tillstor del bortgrävda genom grustäkt. Beväxt med björk, enbuskar, asp, rönn och tall. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1943:7620",
+      "name": "L1943:7620",
+      "lamningstyp": "Gravfält",
+      "provenance": "measured",
+      "position": {
+        "x": 504.84,
+        "z": 1998.31
+      },
+      "geometryLocal": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              443.4,
+              2027.1
+            ],
+            [
+              448.6,
+              2037.8
+            ],
+            [
+              460.8,
+              2044.1
+            ],
+            [
+              473.4,
+              2047.8
+            ],
+            [
+              480.6,
+              2044.4
+            ],
+            [
+              485.0,
+              2038.9
+            ],
+            [
+              487.0,
+              2027.9
+            ],
+            [
+              492.3,
+              2025.0
+            ],
+            [
+              510.5,
+              2021.8
+            ],
+            [
+              523.1,
+              2021.5
+            ],
+            [
+              535.8,
+              2020.2
+            ],
+            [
+              547.6,
+              2012.1
+            ],
+            [
+              555.6,
+              2002.0
+            ],
+            [
+              557.6,
+              1992.9
+            ],
+            [
+              557.6,
+              1984.9
+            ],
+            [
+              559.5,
+              1970.5
+            ],
+            [
+              562.0,
+              1956.6
+            ],
+            [
+              563.1,
+              1951.0
+            ],
+            [
+              560.2,
+              1945.2
+            ],
+            [
+              552.3,
+              1941.8
+            ],
+            [
+              538.6,
+              1937.7
+            ],
+            [
+              518.5,
+              1931.8
+            ],
+            [
+              497.3,
+              1978.3
+            ],
+            [
+              490.1,
+              1970.4
+            ],
+            [
+              481.0,
+              1981.0
+            ],
+            [
+              470.8,
+              1990.1
+            ],
+            [
+              456.4,
+              1999.0
+            ],
+            [
+              448.7,
+              2005.0
+            ],
+            [
+              444.3,
+              2015.3
+            ],
+            [
+              443.4,
+              2027.1
+            ]
+          ]
+        ]
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/9a947ddc-6fdd-4d8c-88f2-c4c120572fd2",
+      "description": "Gravfält, 130x80 m (NNÖ-SSV), bestående av ca 45 fornlämningar. Dessa utgörs av 2 högar och 43 runda stensättningar. Högarna är 6-9 m diam och 0,6-0,7 m h. I ytan finns enstaka synliga stenar, 0,2-0,3 m st. En hög har delvis synlig kantkedja, 0,2 m h av 0,2-0,4 m l stenar. En har i mitten grop, 3 m diam och 0,5 m dj. Av de runda stensättningarna är en stensättning 14 m diam och 0,3 m h. Tre stensättningar är 8-11 m diam och 0,3 m h. Fyllning av i allmänhet 0,2-0,5 m st stenar. De övriga stensättningarna är 4-7 m diam och 0,2-0,4 m h. Övertorvade och med i ytan enstaka stenar, 0,2-0,3 m st. Några har delvis synlig kantkedja, 0,2-0,3 m h, av 0,2-0,4 m l stenar. Ett fåtal har i mitten grop, 0,5-1,5 m diam och 0,2-0,4 m dj. Gravfältets Ö del skärs av en mindre väg (NNÖ-SV). På gravfältet ligger även flera rester av husgrunder samt avfallshögar från en smedja. "
+    },
+    {
+      "id": "L1943:7670",
+      "name": "L1943:7670",
+      "lamningstyp": "Gravfält",
+      "provenance": "measured",
+      "position": {
+        "x": 971.14,
+        "z": 281.78
+      },
+      "geometryLocal": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              980.7,
+              273.6
+            ],
+            [
+              972.1,
+              270.2
+            ],
+            [
+              965.3,
+              269.2
+            ],
+            [
+              953.9,
+              272.1
+            ],
+            [
+              947.8,
+              277.7
+            ],
+            [
+              948.2,
+              283.7
+            ],
+            [
+              951.6,
+              286.1
+            ],
+            [
+              960.6,
+              286.7
+            ],
+            [
+              972.0,
+              288.6
+            ],
+            [
+              976.6,
+              292.4
+            ],
+            [
+              986.0,
+              295.1
+            ],
+            [
+              990.0,
+              292.9
+            ],
+            [
+              991.8,
+              286.7
+            ],
+            [
+              989.8,
+              278.1
+            ],
+            [
+              980.7,
+              273.6
+            ]
+          ]
+        ]
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/e8e9a1c5-c99f-46ff-b680-2059c7dfe8cc",
+      "description": "Gravfält, 45x15 m (Ö-V) bestående av 6 fornlämningar. Dessa utgöres av 6 runda stensättningar. Stensättningarna är 4-6 m diam och0,2-0,3 m h. övertorvade med i ytan enstaka stenar 0,2-0,3 m st.En stensättning har i mitten en sten, 1,5x1,7 m st och 0,7 m h.Fleratalet har delvis synlig kantkedja, 0,2 m h, av 0,2-0,4 m l stenar. Två har mittgrop, 0,8-1,2 m diam och 0,2-0,3 m dj. En stensättning är bortgrävd 6 m l och intill ett djup av 3 m. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1943:7673",
+      "name": "L1943:7673",
+      "lamningstyp": "Gravfält",
+      "provenance": "measured",
+      "position": {
+        "x": 537.94,
+        "z": 206.19
+      },
+      "geometryLocal": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              479.3,
+              201.0
+            ],
+            [
+              466.3,
+              210.8
+            ],
+            [
+              459.2,
+              220.3
+            ],
+            [
+              455.0,
+              231.7
+            ],
+            [
+              453.7,
+              240.3
+            ],
+            [
+              459.8,
+              239.5
+            ],
+            [
+              481.8,
+              237.6
+            ],
+            [
+              505.2,
+              234.4
+            ],
+            [
+              524.0,
+              236.0
+            ],
+            [
+              543.4,
+              233.5
+            ],
+            [
+              560.6,
+              231.6
+            ],
+            [
+              577.4,
+              230.1
+            ],
+            [
+              594.8,
+              230.6
+            ],
+            [
+              607.0,
+              228.2
+            ],
+            [
+              616.1,
+              219.5
+            ],
+            [
+              620.9,
+              209.5
+            ],
+            [
+              621.9,
+              201.3
+            ],
+            [
+              615.0,
+              194.7
+            ],
+            [
+              604.6,
+              192.6
+            ],
+            [
+              583.8,
+              190.5
+            ],
+            [
+              568.6,
+              189.3
+            ],
+            [
+              558.4,
+              186.4
+            ],
+            [
+              552.8,
+              180.6
+            ],
+            [
+              550.7,
+              173.2
+            ],
+            [
+              546.3,
+              165.7
+            ],
+            [
+              541.3,
+              164.7
+            ],
+            [
+              528.5,
+              166.5
+            ],
+            [
+              520.9,
+              172.4
+            ],
+            [
+              507.6,
+              183.6
+            ],
+            [
+              492.0,
+              194.7
+            ],
+            [
+              479.3,
+              201.0
+            ]
+          ]
+        ]
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/889b3bca-1aa7-4cff-a226-812345be1138",
+      "description": "Gravfält, 170x70 m (Ö-V), bestående av 35 fornlämningar. Dessa utgörs av 1 hög och 34 runda stensättningar. Högen är 17 m diam och 1,5 m h. I ytan finns talrika synliga stenar, 0,2-0,3 m st och i mitten en grop, 3,5 m diam och 0,8 m dj. I S, Ö och NÖ ca 20 m l och intill ett djup av 0,8 m. Stensättningarna är 5-8 m diam och 0,2-0,4 m h. Övermossade med i ytan enstaka stenar, 0,2-0,3 m st. Några har mittgrop, 0,5-2,0 m diam och 0,2-0,4 m dj. Inom området finns ytterligare förhöjningar, som möjligen är stensättningar. Inom gravfältets S del finns ett hus och dess Ö del skärs av en mindre väg (NV-SSÖ). "
+    },
+    {
+      "id": "L1943:7689",
+      "name": "L1943:7689",
+      "lamningstyp": "Gravfält",
+      "provenance": "measured",
+      "position": {
+        "x": 405.38,
+        "z": 223.94
+      },
+      "geometryLocal": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              376.9,
+              213.5
+            ],
+            [
+              367.6,
+              230.3
+            ],
+            [
+              363.1,
+              241.9
+            ],
+            [
+              361.0,
+              249.2
+            ],
+            [
+              367.1,
+              254.1
+            ],
+            [
+              380.5,
+              253.6
+            ],
+            [
+              393.1,
+              252.0
+            ],
+            [
+              415.1,
+              246.9
+            ],
+            [
+              427.3,
+              244.2
+            ],
+            [
+              435.8,
+              238.8
+            ],
+            [
+              442.8,
+              229.7
+            ],
+            [
+              445.8,
+              223.7
+            ],
+            [
+              445.1,
+              213.7
+            ],
+            [
+              442.1,
+              205.7
+            ],
+            [
+              436.2,
+              194.2
+            ],
+            [
+              427.2,
+              189.6
+            ],
+            [
+              415.6,
+              188.7
+            ],
+            [
+              401.6,
+              192.7
+            ],
+            [
+              386.7,
+              202.8
+            ],
+            [
+              376.9,
+              213.5
+            ]
+          ]
+        ]
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/f9d3546c-7a84-485c-ab47-b3b61b39402d",
+      "description": "Gravfält, 90x50 m (NÖ-SV), bestående av 30 fornlämningar. Dessa utgörs av 1 hög och 29 runda stensättningar. Högen är 12 m diam och 1 m h. I ytan finns talrika synliga stenar, 0,2-0,4 m st. I högen finns flera gropar. En i N är 4x3 m (NÖ-SV) och 0,7 m dj. Den har förmodligen använts som källare. De andra groparna är 0,3-2,0 m diam och 0,2-0,4 m dj. Stensättningarna är 5-8 m diam och 0,2-0,4 m h. Övertorvade med i ytan enstaka stenar, 0,2-0,3 m st. Några har kantkedja, 0,2-0,3 m h av 0,2-0,4 m l stenar. Flertalet har mittgrop, 0,5-1,5 m diam och 0,2-0,4 m dj. "
+    },
+    {
+      "id": "L1943:7692",
+      "name": "L1943:7692",
+      "lamningstyp": "Gravfält",
+      "provenance": "measured",
+      "position": {
+        "x": 607.98,
+        "z": 300.16
+      },
+      "geometryLocal": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              589.8,
+              285.6
+            ],
+            [
+              570.3,
+              290.7
+            ],
+            [
+              591.4,
+              320.8
+            ],
+            [
+              597.6,
+              323.6
+            ],
+            [
+              605.4,
+              324.0
+            ],
+            [
+              613.8,
+              320.3
+            ],
+            [
+              621.6,
+              315.9
+            ],
+            [
+              628.5,
+              308.0
+            ],
+            [
+              629.9,
+              296.6
+            ],
+            [
+              629.8,
+              284.6
+            ],
+            [
+              627.8,
+              282.1
+            ],
+            [
+              615.6,
+              280.7
+            ],
+            [
+              600.4,
+              283.8
+            ],
+            [
+              589.8,
+              285.6
+            ]
+          ]
+        ]
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/82c6989d-afc3-424b-88d8-489b82126a6b",
+      "description": "Gravfält, 55x40 m (Ö-V), bestående av 15 fornlämningar. Dessa utgörs av 2 högar och 13 runda stensättningar. Högarna är 10-13 m diam och 1,2-1,4 m h. I ytan finns enstaka synliga stenar, 0,2-0,4 m st. Båda högarna har flera gropar, 0,6-3 m st och 0,2-0,6 m dj. Stensättningarna är 5-7 m diam och 0,2-0,4 m h. Övertorvade med i ytan enstaka synliga stenar, 0,2-0,3 m st. Några stenar är 0,5-0,7 m st. Flertalet har mittgrop, 0,5-2,0 m diam och 0,2-0,4 m dj."
+    },
+    {
+      "id": "L1943:7744",
+      "name": "L1943:7744",
+      "lamningstyp": "Grav- och boplatsområde",
+      "provenance": "measured",
+      "position": {
+        "x": -124.57,
+        "z": 119.86
+      },
+      "geometryLocal": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -186.0,
+              112.4
+            ],
+            [
+              -188.7,
+              117.1
+            ],
+            [
+              -189.3,
+              122.5
+            ],
+            [
+              -186.6,
+              129.3
+            ],
+            [
+              -180.7,
+              137.6
+            ],
+            [
+              -161.3,
+              154.6
+            ],
+            [
+              -145.2,
+              166.4
+            ],
+            [
+              -139.0,
+              170.7
+            ],
+            [
+              -132.6,
+              170.9
+            ],
+            [
+              -107.2,
+              168.0
+            ],
+            [
+              -81.6,
+              164.5
+            ],
+            [
+              -78.5,
+              160.9
+            ],
+            [
+              -76.9,
+              155.6
+            ],
+            [
+              -77.4,
+              150.8
+            ],
+            [
+              -79.4,
+              148.7
+            ],
+            [
+              -84.2,
+              146.7
+            ],
+            [
+              -95.2,
+              146.0
+            ],
+            [
+              -110.0,
+              147.4
+            ],
+            [
+              -122.4,
+              148.2
+            ],
+            [
+              -130.8,
+              145.6
+            ],
+            [
+              -141.1,
+              138.8
+            ],
+            [
+              -145.6,
+              131.8
+            ],
+            [
+              -147.3,
+              124.4
+            ],
+            [
+              -146.3,
+              120.6
+            ],
+            [
+              -142.5,
+              118.8
+            ],
+            [
+              -135.9,
+              118.5
+            ],
+            [
+              -125.9,
+              118.2
+            ],
+            [
+              -111.4,
+              112.6
+            ],
+            [
+              -98.9,
+              106.5
+            ],
+            [
+              -88.6,
+              99.8
+            ],
+            [
+              -79.6,
+              92.1
+            ],
+            [
+              -71.6,
+              76.4
+            ],
+            [
+              -68.9,
+              68.3
+            ],
+            [
+              -68.6,
+              62.1
+            ],
+            [
+              -72.8,
+              60.4
+            ],
+            [
+              -79.4,
+              62.4
+            ],
+            [
+              -94.4,
+              73.8
+            ],
+            [
+              -109.1,
+              84.8
+            ],
+            [
+              -119.3,
+              89.3
+            ],
+            [
+              -133.4,
+              90.7
+            ],
+            [
+              -147.3,
+              89.4
+            ],
+            [
+              -156.8,
+              90.9
+            ],
+            [
+              -163.4,
+              96.0
+            ],
+            [
+              -167.5,
+              103.4
+            ],
+            [
+              -175.5,
+              107.1
+            ],
+            [
+              -186.0,
+              112.4
+            ]
+          ]
+        ]
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/779d4da4-37f0-45e3-a630-a0f651b5495e",
+      "description": "Grav- och boplatsområde, närmast V-format, 135x40 m NV och 105x30 m (Ö-V), bestående av 22 fornlämningar. Dessa utgörs av 1 röse, 1 hög, 14 runda stensättningar, 2 kvadratiska stensättningar, 2 rektangulära stensättningar, 1 rest sten och 1 skärvstenshög. Röset är 18 m i diam och 1-1,2 m h. Fyllning av i allmänhet 0,2-0,4 m st stenar. Röset är gropigt då sten omplockats. I Ö är en grop, 10x5 m (NV-SÖ) st och 0,6 m dj. Högen är 12 m i diam och 0,8 m h. I mitten med dragning åt NV är 2 gropar, 2-3 m diam och 0,3-0,4 m dj. De runda stensättningarna är 4-8 m diam (vanligen 4-6) och 0,1-0,4 m h (vanligen 0,1-0,2). Övertorvade med i ytan enstaka - talrika synliga stenar, 0,2-0,4 m st. En har fyllning av 0,3-0,6 m st stenar. En i S del har mittsten, 1x0,5 m (Ö-V) st och 0,4 m h. Fyra stensättningar har helt eller delvis kantkedja, uppemot 0,4 m h, av 0,3-0,8 m l stenar. Fem har i mitten grop, 1,5-2,5 m diam och 0,05-0,1 m dj. De rektangulära stensättningarna är 6x5 m och 4x3 m (NÖ-SV till Ö-V) och 0,2-0,25 m h. Övertorvade med i ytan enstaka synliga stenar, 0,1-0,4 m st. Helt eller delvis kantkedja, 0,1-0,4 m h av 0,4-0,9 m l stenar. De kvadratiska stensättningarna är 7x7 resp 4x4 m st (NÖ-SV resp N-S) och 0,2 m h. Den största har fyllning av 0,2-0,4 m st stenar. Den andra är övertorvad med i ytan enstaka synliga stenar, 0,1-0,3 m st. Kantkedja, 0,1-0,4 m h av 0,4-0,6 m l stenar. Den större har även hörnstenar, 0,2-0,4 m h. Den resta stenen är 1 m diam och 1 m h. Stenen står i NV spetsen av en liggande triangulär häll, 1 m sida och 0,4 m h. Skärvstenshögen i områdets N kant, intill och S om ett flyttblock, är rund, 5 m diam och 0,4 m h. Anläggningen utgörs till övervägande delen av 0,02-0,05 m st skörbrända stenar uppblandade med sotig humus. I ytan finns enstaka 0,2-0,4 m st gråstenar. "
+    },
+    {
+      "id": "L1943:7827",
+      "name": "Broborg",
+      "lamningstyp": "Fornborg",
+      "provenance": "measured",
+      "position": {
+        "x": -6.78,
+        "z": -2.32
+      },
+      "geometryLocal": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -38.7,
+              -20.8
+            ],
+            [
+              -45.2,
+              -8.8
+            ],
+            [
+              -48.6,
+              5.1
+            ],
+            [
+              -47.5,
+              16.9
+            ],
+            [
+              -41.2,
+              26.8
+            ],
+            [
+              -33.5,
+              35.1
+            ],
+            [
+              -22.2,
+              41.6
+            ],
+            [
+              -9.2,
+              44.3
+            ],
+            [
+              5.8,
+              42.5
+            ],
+            [
+              18.5,
+              35.3
+            ],
+            [
+              34.2,
+              23.2
+            ],
+            [
+              40.8,
+              6.1
+            ],
+            [
+              44.4,
+              -12.8
+            ],
+            [
+              40.4,
+              -26.9
+            ],
+            [
+              33.3,
+              -37.8
+            ],
+            [
+              22.4,
+              -43.1
+            ],
+            [
+              4.0,
+              -44.7
+            ],
+            [
+              -9.8,
+              -43.8
+            ],
+            [
+              -21.3,
+              -37.4
+            ],
+            [
+              -30.2,
+              -28.7
+            ],
+            [
+              -38.7,
+              -20.8
+            ]
+          ]
+        ]
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/184ca0f6-16f9-4de8-bbec-99aa959f9824",
+      "description": "Fornborg, 95x85 m (NÖ-SV), bestående av en inre och en yttre ringvall. I N och V begränsas borgen av branta sluttningar. Den inre vallen är ca 300 m l, 8-15 m br och 1-2 m h, av i allmänhet 0,3-1 m st stenar, enstaka större. Insidan av muren är förstärkt med jord. Ställvis 1 m h kallmurning. I VNV och ÖSÖ är vallen försedd med ingångar, 3-5 m br. Förslaggad och skörbränd sten finns på flera platser, men särskilt i S. Den yttre vallen är ca 140 m l, 7-10 m br och 0,5-1,5 m h, av i allmänhet 0,3-1 m st stenar, enstaka större. Ställvis 1,5 m h kallmurning. I ÖSÖ och NNÖ har vallen ingångar, 3-5 m br. Från SÖ leder en stig in i borgen. Den inre muren är huvudsakligen raserad utåt, medan den yttre är raserad både inåt och utåt. Borgens centrala del utgörs av röjda ytor omgivna av grovblockig morän samt berg i dagen. I anläggningens centrala krönparti finns en ev. stensättning, rund, 7 m i diam och 0,4 m h. Övertorvad med i ytan mycket talrika plockstenar samt enstaka 0,5-1,5 m st stenar. Smågropig i ytan."
+    },
+    {
+      "id": "L1943:7830",
+      "name": "L1943:7830",
+      "lamningstyp": "Gravfält",
+      "provenance": "measured",
+      "position": {
+        "x": 252.02,
+        "z": 874.01
+      },
+      "geometryLocal": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              241.2,
+              881.1
+            ],
+            [
+              253.0,
+              887.2
+            ],
+            [
+              259.2,
+              891.6
+            ],
+            [
+              266.6,
+              892.9
+            ],
+            [
+              271.8,
+              890.9
+            ],
+            [
+              275.6,
+              884.7
+            ],
+            [
+              277.6,
+              877.3
+            ],
+            [
+              275.5,
+              870.3
+            ],
+            [
+              271.9,
+              863.9
+            ],
+            [
+              262.7,
+              857.8
+            ],
+            [
+              253.3,
+              856.4
+            ],
+            [
+              242.1,
+              855.5
+            ],
+            [
+              233.1,
+              859.1
+            ],
+            [
+              226.5,
+              863.1
+            ],
+            [
+              224.3,
+              868.0
+            ],
+            [
+              227.0,
+              872.9
+            ],
+            [
+              233.8,
+              878.3
+            ],
+            [
+              241.2,
+              881.1
+            ]
+          ]
+        ]
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/082e4deb-e3b0-4237-af1a-9a444a690004",
+      "description": "Gravfält, 50x30 m (VNV-ÖSÖ), bestående av 12 fornlämningar. Dessa utgöres av 10 runda stensättningar, 1 rektangulär stensättningoch 1 kvadratisk stensättning. De runda stensättningarna är 3-7 mdiam och 0,2-0,3 m h. Övertorvade med i ytan talrika synliga stenar, 0,2-0,5 m st. Begränsningen är hos flertalet oklar. Den rektangulära stensättningen är 5x2,5 m st och 0,2 m h. Övertorvad medi ytan talrika synliga stenar 0,2-0,4 m st. Kantkedja, 0,1-0,2 mh av 0,4-0,8 m l stenar. Den kvadratiska stensättningen är 4x4 moch 0,1 m h. Övertorvad med i ytan enstaka synliga stenar, 0,1-0,2 m st. Kantkedja, 0,1-0,4 m h, av 0,1-0,8 m l stenar, vanligen 0,2-0,6. I SÖ del är en sten 1,5x1 m (N 35cg V-S 35cg Ö) och 0,2-0,5 m h. Den rektangulära stensättningen finns i SÖ del och den kvadratiska stensättningen i N del. Risbelamrat. Beväxt med granskog. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1943:7851",
+      "name": "L1943:7851",
+      "lamningstyp": "Gravfält",
+      "provenance": "measured",
+      "position": {
+        "x": 179.99,
+        "z": 895.11
+      },
+      "geometryLocal": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              156.1,
+              898.3
+            ],
+            [
+              153.5,
+              907.1
+            ],
+            [
+              155.5,
+              912.3
+            ],
+            [
+              162.0,
+              915.4
+            ],
+            [
+              174.4,
+              919.0
+            ],
+            [
+              193.0,
+              921.5
+            ],
+            [
+              201.8,
+              919.5
+            ],
+            [
+              204.4,
+              915.0
+            ],
+            [
+              205.5,
+              908.4
+            ],
+            [
+              203.3,
+              897.1
+            ],
+            [
+              198.0,
+              875.7
+            ],
+            [
+              194.1,
+              865.5
+            ],
+            [
+              187.1,
+              858.7
+            ],
+            [
+              177.9,
+              859.6
+            ],
+            [
+              171.1,
+              865.6
+            ],
+            [
+              166.0,
+              879.8
+            ],
+            [
+              156.1,
+              898.3
+            ]
+          ]
+        ]
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/d978ac12-73c6-4fe9-b7ef-9219b93defc3",
+      "description": "Gravfält, 55x50 m (NNÖ-SSV), bestående av 10 fornlämningar. Dessa utgöres av 1 hög och 9 runda stensättningar. Högen är 7 m diamoch 0,7 m h. I ytan talrika synliga stenar, 0,2-0,4 m st. De runda stensättningarna är 5-6 m diam (varav 2 är 9 m) och 0,2-0,5 m h. Övertorvade med i ytan talrika stenar, 0,2-0,5 m st. Några hardelvis synlig kantkedja, 0,2-0,4 m h, av 0,3-0,8 m l stenar. En har i mitten grop, 2 m i diam och 0,5 m dj. Två stensättningar harmöjligen rektangulär form. Beväxt med granskog. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1943:7921",
+      "name": "L1943:7921",
+      "lamningstyp": "Gravfält",
+      "provenance": "measured",
+      "position": {
+        "x": -543.59,
+        "z": 639.02
+      },
+      "geometryLocal": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -552.2,
+              635.7
+            ],
+            [
+              -555.9,
+              656.5
+            ],
+            [
+              -558.5,
+              676.3
+            ],
+            [
+              -561.0,
+              690.9
+            ],
+            [
+              -557.6,
+              695.7
+            ],
+            [
+              -553.8,
+              697.9
+            ],
+            [
+              -549.2,
+              695.7
+            ],
+            [
+              -545.4,
+              689.3
+            ],
+            [
+              -541.2,
+              679.0
+            ],
+            [
+              -536.9,
+              666.4
+            ],
+            [
+              -533.3,
+              657.2
+            ],
+            [
+              -530.2,
+              635.2
+            ],
+            [
+              -526.8,
+              607.6
+            ],
+            [
+              -525.9,
+              581.2
+            ],
+            [
+              -527.7,
+              572.6
+            ],
+            [
+              -531.5,
+              569.6
+            ],
+            [
+              -536.5,
+              572.6
+            ],
+            [
+              -541.3,
+              581.2
+            ],
+            [
+              -547.4,
+              601.9
+            ],
+            [
+              -550.9,
+              621.3
+            ],
+            [
+              -552.2,
+              635.7
+            ]
+          ]
+        ]
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/1c56b1f6-d8b4-4f51-a1cb-8959f1013551",
+      "description": "Gravfält, 130x20 m (N-S), bestående av 13 fornlämningar. Dessa utgöres av 1 hög, 5 runda stensättningar och 7 insjunkna gravar. Högen är 7 m diam och 0,6 m h. De runda stensättingarna av vilka flera är osäkra är 4-7 m diam och 0,1-0,25 m h. Övertorvade med iytan enstaka 0,2-0,3 m st st stenar. I områdets centrala del ligger 7 insjunkningar? av vilka några är osäkra. Dessa är 3-7 m l, 2-5 m br och 0,2-0,4 m dj. 5 är orienterade i Ö-V och 2 m i N-S. De bägge senare, belägna längst mot S, är oregelbundna till formen. Samtliga ligger omedelbart V om åskammen. Enligt 1952 års inv skall en vara undersökt! Åsen är skadad av mindre grustäkter vilket försvårar bedömningen. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1943:7996",
+      "name": "L1943:7996",
+      "lamningstyp": "Boplats",
+      "provenance": "measured",
+      "position": {
+        "x": 460.14,
+        "z": 1864.95
+      },
+      "geometryLocal": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              481.3,
+              1864.7
+            ],
+            [
+              479.8,
+              1859.9
+            ],
+            [
+              472.3,
+              1849.9
+            ],
+            [
+              453.7,
+              1838.8
+            ],
+            [
+              444.8,
+              1835.3
+            ],
+            [
+              442.1,
+              1842.2
+            ],
+            [
+              436.5,
+              1857.9
+            ],
+            [
+              432.3,
+              1869.5
+            ],
+            [
+              437.4,
+              1875.0
+            ],
+            [
+              459.9,
+              1891.4
+            ],
+            [
+              468.8,
+              1894.9
+            ],
+            [
+              472.9,
+              1888.0
+            ],
+            [
+              478.9,
+              1877.1
+            ],
+            [
+              481.3,
+              1864.7
+            ]
+          ]
+        ]
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/55420f70-0bba-4b4b-b3e9-46f3d5179dac",
+      "description": "Boplats, ca 70x40 m (NV-SÖ) enl. Husby-Långhundras hembygdsförening. Vid schaktning för villabebyggelse upptäcktes sotfläckar med anhopningar av skörbrända stenar. Även keramik och lerklining påträffades inom Ö delen av tomten."
+    },
+    {
+      "id": "L1943:8004",
+      "name": "L1943:8004",
+      "lamningstyp": "Boplats",
+      "provenance": "measured",
+      "position": {
+        "x": 485.59,
+        "z": 1750.25
+      },
+      "geometryLocal": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              494.0,
+              1797.1
+            ],
+            [
+              500.6,
+              1796.4
+            ],
+            [
+              506.5,
+              1791.2
+            ],
+            [
+              515.8,
+              1770.5
+            ],
+            [
+              520.5,
+              1743.0
+            ],
+            [
+              522.1,
+              1726.6
+            ],
+            [
+              516.3,
+              1715.9
+            ],
+            [
+              499.2,
+              1706.6
+            ],
+            [
+              479.8,
+              1703.5
+            ],
+            [
+              466.3,
+              1702.2
+            ],
+            [
+              460.1,
+              1706.7
+            ],
+            [
+              455.5,
+              1722.9
+            ],
+            [
+              455.2,
+              1742.3
+            ],
+            [
+              455.1,
+              1763.2
+            ],
+            [
+              455.9,
+              1779.9
+            ],
+            [
+              458.1,
+              1789.1
+            ],
+            [
+              494.0,
+              1797.1
+            ]
+          ]
+        ]
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/e1dd09be-fa76-4cad-a616-0f21421b0f7c",
+      "description": "Boplats, ca 90x70 m (N-S), med fynd av skörbränd sten och mörkfärgad jord.  "
+    },
+    {
+      "id": "L2021:8789",
+      "name": "L2021:8789",
+      "lamningstyp": "Boplatslämning övrig",
+      "provenance": "measured",
+      "position": {
+        "x": 441.5,
+        "z": 1781.6
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/ae46ee77-38b1-4055-9510-3a98a056a27e",
+      "description": "Boplatslämning övrig, bestående av 2 stolphål. Det ena stolphålet är närmast runt, ca 0,4x0,3 m (N-S), med stenskoning av 2 st 0,1-0,15 m st stenar. 8 m N om detta finns det andra stolphålet, även det närmast runt, ca 0,35x0,3 m (N-S) med stenskoning av 4 st 0,1-0,15 m st stenar. Båda stolphålen påträffades på 0,3 m djup. "
+    },
+    {
+      "id": "L2021:8795",
+      "name": "L2021:8795",
+      "lamningstyp": "Boplatslämning övrig",
+      "provenance": "measured",
+      "position": {
+        "x": -190.9,
+        "z": 207.8
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/b70e6497-186d-4e63-8ac4-b8ca95b40d91",
+      "description": "Kulturlager, ca 2,4x1,0 m (NÖ-SV), av mörkbrun lera innehållande sot, kol, enstaka skörbrända och skärviga stenar samt bränd lera. Framkom på ca 0,3 m dj och är uppskattningsvis ca 0,2 m tj. Ej avgränsat. Daterat till förromersk järnålder (390–205 f. Kr.) genom 14C-analys."
+    },
+    {
+      "id": "L2026:1678",
+      "name": "L2026:1678",
+      "lamningstyp": "Gravfält",
+      "provenance": "measured",
+      "position": {
+        "x": -557.73,
+        "z": 1276.71
+      },
+      "geometryLocal": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -563.7,
+              1291.1
+            ],
+            [
+              -570.8,
+              1282.0
+            ],
+            [
+              -572.2,
+              1269.3
+            ],
+            [
+              -562.1,
+              1255.2
+            ],
+            [
+              -557.6,
+              1254.8
+            ],
+            [
+              -551.6,
+              1258.3
+            ],
+            [
+              -547.5,
+              1265.6
+            ],
+            [
+              -548.8,
+              1274.6
+            ],
+            [
+              -549.2,
+              1280.4
+            ],
+            [
+              -550.5,
+              1288.6
+            ],
+            [
+              -553.4,
+              1293.2
+            ],
+            [
+              -559.4,
+              1293.0
+            ],
+            [
+              -563.7,
+              1291.1
+            ]
+          ]
+        ]
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/9b62fd6a-809e-4e54-bad4-f8f60d1f5a19",
+      "description": "Gravfält, 40x25 m (N-S), bestående av 7 rundade stensättningar. En stensättning i krönläge 8 m stor, 0,5 m hög, kantkedja av 0,5-0,8 m st stenar. 6 stensättningar övertorvade, 3-6 m stora, 0,2-0,3 m höga, kantkedor av 0,2-0,4 m st stenar i 3 av sstensättningarna."
+    }
+  ]
 }
