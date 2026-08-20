@@ -1,0 +1,84 @@
+# Deploys the Vite app (app/) to GitHub Pages.
+#
+# Won't fire until Phase 1 lands the app: the push trigger is path-filtered to
+# app/**, and a guard step skips the build if app/package.json doesn't exist
+# (covers manual workflow_dispatch runs before then).
+#
+# One-time repo setup: Settings -> Pages -> Source = "GitHub Actions".
+#
+# The pipeline (pipeline/) never runs in CI — Geotorget credentials stay local;
+# app/public/data/ is committed by the pipeline run (PLAN.md §4.8).
+
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "app/**"
+      - ".github/workflows/deploy-pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      has_app: ${{ steps.guard.outputs.has_app }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check that the app exists yet
+        id: guard
+        run: |
+          if [ -f app/package.json ]; then
+            echo "has_app=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_app=false" >> "$GITHUB_OUTPUT"
+            echo "app/ not present yet (pre-Phase-1 repo) — skipping build."
+          fi
+
+      - name: Set up Node
+        if: steps.guard.outputs.has_app == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Install dependencies
+        if: steps.guard.outputs.has_app == 'true'
+        working-directory: app
+        run: npm ci
+
+      - name: Build
+        if: steps.guard.outputs.has_app == 'true'
+        working-directory: app
+        # Project site is served from /<repo>/ — set the Vite base accordingly.
+        run: npm run build -- --base=/${{ github.event.repository.name }}/
+
+      - name: Upload Pages artifact
+        if: steps.guard.outputs.has_app == 'true'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: app/dist
+
+  deploy:
+    needs: build
+    if: needs.build.outputs.has_app == 'true'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
