@@ -1,0 +1,120 @@
+{
+  "schemaVersion": 1,
+  "site": {
+    "id": "broborg",
+    "name": "Broborg",
+    "raa": {
+      "lamningsnummer": "L1943:7827",
+      "raaNummer": "Husby-Långhundra 156:1",
+      "kmrUuid": "184ca0f6-16f9-4de8-bbec-99aa959f9824",
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/184ca0f6-16f9-4de8-bbec-99aa959f9824"
+    }
+  },
+  "crs": {
+    "horizontal": "EPSG:3006",
+    "verticalDatum": "RH2000"
+  },
+  "origin": {
+    "e": 665810.0,
+    "n": 6627880.0
+  },
+  "grids": {
+    "core": {
+      "path": "dem_core.tif",
+      "resolution": 1.0,
+      "width": 2000,
+      "height": 2000,
+      "bounds3006": {
+        "minE": 664810.0,
+        "minN": 6626880.0,
+        "maxE": 666810.0,
+        "maxN": 6628880.0
+      },
+      "boundsLocal": {
+        "minX": -1000.0,
+        "minZ": -1000.0,
+        "maxX": 1000.0,
+        "maxZ": 1000.0
+      },
+      "encoding": {
+        "dtype": "int16",
+        "scale": 0.1,
+        "unit": "m"
+      },
+      "minElevation": 7.5,
+      "maxElevation": 55.5
+    },
+    "context": {
+      "path": "dem_context.tif",
+      "resolution": 2.0,
+      "width": 2000,
+      "height": 2000,
+      "bounds3006": {
+        "minE": 663810.0,
+        "minN": 6625880.0,
+        "maxE": 667810.0,
+        "maxN": 6629880.0
+      },
+      "boundsLocal": {
+        "minX": -2000.0,
+        "minZ": -2000.0,
+        "maxX": 2000.0,
+        "maxZ": 2000.0
+      },
+      "encoding": {
+        "dtype": "int16",
+        "scale": 0.1,
+        "unit": "m"
+      },
+      "minElevation": 6.8,
+      "maxElevation": 57.2
+    }
+  },
+  "assets": {
+    "sites": "sites.json"
+  },
+  "layers": [
+    {
+      "id": "terrain",
+      "name": "Terrain (LiDAR DEM)",
+      "provenance": "measured"
+    },
+    {
+      "id": "sites",
+      "name": "Registered sites (KMR)",
+      "provenance": "measured"
+    }
+  ],
+  "attribution": [
+    {
+      "text": "Höjddata: © Lantmäteriet, Markhöjdmodell Nedladdning (CC BY 4.0)",
+      "license": "CC BY 4.0",
+      "url": "https://www.lantmateriet.se"
+    },
+    {
+      "text": "Fornlämningsinformation från Riksantikvarieämbetet, Kulturmiljöregistret (CC0), hämtad 2026-08-20",
+      "license": "CC0",
+      "url": "https://pub.raa.se"
+    }
+  ],
+  "provenance": {
+    "generated": "2026-08-20T13:14:24+00:00",
+    "pipeline": "fornborg-pipeline",
+    "sources": [
+      {
+        "id": "lantmateriet-dtm",
+        "product": "Markhöjdmodell Nedladdning (dtm-cog)",
+        "tiles": [
+          "662_66"
+        ],
+        "fetched": "2026-08-20T13:13:20+00:00"
+      }
+    ],
+    "processing": [
+      "windowed /vsicurl read",
+      "nodata fill (0 cells)",
+      "int16 dm quantization",
+      "COG deflate"
+    ]
+  }
+}
