@@ -14,13 +14,15 @@ import './style.css';
 import { CameraModes, type EnterOptions } from './camera/modes';
 import { createOrbitRig } from './camera/orbitCamera';
 import * as coords from './lib/coords';
-import { loadGrid, loadManifest, loadWaterAssets, siteIdFromLocation } from './state/loader';
+import { loadGrid, loadManifest, loadSites, loadWaterAssets, siteIdFromLocation } from './state/loader';
 import type { SiteManifest } from './state/manifest';
 import type { HeightGrid } from './terrain/heightGrid';
 import { Lighting } from './terrain/lighting';
 import { Terrain } from './terrain/terrain';
-import { addWaterControls, createControls } from './ui/controls';
+import { SitesLayer } from './overlays/sites';
+import { addSitesControls, addWaterControls, createControls } from './ui/controls';
 import { Hud } from './ui/hud';
+import { SitePanel } from './ui/sitePanel';
 import { ViewshedController } from './viewshed/controller';
 import { ObserverMarker } from './viewshed/observer';
 import { ViewshedOverlay } from './viewshed/overlay';
@@ -116,6 +118,16 @@ function applyWaterSettings(): void {
   }
 }
 
+/** Phase-5 registered-sites overlay; built in start() if `assets.sites` exists. */
+let sitesLayer: SitesLayer | null = null;
+let sitesControls: { update(): void } | null = null;
+
+function applySitesSettings(): void {
+  if (!sitesLayer) return;
+  sitesLayer.setVisible(controlState.sites.show);
+  sitesControls?.update();
+}
+
 /** Ask the worker for a mask at the marker's position (latest-wins throttled). */
 function requestViewshed(): void {
   if (!viewshed || !terrain.contextGrid) return;
@@ -131,6 +143,7 @@ const { gui, state: controlState } = createControls(document.body, {
     terrain.setExaggeration(value);
     hud.setExaggeration(value);
     viewshed?.marker.refreshHeight();
+    sitesLayer?.refreshHeights();
     refit();
   },
   onToggleFirstPerson: () => modes.toggle(groundAt, terrain.getExaggeration()),
@@ -291,6 +304,38 @@ async function start(): Promise<void> {
     applyWaterSettings();
   }
 
+  // --- Phase 5: registered-sites overlay (optional asset; absent = off) -----
+  // Flat cartographic markers + Fornsök popups from the KMR extract. The layer
+  // lives in the scene (not the Y-scaled terrain group) and re-seats itself on
+  // exaggeration changes, like the viewshed observer.
+  const sitesFile = await loadSites(siteId, manifest);
+  if (sitesFile) {
+    const panel = new SitePanel(document.body);
+    sitesLayer = new SitesLayer(
+      sitesFile,
+      rig.camera,
+      renderer.domElement,
+      groundAt,
+      () => terrain.getExaggeration(),
+      {
+        onSelect: (site) => {
+          if (site) panel.show(site);
+          else panel.hide();
+        },
+      },
+    );
+    panel.onClose = () => sitesLayer?.select(null);
+    scene.add(sitesLayer.group);
+
+    const sitesName = manifest.layers?.find((l) => l.id === 'sites')?.name ?? 'Registered sites (KMR)';
+    sitesControls = addSitesControls(gui, controlState, {
+      name: sitesName,
+      count: sitesLayer.count,
+      onChange: () => applySitesSettings(),
+    });
+    applySitesSettings();
+  }
+
   hud.setProgress('Ready', 1);
   hud.finishLoading();
 
@@ -351,6 +396,20 @@ async function start(): Promise<void> {
       },
       levelAt(yearCE: number) {
         return water ? water.levelAt(yearCE) : null;
+      },
+    },
+    // Phase 5. Same convention as `water`: present with `layer: null` when the
+    // site ships no sites.json, so headless checks can tell off from missing.
+    sites: {
+      layer: sitesLayer,
+      state: controlState.sites,
+      count: sitesLayer?.count ?? 0,
+      setEnabled(on: boolean) {
+        controlState.sites.show = on;
+        applySitesSettings();
+      },
+      select(id: string | null) {
+        sitesLayer?.select(id);
       },
     },
   };

@@ -16,6 +16,7 @@ import { decodeHeights, elevationRange, type HeightGrid } from '../terrain/heigh
 import { boundsLocalFrom3006 } from '../lib/coords';
 import type { ConnectGrid } from '../water/connectGrid';
 import { validateShoreline, type ShorelineTable } from '../water/shoreline';
+import { validateSites, type SitesFile } from '../overlays/sites';
 
 export const DEFAULT_SITE_ID = 'broborg';
 
@@ -276,6 +277,38 @@ export async function loadWaterAssets(
     // A broken optional asset must not take the whole site down with it.
     console.error(
       `[fornborg] ${siteId}: paleo-shoreline layer disabled — ` +
+        (error instanceof Error ? error.message : String(error)),
+    );
+    return null;
+  }
+}
+
+/**
+ * The Phase-5 sites overlay gate: `assets.sites` declared, fetched and valid, or
+ * the layer is off. Same policy as the water pair — a missing declaration is a
+ * choice and says nothing; a broken declared asset logs the hard-fail message
+ * and disables the feature rather than taking the site down.
+ */
+export async function loadSites(siteId: string, manifest: SiteManifest): Promise<SitesFile | null> {
+  const path = manifest.assets?.['sites'];
+  if (!path) return null;
+  try {
+    const url = `${siteDataUrl(siteId)}${path}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`${res.status} ${res.statusText} while fetching ${url}`);
+    const text = await res.text();
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      throw new Error(
+        `${url} did not return JSON (got ${res.headers.get('content-type') ?? 'unknown content type'}).`,
+      );
+    }
+    return validateSites(parsed, path);
+  } catch (error) {
+    console.error(
+      `[fornborg] ${siteId}: registered-sites layer disabled — ` +
         (error instanceof Error ? error.message : String(error)),
     );
     return null;

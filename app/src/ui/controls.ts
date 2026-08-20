@@ -31,6 +31,9 @@ export interface ControlState {
     /** Signed calendar year; meaningful only once the water folder exists. */
     yearCE: number;
   };
+  sites: {
+    show: boolean;
+  };
 }
 
 export interface ControlHandlers {
@@ -57,6 +60,9 @@ export function createControls(parent: HTMLElement, handlers: ControlHandlers): 
     water: {
       show: false,
       yearCE: 0,
+    },
+    sites: {
+      show: true,
     },
   };
 
@@ -158,4 +164,32 @@ export function addWaterControls(gui: GUI, state: ControlState, options: WaterCo
   folder.open();
 
   return { update };
+}
+
+export interface SitesControlOptions {
+  /** Layer name from `manifest.layers` (falls back to a generic label). */
+  name: string;
+  count: number;
+  onChange(): void;
+}
+
+/**
+ * Phase-5 registered-sites folder. Only created for sites that ship
+ * `assets.sites`. Registry data is "measured" (PLAN §6.1) — no caveat needed,
+ * but the source is named right on the control.
+ */
+export function addSitesControls(gui: GUI, state: ControlState, options: SitesControlOptions): { update(): void } {
+  const folder = gui.addFolder(options.name);
+  const show = folder
+    .add(state.sites, 'show')
+    .name(`show markers (${options.count})`)
+    .onChange(() => options.onChange());
+  note(folder, 'control-note', 'Kulturmiljöregistret (RAÄ). Click a marker for details and its Fornsök link.');
+  folder.open();
+
+  return {
+    update(): void {
+      show.updateDisplay();
+    },
+  };
 }
