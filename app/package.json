@@ -1,0 +1,28 @@
+{
+  "name": "fornborg-explorer",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Fornborg Explorer — interactive three.js terrain for Swedish hillforts",
+  "license": "MIT",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "make-test-dem": "node scripts/make-test-dem.mjs"
+  },
+  "dependencies": {
+    "geotiff": "^3.0.5",
+    "lil-gui": "^0.21.0",
+    "three": "^0.185.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.3",
+    "@types/three": "^0.185.4",
+    "typescript": "^5.9.3",
+    "vite": "^8.2.2",
+    "vitest": "^4.1.11"
+  }
+}
