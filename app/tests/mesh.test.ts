@@ -167,3 +167,53 @@ describe('seam skirt', () => {
     expect(colors.getX(1)).toBeLessThan(colors.getX(0));
   });
 });
+
+describe('featherEdges (Phase 6 seam polish)', async () => {
+  const { featherEdges, FEATHER_METERS } = await import('../src/terrain/terrain');
+  const { heightAtLocal, localFromGrid } = await import('../src/lib/coords');
+
+  // Core: 32x32 @ 1 m over [-16,16]; context: 32x32 @ 2 m over [-32,32].
+  const core = {
+    width: 32, height: 32, resolution: 1,
+    boundsLocal: { minX: -16, minZ: -16, maxX: 16, maxZ: 16 },
+    heights: new Float32Array(32 * 32).fill(10),
+    minElevation: 10, maxElevation: 10,
+  };
+  const context = {
+    width: 32, height: 32, resolution: 2,
+    boundsLocal: { minX: -32, minZ: -32, maxX: 32, maxZ: 32 },
+    heights: Float32Array.from({ length: 32 * 32 }, (_, i) => 12 + (i % 32) * 0.1),
+    minElevation: 12, maxElevation: 15.1,
+  };
+
+  it('pins boundary vertices to the context surface and leaves the interior raw', () => {
+    const display = featherEdges(core, context);
+    // Boundary vertex: exactly the context height at that point.
+    for (const [c, r] of [[0, 5], [31, 20], [7, 0], [12, 31]] as const) {
+      const { x, z } = localFromGrid(c, r, core);
+      expect(display.heights[r * 32 + c]).toBeCloseTo(heightAtLocal(context.heights, x, z, context), 5);
+    }
+    // Interior (>= FEATHER_METERS in): untouched.
+    const b = FEATHER_METERS;
+    for (const [c, r] of [[b, b], [16, 16], [31 - b, 12]] as const) {
+      expect(display.heights[r * 32 + c]).toBe(10);
+    }
+    // The analysis grid is never mutated.
+    expect(core.heights[0]).toBe(10);
+    expect(core.heights[5 * 32 + 31]).toBe(10);
+  });
+
+  it('blends monotonically across the band', () => {
+    const display = featherEdges(core, context);
+    // Walk inward along row 16 from the west edge: values move from context
+    // toward the raw 10 m without overshooting.
+    const row = 16;
+    const start = display.heights[row * 32];
+    for (let c = 1; c <= FEATHER_METERS; c++) {
+      const prev = display.heights[row * 32 + c - 1];
+      const cur = display.heights[row * 32 + c];
+      expect(Math.abs(cur - 10)).toBeLessThanOrEqual(Math.abs(prev - 10) + 1e-6);
+    }
+    expect(Math.abs(start - 10)).toBeGreaterThan(1); // edge really is context-pinned
+  });
+});

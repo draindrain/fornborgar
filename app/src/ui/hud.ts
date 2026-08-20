@@ -70,6 +70,11 @@ export class Hud {
     parent.append(this.root);
   }
 
+  /** Mount an always-visible action (the methods button) into the header. */
+  mountAction(node: HTMLElement): void {
+    this.root.querySelector('.hud-header')?.append(node);
+  }
+
   setSite(name: string, subtitle: string): void {
     this.titleEl.textContent = name;
     this.subtitleEl.textContent = subtitle;

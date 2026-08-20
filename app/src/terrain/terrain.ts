@@ -9,6 +9,7 @@
  */
 
 import * as THREE from 'three';
+import { heightAtLocal, localFromGrid } from '../lib/coords';
 import type { HeightGrid } from './heightGrid';
 import { ElevationTint, createContextMaterial, createSkirtMaterial, createTerrainMaterial } from './material';
 import {
@@ -25,6 +26,42 @@ const nextFrame = (): Promise<void> =>
     if (typeof requestAnimationFrame === 'function') requestAnimationFrame(() => resolve());
     else setTimeout(resolve, 0);
   });
+
+/** Width (m) of the render-only blend band along the core's outer edge. */
+export const FEATHER_METERS = 8;
+
+/**
+ * Render-only copy of the core grid whose outer `FEATHER_METERS` band is blended
+ * onto the context surface: exactly the context height at the boundary vertices,
+ * easing back to the raw core height inland. This pins the core edge to the ring
+ * it abuts, closing the seam at any exaggeration. The raw grid is untouched —
+ * analysis and walking never see the blend.
+ */
+export function featherEdges(core: HeightGrid, context: HeightGrid): HeightGrid {
+  const { width, height } = core;
+  const band = Math.max(1, Math.round(FEATHER_METERS / core.resolution));
+  const heights = core.heights.slice();
+
+  for (let row = 0; row < height; row++) {
+    const edgeZ = Math.min(row, height - 1 - row);
+    for (let col = 0; col < width; col++) {
+      const edge = Math.min(edgeZ, col, width - 1 - col);
+      if (edge >= band) {
+        // Interior rows: skip straight to the far band (columns are contiguous).
+        if (edgeZ >= band) {
+          col = width - 1 - band;
+        }
+        continue;
+      }
+      const t = edge / band; // 0 at the boundary -> 1 inland
+      const { x, z } = localFromGrid(col, row, core);
+      const contextY = heightAtLocal(context.heights, x, z, context);
+      const i = row * width + col;
+      heights[i] = contextY * (1 - t) + heights[i] * t;
+    }
+  }
+  return { ...core, heights };
+}
 
 /** Dispose every geometry under `group` and empty it, leaving the group in place. */
 function disposeChildren(group: THREE.Group): void {
@@ -120,10 +157,16 @@ export class Terrain {
     this.coreGrid = grid;
     disposeChildren(this.coreGroup);
 
-    const ranges = chunkRanges(grid);
+    // Phase-6 seam polish: mesh a display copy whose outer few meters are
+    // feathered onto the context surface, so the two grids meet exactly and the
+    // hairline that used to appear at high exaggeration cannot open. Analysis
+    // (`this.coreGrid`, viewshed, walking) keeps the raw heights.
+    const displayGrid = this.contextGrid ? featherEdges(grid, this.contextGrid) : grid;
+
+    const ranges = chunkRanges(displayGrid);
     let done = 0;
     for (const range of ranges) {
-      const mesh = new THREE.Mesh(buildGridPatch(grid, range, this.tint), this.coreMaterial);
+      const mesh = new THREE.Mesh(buildGridPatch(displayGrid, range, this.tint), this.coreMaterial);
       mesh.name = `core-chunk-${done}`;
       this.coreGroup.add(mesh);
       onProgress((++done / (ranges.length + 1)) * 0.9);
@@ -131,7 +174,7 @@ export class Terrain {
     }
 
     const depth = Math.max(8, (grid.maxElevation - grid.minElevation) * 0.25);
-    const skirt = new THREE.Mesh(buildSkirt(grid, depth, this.tint), this.skirtMaterial);
+    const skirt = new THREE.Mesh(buildSkirt(displayGrid, depth, this.tint), this.skirtMaterial);
     skirt.name = 'core-skirt';
     this.coreGroup.add(skirt);
 

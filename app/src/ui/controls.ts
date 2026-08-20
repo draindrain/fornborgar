@@ -118,6 +118,12 @@ export function createControls(parent: HTMLElement, handlers: ControlHandlers): 
   vs.add(state.viewshed, 'curvature').name('curvature + refraction (k = 0.13)').onChange(changed);
   vs.close();
 
+  // Phase 6, mobile degradation: on a narrow viewport the panel starts folded
+  // so the scene is not born half-covered; everything stays reachable.
+  if (typeof window.matchMedia === 'function' && window.matchMedia('(max-width: 720px)').matches) {
+    gui.close();
+  }
+
   return { gui, state };
 }
 

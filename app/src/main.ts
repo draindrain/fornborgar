@@ -23,6 +23,9 @@ import { Terrain } from './terrain/terrain';
 import { SitesLayer } from './overlays/sites';
 import { addPalisadeControls, addSitesControls, addWaterControls, createControls } from './ui/controls';
 import { Hud } from './ui/hud';
+import { Legend } from './ui/legend';
+import { buildMethodsModel } from './ui/methodsModel';
+import { MethodsPanel } from './ui/methodsPanel';
 import { SitePanel } from './ui/sitePanel';
 import { ViewshedController } from './viewshed/controller';
 import { ObserverMarker } from './viewshed/observer';
@@ -374,6 +377,25 @@ async function start(): Promise<void> {
   }
   // -------------------------------------------------------------------------
 
+  // --- Phase 6: methods panel + legend (PLAN §6.1/§6.2) ---------------------
+  // Built after every optional asset has resolved, so the panel describes only
+  // the layers this site actually ships, in the data's own words.
+  const methods = new MethodsPanel(document.body);
+  methods.setContent(buildMethodsModel(manifest, assets?.table ?? null, rampart, sitesFile));
+  hud.mountAction(methods.button);
+
+  const legend = new Legend(document.body);
+  legend.setContent(manifest.layers ?? [], sitesFile?.sites ?? null);
+  // -------------------------------------------------------------------------
+
+  // The sites overlay is cartographic (flat map symbols): standing on the
+  // ground it reads as floating sheets, so it hides in first person.
+  modes.onModeChange = (mode) => {
+    if (mode === 'transition') hud.setModeHint('');
+    else hud.setModeHint(mode === 'firstPerson' ? FP_HINT : ORBIT_HINT);
+    sitesLayer?.setVisible(controlState.sites.show && mode !== 'firstPerson');
+  };
+
   hud.setProgress('Ready', 1);
   hud.finishLoading();
 
@@ -468,6 +490,15 @@ async function start(): Promise<void> {
         applyPalisadeSettings();
       },
     },
+    // Phase 6.
+    methods: {
+      open: () => methods.show(),
+      close: () => methods.hide(),
+      get isOpen() {
+        return methods.open;
+      },
+    },
+    legend,
   };
 
   // One more rendered frame, then the deterministic ready flag.
