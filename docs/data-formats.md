@@ -205,9 +205,10 @@ Not a file format, but part of the frozen contract because pipeline tests valida
   **1 = visible, 0 = hidden**. (The observer's own cell is visible.) Rendered as a
   `DataTexture` blended over both meshes.
 - Acceptance: pipeline pytest compares the worker (run under Node) against
-  `gdal_viewshed` (`-cc 0.86667` ≙ 1−k with GDAL's convention, same observer/target
+  `gdal_viewshed` (`-cc 0.87` ≙ 1−k with GDAL's convention, same observer/target
   heights) on identical synthetic grids; required cellwise agreement ≥ 97 % overall on
   rough terrain and exact on analytically-known cases (flat plane, single ridge).
+  (GDAL's earth radius differs from R = 6 371 000 m by ~0.1 %; the tolerance absorbs it.)
 
 ## 5. Synthetic test site (`app/public/data/testsite/`)
 
