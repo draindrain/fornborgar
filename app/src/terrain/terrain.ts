@@ -65,6 +65,14 @@ export class Terrain {
     this.tint = new ElevationTint(min, max);
   }
 
+  /**
+   * The materials a ground-space overlay (Phase 3 viewshed) should inject into.
+   * The skirt is excluded on purpose — its slivers are never analysis surface.
+   */
+  get overlayMaterials(): THREE.Material[] {
+    return [this.coreMaterial, this.contextMaterial];
+  }
+
   setExaggeration(value: number): void {
     this.exaggeration = value;
     this.group.scale.y = value;

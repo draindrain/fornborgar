@@ -14,6 +14,13 @@ export interface ControlState {
   sunAzimuth: number;
   sunElevation: number;
   exaggeration: number;
+  viewshed: {
+    show: boolean;
+    observerHeight: number;
+    targetHeight: number;
+    maxRadius: number;
+    curvature: boolean;
+  };
 }
 
 export interface ControlHandlers {
@@ -21,6 +28,8 @@ export interface ControlHandlers {
   onExaggerationChange(value: number): void;
   /** Phase 2: orbit <-> first-person toggle (also bound to the F key). */
   onToggleFirstPerson(): void;
+  /** Phase 3: any viewshed setting (incl. show) changed; read them from state. */
+  onViewshedChange(): void;
 }
 
 export function createControls(parent: HTMLElement, handlers: ControlHandlers): { gui: GUI; state: ControlState } {
@@ -28,6 +37,13 @@ export function createControls(parent: HTMLElement, handlers: ControlHandlers): 
     sunAzimuth: DEFAULT_SUN_AZIMUTH,
     sunElevation: DEFAULT_SUN_ELEVATION,
     exaggeration: DEFAULT_EXAGGERATION,
+    viewshed: {
+      show: false,
+      observerHeight: 1.7,
+      targetHeight: 0,
+      maxRadius: 0,
+      curvature: true,
+    },
   };
 
   const host = document.createElement('div');
@@ -54,6 +70,17 @@ export function createControls(parent: HTMLElement, handlers: ControlHandlers): 
     .onChange(() => handlers.onExaggerationChange(state.exaggeration));
 
   gui.add({ firstPerson: () => handlers.onToggleFirstPerson() }, 'firstPerson').name('first person (F)');
+
+  // Phase 3 — viewshed (XDraw in a worker; PLAN §4.4). The panel states the
+  // algorithm parameters plainly, per the honesty rules (PLAN §6.1).
+  const vs = gui.addFolder('Viewshed');
+  const changed = (): void => handlers.onViewshedChange();
+  vs.add(state.viewshed, 'show').name('show (drag the marker)').onChange(changed);
+  vs.add(state.viewshed, 'observerHeight', 0.5, 20, 0.1).name('observer height (m)').onChange(changed);
+  vs.add(state.viewshed, 'targetHeight', 0, 5, 0.1).name('target height (m)').onChange(changed);
+  vs.add(state.viewshed, 'maxRadius', 0, 3000, 50).name('radius (m, 0 = ∞)').onChange(changed);
+  vs.add(state.viewshed, 'curvature').name('curvature + refraction (k = 0.13)').onChange(changed);
+  vs.close();
 
   return { gui, state };
 }

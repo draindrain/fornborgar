@@ -21,6 +21,9 @@ import { Lighting } from './terrain/lighting';
 import { Terrain } from './terrain/terrain';
 import { createControls } from './ui/controls';
 import { Hud } from './ui/hud';
+import { ViewshedController } from './viewshed/controller';
+import { ObserverMarker } from './viewshed/observer';
+import { ViewshedOverlay } from './viewshed/overlay';
 
 declare global {
   interface Window {
@@ -28,6 +31,8 @@ declare global {
     __app?: Record<string, unknown>;
     /** Deterministic "the scene is built and has rendered" signal. */
     __terrainReady?: boolean;
+    /** Increments every time a viewshed mask is applied to the overlay. */
+    __viewshedStamp?: number;
   }
 }
 
@@ -72,15 +77,42 @@ function groundAt(x: number, z: number): number {
 
 const modes = new CameraModes(rig, renderer.domElement);
 
+/** Phase-3 viewshed rig; built in start() once the context grid is decoded. */
+interface ViewshedRig {
+  controller: ViewshedController;
+  overlay: ViewshedOverlay;
+  marker: ObserverMarker;
+  hasMask: boolean;
+}
+let viewshed: ViewshedRig | null = null;
+
+function applyViewshedSettings(): void {
+  if (!viewshed) return;
+  const s = controlState.viewshed;
+  viewshed.marker.setVisible(s.show);
+  viewshed.overlay.setEnabled(s.show && viewshed.hasMask);
+  if (s.show) requestViewshed();
+}
+
+/** Ask the worker for a mask at the marker's position (latest-wins throttled). */
+function requestViewshed(): void {
+  if (!viewshed || !terrain.contextGrid) return;
+  const grid = terrain.contextGrid;
+  const { col, row } = coords.gridFromLocal(viewshed.marker.x, viewshed.marker.z, grid);
+  viewshed.controller.request(col, row, controlState.viewshed);
+}
+
 const hud = new Hud(document.body);
 const { state: controlState } = createControls(document.body, {
   onSunChange: (azimuth, elevation) => lighting.setSun(azimuth, elevation),
   onExaggerationChange: (value) => {
     terrain.setExaggeration(value);
     hud.setExaggeration(value);
+    viewshed?.marker.refreshHeight();
     refit();
   },
   onToggleFirstPerson: () => modes.toggle(groundAt, terrain.getExaggeration()),
+  onViewshedChange: () => applyViewshedSettings(),
 });
 
 const ORBIT_HINT = 'F — first person';
@@ -177,6 +209,38 @@ async function start(): Promise<void> {
   await terrain.setCore(coreGrid, (f) => hud.setProgress('Building core terrain…', 0.82 + f * 0.18));
   rig.frameSite(coreGrid, terrain.getExaggeration());
 
+  // --- Phase 3: viewshed worker + overlay + draggable observer --------------
+  // Analysis runs on the 2 m context grid (contract §4); the overlay texture is
+  // addressed by world XZ so it shades core and context meshes alike.
+  const overlay = new ViewshedOverlay(contextGrid.width, contextGrid.height, contextGrid.boundsLocal);
+  for (const material of terrain.overlayMaterials) overlay.attach(material);
+
+  const controller = new ViewshedController(contextGrid);
+  const marker = new ObserverMarker(
+    rig.camera,
+    renderer.domElement,
+    groundAt,
+    () => terrain.getExaggeration(),
+    () => contextGrid.boundsLocal,
+    { onMove: () => requestViewshed() },
+  );
+  marker.onDragStateChange = (dragging) => {
+    if (modes.mode === 'orbit') rig.controls.enabled = !dragging;
+  };
+  marker.setPosition(0, 0); // site center; for Broborg that is the fort crown
+  marker.setVisible(false);
+  scene.add(marker.group);
+
+  viewshed = { controller, overlay, marker, hasMask: false };
+  controller.onResult = (mask, elapsedMs) => {
+    if (!viewshed) return;
+    overlay.setMask(mask);
+    viewshed.hasMask = true;
+    overlay.setEnabled(controlState.viewshed.show);
+    window.__app = { ...(window.__app ?? {}), viewshedElapsedMs: elapsedMs };
+    window.__viewshedStamp = (window.__viewshedStamp ?? 0) + 1;
+  };
+
   hud.setProgress('Ready', 1);
   hud.finishLoading();
 
@@ -209,6 +273,16 @@ async function start(): Promise<void> {
     setLook(azimuthDeg: number, pitchDeg: number) {
       const fp = modes.firstPerson;
       fp.setPose(fp.x, fp.z, azimuthDeg, pitchDeg);
+    },
+    viewshed: {
+      controlState: controlState.viewshed,
+      overlay,
+      marker,
+      setObserver(x: number, z: number) {
+        marker.setPosition(x, z);
+        requestViewshed();
+      },
+      apply: applyViewshedSettings,
     },
   };
 
