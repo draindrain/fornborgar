@@ -48,10 +48,25 @@ export class ViewshedOverlay {
     };
   }
 
-  /** Inject the overlay into a terrain material. Call once per material, before first render. */
+  /**
+   * Inject the overlay into a terrain material. Call once per material, before
+   * first render.
+   *
+   * The terrain materials are shared with other ground-space overlays (Phase 4's
+   * water tint), so this **chains** any handler already installed rather than
+   * replacing it, and injects with the "keep the include, append to it" idiom so
+   * the anchor tokens survive for the next injector. Identifiers are namespaced
+   * `uViewshed*` / `vViewshedXZ`; `customProgramCacheKey` is extended so a
+   * material carrying this injection never shares a program with one that lacks it.
+   */
   attach(material: THREE.Material): void {
     const uniforms = this.uniforms;
-    material.onBeforeCompile = (shader) => {
+    const previousCompile = material.onBeforeCompile;
+    const previousKey = material.customProgramCacheKey.bind(material);
+    material.customProgramCacheKey = () => `${previousKey()}|viewshed1`;
+
+    material.onBeforeCompile = (shader, renderer) => {
+      previousCompile.call(material, shader, renderer);
       Object.assign(shader.uniforms, uniforms);
 
       shader.vertexShader = shader.vertexShader

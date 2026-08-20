@@ -14,16 +14,17 @@ import './style.css';
 import { CameraModes, type EnterOptions } from './camera/modes';
 import { createOrbitRig } from './camera/orbitCamera';
 import * as coords from './lib/coords';
-import { loadGrid, loadManifest, siteIdFromLocation } from './state/loader';
+import { loadGrid, loadManifest, loadWaterAssets, siteIdFromLocation } from './state/loader';
 import type { SiteManifest } from './state/manifest';
 import type { HeightGrid } from './terrain/heightGrid';
 import { Lighting } from './terrain/lighting';
 import { Terrain } from './terrain/terrain';
-import { createControls } from './ui/controls';
+import { addWaterControls, createControls } from './ui/controls';
 import { Hud } from './ui/hud';
 import { ViewshedController } from './viewshed/controller';
 import { ObserverMarker } from './viewshed/observer';
 import { ViewshedOverlay } from './viewshed/overlay';
+import { WaterLayer } from './water/water';
 
 declare global {
   interface Window {
@@ -94,6 +95,27 @@ function applyViewshedSettings(): void {
   if (s.show) requestViewshed();
 }
 
+/** Phase-4 water layer; built in start() only if the site ships §6/§7 assets. */
+let water: WaterLayer | null = null;
+let waterReadout: { update(): void } | null = null;
+/** The layer's one-line caveat, surfaced on first enable (PLAN §6.1). */
+let waterCaveat: { badge: string; text: string } | null = null;
+
+/**
+ * Single funnel for every way the water layer can change — the slider, the
+ * toggle, and the `window.__app.water` dev hooks all land here, so a headless
+ * driver sees exactly what a click produces, caveat included.
+ */
+function applyWaterSettings(): void {
+  if (!water) return;
+  water.setYear(controlState.water.yearCE);
+  water.setEnabled(controlState.water.show);
+  waterReadout?.update();
+  if (controlState.water.show && waterCaveat) {
+    hud.showCaveatOnce('water', waterCaveat.badge, waterCaveat.text);
+  }
+}
+
 /** Ask the worker for a mask at the marker's position (latest-wins throttled). */
 function requestViewshed(): void {
   if (!viewshed || !terrain.contextGrid) return;
@@ -103,7 +125,7 @@ function requestViewshed(): void {
 }
 
 const hud = new Hud(document.body);
-const { state: controlState } = createControls(document.body, {
+const { gui, state: controlState } = createControls(document.body, {
   onSunChange: (azimuth, elevation) => lighting.setSun(azimuth, elevation),
   onExaggerationChange: (value) => {
     terrain.setExaggeration(value);
@@ -241,6 +263,34 @@ async function start(): Promise<void> {
     window.__viewshedStamp = (window.__viewshedStamp ?? 0) + 1;
   };
 
+  // --- Phase 4: paleo-shoreline (optional assets; absent = feature off) -----
+  // Both §6/§7 assets or nothing. The water plane is parented under the terrain
+  // group so it inherits vertical exaggeration (contract §0 / PLAN §4.5), and
+  // its tint is chained onto the same materials the viewshed overlay injected
+  // into — see water/water.ts for how the two shader injections compose.
+  const assets = await loadWaterAssets(siteId, manifest, (f) =>
+    hud.setProgress('Loading paleo-shoreline model…', 0.97 + f * 0.03),
+  );
+  if (assets) {
+    water = new WaterLayer(assets.table, assets.connect);
+    terrain.group.add(water.mesh);
+    for (const material of terrain.overlayMaterials) water.attachTerrain(material);
+
+    const layerName = manifest.layers?.find((l) => l.id === 'water')?.name ?? 'Paleo-shoreline';
+    const caveat = assets.table.uncertainty ?? 'Modeled water level — see the methods panel.';
+    waterCaveat = { badge: 'model', text: `${layerName}. ${caveat}` };
+    waterReadout = addWaterControls(gui, controlState, {
+      name: layerName,
+      years: water.years,
+      uncertainty: caveat,
+      // Start in the middle of the fort era rather than at an endpoint.
+      initialYear: 400,
+      levelAt: (yearCE) => water?.levelAt(yearCE) ?? 0,
+      onChange: () => applyWaterSettings(),
+    });
+    applyWaterSettings();
+  }
+
   hud.setProgress('Ready', 1);
   hud.finishLoading();
 
@@ -283,6 +333,25 @@ async function start(): Promise<void> {
         requestViewshed();
       },
       apply: applyViewshedSettings,
+    },
+    // Phase 4. Present (with `layer: null`) even when the site ships no water
+    // assets, so a headless check can tell "feature off" from "not wired up".
+    water: {
+      layer: water,
+      state: controlState.water,
+      table: assets?.table ?? null,
+      connect: assets?.connect ?? null,
+      setYear(yearCE: number) {
+        controlState.water.yearCE = yearCE;
+        applyWaterSettings();
+      },
+      setEnabled(on: boolean) {
+        controlState.water.show = on;
+        applyWaterSettings();
+      },
+      levelAt(yearCE: number) {
+        return water ? water.levelAt(yearCE) : null;
+      },
     },
   };
 

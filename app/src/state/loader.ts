@@ -1,15 +1,21 @@
 /**
- * Site data loading: manifest + the two DEM COGs.
+ * Site data loading: manifest, the two DEM COGs, and the optional Phase-4 water
+ * assets (contract §6 shoreline table + §7 connectivity grid).
  *
  * URL rule (docs/data-formats.md §0): every data URL is resolved against
  * `import.meta.env.BASE_URL` as `data/<siteId>/<path>` — never a leading slash —
  * so the app works from a GitHub Pages project subpath.
+ *
+ * Optional assets follow the versioning policy in the contract preamble: a
+ * missing `assets` entry always means "feature off", never an error.
  */
 
 import { fromArrayBuffer } from 'geotiff';
 import { validateManifest, type GridManifest, type SiteManifest } from './manifest';
 import { decodeHeights, elevationRange, type HeightGrid } from '../terrain/heightGrid';
 import { boundsLocalFrom3006 } from '../lib/coords';
+import type { ConnectGrid } from '../water/connectGrid';
+import { validateShoreline, type ShorelineTable } from '../water/shoreline';
 
 export const DEFAULT_SITE_ID = 'broborg';
 
@@ -112,6 +118,38 @@ function checkGridInvariants(name: string, g: GridManifest, origin: { e: number;
 }
 
 /**
+ * Fetch one single-band int16 GeoTIFF and hand back band 1 in the §1 array
+ * convention, checked against the geometry the manifest declares for it. Shared
+ * by the DEM grids (§1) and the water-connectivity grid (§7) — one decode path,
+ * so a dimension mismatch reads the same either way.
+ */
+async function loadBand(
+  url: string,
+  path: string,
+  width: number,
+  height: number,
+  onProgress: (f: number) => void,
+  dimsSource: string,
+): Promise<ArrayLike<number>> {
+  const buffer = await fetchWithProgress(url, (f) => onProgress(f * 0.85));
+
+  const tiff = await fromArrayBuffer(buffer);
+  const image = await tiff.getImage();
+  if (image.getWidth() !== width || image.getHeight() !== height) {
+    throw new Error(
+      `${path}: TIFF is ${image.getWidth()}x${image.getHeight()} but ${dimsSource} declares ${width}x${height}.`,
+    );
+  }
+  const rasters = await image.readRasters({ interleave: false });
+  onProgress(0.95);
+  const band = (rasters as unknown as ArrayLike<number>[])[0];
+  if (!band || band.length !== width * height) {
+    throw new Error(`${path}: expected a single band of ${width * height} samples.`);
+  }
+  return band;
+}
+
+/**
  * Fetch + decode one DEM COG into the meters `Float32Array` of the §1 array
  * convention. The manifest is authoritative for geometry; TIFF-embedded
  * georeferencing is deliberately ignored.
@@ -126,22 +164,7 @@ export async function loadGrid(
   checkGridInvariants(name, g, manifest.origin);
 
   const url = `${siteDataUrl(siteId)}${g.path}`;
-  const buffer = await fetchWithProgress(url, (f) => onProgress(f * 0.85));
-
-  const tiff = await fromArrayBuffer(buffer);
-  const image = await tiff.getImage();
-  if (image.getWidth() !== g.width || image.getHeight() !== g.height) {
-    throw new Error(
-      `${g.path}: TIFF is ${image.getWidth()}x${image.getHeight()} but the manifest declares ` +
-        `${g.width}x${g.height}.`,
-    );
-  }
-  const rasters = await image.readRasters({ interleave: false });
-  onProgress(0.95);
-  const band = (rasters as unknown as ArrayLike<number>[])[0];
-  if (!band || band.length !== g.width * g.height) {
-    throw new Error(`${g.path}: expected a single band of ${g.width * g.height} samples.`);
-  }
+  const band = await loadBand(url, g.path, g.width, g.height, onProgress, 'the manifest');
 
   const heights = decodeHeights(band, g.encoding.scale);
   const [min, max] = elevationRange(heights);
@@ -156,4 +179,105 @@ export async function loadGrid(
     minElevation: min,
     maxElevation: max,
   };
+}
+
+// ------------------------------------------------- Phase 4: water assets ----
+
+/** Both §6/§7 assets, or nothing: the contract pairs them (v1.1 preamble). */
+export interface WaterAssets {
+  table: ShorelineTable;
+  connect: ConnectGrid;
+}
+
+/** Fetch + validate the §6 century → level table. Throws `ShorelineError`. */
+export async function loadShorelineTable(siteId: string, manifest: SiteManifest): Promise<ShorelineTable> {
+  const path = manifest.assets?.['shoreline'];
+  if (!path) throw new Error('manifest.assets.shoreline is not declared for this site.');
+  const url = `${siteDataUrl(siteId)}${path}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText} while fetching ${url}`);
+  const text = await res.text();
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    throw new Error(`${url} did not return JSON (got ${res.headers.get('content-type') ?? 'unknown content type'}).`);
+  }
+  return validateShoreline(parsed, path);
+}
+
+/**
+ * Fetch + decode the §7 sea-connectivity grid.
+ *
+ * Contract §7: the file carries **no** manifest grid entry of its own —
+ * `grids.context` is authoritative for its geometry and encoding — so a file
+ * whose dimensions disagree with the context grid is a hard error, not something
+ * to stretch over.
+ */
+export async function loadConnectGrid(
+  siteId: string,
+  manifest: SiteManifest,
+  onProgress: (f: number) => void = () => {},
+): Promise<ConnectGrid> {
+  const path = manifest.assets?.['waterConnect'];
+  if (!path) throw new Error('manifest.assets.waterConnect is not declared for this site.');
+  const g = manifest.grids.context;
+
+  const url = `${siteDataUrl(siteId)}${path}`;
+  const band = await loadBand(
+    url,
+    path,
+    g.width,
+    g.height,
+    onProgress,
+    'grids.context (authoritative for its geometry, docs/data-formats.md §7)',
+  );
+
+  const values = decodeHeights(band, g.encoding.scale);
+  onProgress(1);
+  return {
+    width: g.width,
+    height: g.height,
+    resolution: g.resolution,
+    boundsLocal: g.boundsLocal,
+    values,
+  };
+}
+
+/**
+ * The Phase-4 feature gate: both assets present and valid, or the feature is
+ * off. A site that declares neither (plain v1, e.g. the testsite before v1.1)
+ * loads exactly as before and says nothing — only a *half*-declared pair is
+ * worth a warning, because that is a pipeline bug rather than a choice.
+ */
+export async function loadWaterAssets(
+  siteId: string,
+  manifest: SiteManifest,
+  onProgress: (f: number) => void = () => {},
+): Promise<WaterAssets | null> {
+  const hasTable = Boolean(manifest.assets?.['shoreline']);
+  const hasConnect = Boolean(manifest.assets?.['waterConnect']);
+  if (!hasTable || !hasConnect) {
+    if (hasTable !== hasConnect) {
+      console.warn(
+        `[fornborg] ${siteId}: assets.shoreline and assets.waterConnect are a pair ` +
+          `(docs/data-formats.md §6/§7); only ${hasTable ? 'shoreline' : 'waterConnect'} is declared, ` +
+          'so the paleo-shoreline layer stays off.',
+      );
+    }
+    return null;
+  }
+
+  try {
+    const table = await loadShorelineTable(siteId, manifest);
+    const connect = await loadConnectGrid(siteId, manifest, onProgress);
+    return { table, connect };
+  } catch (error) {
+    // A broken optional asset must not take the whole site down with it.
+    console.error(
+      `[fornborg] ${siteId}: paleo-shoreline layer disabled — ` +
+        (error instanceof Error ? error.message : String(error)),
+    );
+    return null;
+  }
 }

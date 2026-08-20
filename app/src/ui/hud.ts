@@ -1,7 +1,8 @@
 /**
  * The non-3D chrome: title, loading progress, fatal errors, the persistent
- * exaggeration indicator (PLAN §6.1 requires it whenever exaggeration ≠ 1.0), and
- * the attribution footer rendered straight from `manifest.attribution`.
+ * exaggeration indicator (PLAN §6.1 requires it whenever exaggeration ≠ 1.0), the
+ * first-enable caveat for model/conjecture layers (also §6.1), and the
+ * attribution footer rendered straight from `manifest.attribution`.
  */
 
 import type { AttributionEntry } from '../state/manifest';
@@ -27,7 +28,10 @@ export class Hud {
   private readonly loadingBar: HTMLElement;
   private readonly exaggerationEl: HTMLElement;
   private readonly modeHintEl: HTMLElement;
+  private readonly caveatEl: HTMLElement;
   private readonly footerEl: HTMLElement;
+  private readonly caveatsShown = new Set<string>();
+  private caveatTimer = 0;
 
   constructor(parent: HTMLElement) {
     this.root = el('div', 'hud');
@@ -50,9 +54,19 @@ export class Hud {
     this.modeHintEl = el('div', 'hud-mode-hint');
     this.modeHintEl.hidden = true;
 
+    this.caveatEl = el('div', 'hud-caveat');
+    this.caveatEl.hidden = true;
+
     this.footerEl = el('footer', 'hud-footer');
 
-    this.root.append(header, this.exaggerationEl, this.loadingEl, this.modeHintEl, this.footerEl);
+    this.root.append(
+      header,
+      this.exaggerationEl,
+      this.loadingEl,
+      this.caveatEl,
+      this.modeHintEl,
+      this.footerEl,
+    );
     parent.append(this.root);
   }
 
@@ -85,6 +99,29 @@ export class Hud {
   setModeHint(text: string): void {
     this.modeHintEl.hidden = text === '';
     this.modeHintEl.textContent = text;
+  }
+
+  /**
+   * PLAN §6.1: toggling a model or conjecture layer on for the **first** time
+   * surfaces its one-line caveat. Keyed by layer id, so it appears once per
+   * session and never nags afterwards; the uncertainty text also stays
+   * permanently next to the control itself.
+   */
+  showCaveatOnce(layerId: string, badge: string, text: string): void {
+    if (this.caveatsShown.has(layerId)) return;
+    this.caveatsShown.add(layerId);
+
+    this.caveatEl.replaceChildren(el('strong', 'hud-caveat-badge', badge), el('span', undefined, text));
+    this.caveatEl.hidden = false;
+    this.caveatEl.classList.remove('is-fading');
+
+    window.clearTimeout(this.caveatTimer);
+    this.caveatTimer = window.setTimeout(() => {
+      this.caveatEl.classList.add('is-fading');
+      this.caveatTimer = window.setTimeout(() => {
+        this.caveatEl.hidden = true;
+      }, 600);
+    }, 9000);
   }
 
   setAttribution(entries: AttributionEntry[]): void {

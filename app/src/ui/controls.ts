@@ -1,12 +1,17 @@
 /**
- * Phase-1 control surface (lil-gui, per PLAN §4.8).
+ * Control surface (lil-gui, per PLAN §4.8).
  *
- * Three controls, all of them about legibility: where the sun is, how low it is,
- * and how much the relief is exaggerated.
+ * Phase 1: where the sun is, how low it is, how much the relief is exaggerated.
+ * Phase 3: the viewshed parameters, stated plainly.
+ * Phase 4: the paleo-shoreline slider — added lazily by `addWaterControls`,
+ * because the feature only exists for sites that ship the §6/§7 assets, and
+ * because PLAN §6.1 requires a model layer to be labelled as a model with its
+ * uncertainty next to the control.
  */
 
 import GUI from 'lil-gui';
 import { DEFAULT_SUN_AZIMUTH, DEFAULT_SUN_ELEVATION } from '../terrain/lighting';
+import { formatLevel, formatYear } from '../water/shoreline';
 
 export const DEFAULT_EXAGGERATION = 1.5;
 
@@ -20,6 +25,11 @@ export interface ControlState {
     targetHeight: number;
     maxRadius: number;
     curvature: boolean;
+  };
+  water: {
+    show: boolean;
+    /** Signed calendar year; meaningful only once the water folder exists. */
+    yearCE: number;
   };
 }
 
@@ -43,6 +53,10 @@ export function createControls(parent: HTMLElement, handlers: ControlHandlers): 
       targetHeight: 0,
       maxRadius: 0,
       curvature: true,
+    },
+    water: {
+      show: false,
+      yearCE: 0,
     },
   };
 
@@ -83,4 +97,65 @@ export function createControls(parent: HTMLElement, handlers: ControlHandlers): 
   vs.close();
 
   return { gui, state };
+}
+
+export interface WaterControlOptions {
+  /** Layer name from `manifest.layers` (falls back to a generic label). */
+  name: string;
+  /** [oldest, newest] yearCE — the slider spans exactly the table's extent. */
+  years: [number, number];
+  /** `shoreline.json.uncertainty`, shown verbatim next to the control. */
+  uncertainty: string;
+  /** Where the slider starts; clamped into `years`. */
+  initialYear: number;
+  levelAt(yearCE: number): number;
+  onChange(): void;
+}
+
+/** A static, non-interactive line inside a lil-gui folder. */
+function note(folder: GUI, className: string, text: string): HTMLElement {
+  const host = folder.domElement.querySelector('.children') ?? folder.domElement;
+  const div = document.createElement('div');
+  div.className = className;
+  div.textContent = text;
+  host.append(div);
+  return div;
+}
+
+/**
+ * Phase-4 paleo-shoreline folder (PLAN §3 Phase 4, §4.5, §6.1).
+ *
+ * Only created for sites that actually ship the water assets — a site without
+ * them shows no water UI at all. The folder is labelled a model, states its
+ * uncertainty next to the slider, and the readout carries **both** the calendar
+ * year and the level in meters above present sea.
+ */
+export function addWaterControls(gui: GUI, state: ControlState, options: WaterControlOptions): { update(): void } {
+  const [oldest, newest] = options.years;
+  state.water.yearCE = Math.min(newest, Math.max(oldest, options.initialYear));
+
+  // PLAN §6.1: the control itself has to say "model". The layer name usually
+  // already does ("Paleo-shoreline (SGU model)"), so only add the tag when it does not.
+  const title = /\bmodel\b/i.test(options.name) ? options.name : `${options.name} — model`;
+  const folder = gui.addFolder(title);
+  const show = folder.add(state.water, 'show').name('show water').onChange(() => options.onChange());
+  const year = folder
+    .add(state.water, 'yearCE', oldest, newest, 1)
+    .name('year (scrub)')
+    .onChange(() => options.onChange());
+
+  const readout = note(folder, 'control-readout', '');
+  note(folder, 'control-note', options.uncertainty);
+
+  const update = (): void => {
+    // The dev hooks and the F-key-style shortcuts write straight to `state`, so
+    // push the widgets back in sync before rendering the readout.
+    show.updateDisplay();
+    year.updateDisplay();
+    readout.textContent = `${formatYear(state.water.yearCE)} · ${formatLevel(options.levelAt(state.water.yearCE))}`;
+  };
+  update();
+  folder.open();
+
+  return { update };
 }
