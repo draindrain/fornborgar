@@ -7,7 +7,8 @@ not a game: fort placement only makes sense in 3D — sightlines, terrain contro
 proximity to ancient waterways that sat at a different level because of post-glacial land
 uplift.
 
-**Status: plan for review. No code has been written yet.**
+**Status: Phase 0 (data spike) complete, 2026-08-20 — gate PASSED. Corrections from the
+spike are folded in below and marked "[phase-0 verified]". Spike scripts: `pipeline/spike/`.**
 
 Facts in this plan were researched against current (2025–2026) sources. Claims are graded:
 
@@ -16,6 +17,8 @@ Facts in this plan were researched against current (2025–2026) sources. Claims
 - **[reported]** — consistent across multiple sources but not confirmed against the primary
   source; verify on first use.
 - **[open]** — could not be verified; listed again in §7 (Open questions).
+- **[phase-0 verified]** — confirmed or corrected against the live services / real data
+  during the phase-0 spike, 2026-08-20.
 
 ---
 
@@ -95,30 +98,32 @@ fornborgar/
 | License | **CC BY 4.0** — *not* CC0 (legacy 50 m data was CC0; stale pages disagree). Attribution required, "© Lantmäteriet". Exact mandated wording is in the terms accepted at ordering. **[verified; exact wording open]** |
 | Account | Free **Geotorget** account (geotorget.lantmateriet.se) **plus** an explicit (free) order of the product attached to the account. Until the product is ordered, every download returns 401/403 even with valid credentials. Private-person accounts suffice for open data. **[verified]** |
 | Discovery | **STAC API**: `https://api.lantmateriet.se/stac-hojd/v1` (Swagger at `/api.html`). Catalog browsing is anonymous; asset downloads need HTTP Basic auth with Geotorget credentials. Rate-limited (HTTP 429 + Retry-After). **[verified]** |
-| Format | Since ~June 2026: **10×10 km Cloud-Optimized GeoTIFF tiles**, collection **`dtm-cog`**, 10 000×10 000 px @ 1 m, float32, **nodata −9999**, hosted on `dl1.lantmateriet.se`, HTTP range reads work (`/vsicurl`). **[reported — from tools live-probing July–Aug 2026]** Pre-June-2026 2.5×2.5 km collections (`mhm-*`) may or may not still resolve. **[open]** |
+| Format | **10×10 km Cloud-Optimized GeoTIFF tiles**, collection **`dtm-cog`**, 10 000×10 000 px @ 1 m, float32, **nodata −9999**, hosted on `dl1.lantmateriet.se` (`.../hojd/data/grid/mhm/<ruta>/m<tile>.tif`), HTTP range reads work (`/vsicurl` + `GDAL_HTTP_AUTH=BASIC`), overviews ×2–×32, 512-px blocks. Per-tile assets also include `info`/`ursprung` JSON, thumbnail, and a `brytgeometri` GeoPackage. **[phase-0 verified]** The legacy per-100-km-square `mhm-*` collections still resolve alongside `dtm-cog` (moot for us). **[phase-0 verified]** |
 | CRS | SWEREF 99 TM (EPSG:3006) + RH 2000 heights; the COGs declare **compound CRS EPSG:5845**. ⚠️ Pipeline gotcha: `gdalwarp` may apply the RH2000→ellipsoid geoid shift (~+23–36 m) because of the declared vertical CRS — pass `-novshift` / strip the vertical axis. **[reported]** |
 | Backup plan | **Laserdata Nedladdning, skog** (1–2 pts/m² classified point cloud, COPC LAZ, same STAC API since June 2026) if the 1 m grid under-resolves the ramparts — rasterize our own 0.5 m DEM from ground returns with PDAL. **[verified product; collection details reported]** |
 
 Workflow (single site): query STAC for the tile(s) intersecting the Broborg bbox → windowed
 `/vsicurl` read of just the 4×4 km subset (avoids the full 100+ MB tile) → fill nodata →
-write a deflate-compressed COG for the app. Broborg sits at approximately **E 668 400,
-N 6 628 000** (SWEREF 99 TM; derived from reported WGS84 coords, confirm in Fornsök —
-**[reported]**), i.e. in the `66_6` 100-km index square. Regional extent later = same
-script over a tile list.
+write a deflate-compressed COG for the app. Broborg sits at **E 665 810, N 6 627 880**
+(SWEREF 99 TM; centroid of the KMR extent polygon, E 665 808 / N 6 627 881 —
+**[phase-0 verified]**; ⚠️ the plan's original WGS84-derived guess of E 668 400 was
+**2.6 km too far east**), tile `662_66` in the `66_6` square — the 4×4 km extent fits in
+that one tile. The spike download had zero nodata cells, z range 6.8–57.3 m; the fort
+crown is at ~50 m. Regional extent later = same script over a tile list.
 
 ### 2.2 Archaeological sites — Riksantikvarieämbetet (RAÄ) *Kulturhistoriska lämningar*
 
 | | |
 |---|---|
 | Product | KMR/Fornreg extract "Kulturhistoriska lämningar", ~760 000 sites. **[verified]** |
-| Download | GeoPackage per kommun / län / whole country from `https://pub.raa.se/nedladdning/datauttag/lamningar/` (e.g. `.../lan/lämningar_län_uppsala.gpkg`), regenerated nightly. Portal: raa.se → Öppna data. **[verified; exact riket filename reported]** |
+| Download | GeoPackage per kommun / län / whole country from `https://pub.raa.se/nedladdning/datauttag/lamningar_v1/` (note the **`_v1`** suffix — the plain `lamningar/` path 404s). County files under `lan/`, e.g. `lan/lämningar_län_uppsala.gpkg` (URL-encode the Swedish characters); riket = `lämningar_sverige.gpkg`. Uppsala county ≈ 146 MB. **[phase-0 verified]** |
 | License | **CC0**. Attribution not required but good practice. **[verified]** |
-| Restructuring | New GeoPackage structure deployed **Oct 2025** (incl. new *Lägesosäkerhet* positional-uncertainty layer); shapefile downloads removed **Feb 2026**. **The new internal schema (layer/column names) could not be verified** — first pipeline task is `ogrinfo` on one county file. **[verified events; schema open]** |
-| Type filter | Attribute **`lamningstyp`** (old schema; presumed carried over — **[open]**). Values from the official *Lämningstypslistan v5.0* (157 types): `Fornborg`, `Gravfält`, `Boplats` (plus `Boplatsområde`, `Boplatslämning övrig`), `Runristning` (there is **no** `Runsten` type). ⚠️ **There is no `Hålväg` type**: hollow ways are registered as `Färdväg` / `Färdvägssystem` with hålväg character in the description text — filtering for `Hålväg` returns nothing. **[verified]** |
+| Restructuring | New (Oct 2025) schema **[phase-0 verified]**: relational — bare geometry layers `point` / `linestring` / `polygon` carry only `(lamning_uuid, geometrinummer)`; attributes live in the non-spatial **`lamning`** table (`uuid`, `lamningsnummer` = L-number, `raa_nummer`, `lamningstyp`, `lamningsnamn`, `beskrivning`, `url`, `antikvariskbedomning`, `aktualitetstatus`, `skadestatus`, `undersokningsstatus`, `terrang`, `lan`/`kommun`/`socken`, …) plus `ingaendelamning` and `egenskap` tables. Denormalized convenience layers **`lämningar_län_<län>_{point,linestring,polygon}`** join attributes+geometry in one layer (pipeline uses these), and **`lämningar_län_<län>_lägesosäkerhet`** (MultiPolygon) carries `inmatningskvalitet` + `lagesosakerhet_i_meter`. **There is no structured dating column** — the "typisk datering" heuristic stands. |
+| Type filter | Attribute **`lamningstyp`** carried over unchanged **[phase-0 verified]**. Values from the official *Lämningstypslistan v5.0* (157 types): `Fornborg`, `Gravfält`, `Boplats` (plus `Boplatsområde`, `Boplatslämning övrig`), `Runristning` (there is **no** `Runsten` type). ⚠️ **There is no `Hålväg` type**: hollow ways are registered as `Färdväg` / `Färdvägssystem` with hålväg character in the description text — filtering for `Hålväg` returns nothing. **[verified]** |
 | Dating | Structured dating is **sparsely populated**; Fornsök itself falls back to the *type's* "typisk datering". Plan: select by lämningstyp (fornborgar, gravfält are overwhelmingly Iron Age in this region) and treat period as a per-type heuristic, not a per-record fact. Disclose this in the methods panel. **[verified]** |
-| Geometry | Points, lines, polygons; historically sites <~20 m were points, larger sites polygons. A fornborg is expected to be a **site-extent polygon — there is no separate per-rampart geometry in KMR**. This changes the palisade feature: see §4.6. **[reported]** |
+| Geometry | Points, lines, polygons; historically sites <~20 m were points, larger sites polygons. Broborg's record is a **single site-extent Polygon (~6 310 m², one geometry `L1943:7827-1`) — no per-rampart geometry in KMR**, confirming the §4.6 redesign. **[phase-0 verified]** |
 | Supplementary | **K-samsök/SOCH API** `https://kulturarvsdata.se/ksamsok/api` (CQL queries; `x-api=test` for development, production key via ksamsok@raa.se — current enforcement **[open]**). Persistent site URIs `kulturarvsdata.se/raa/lamning/{uuid}`, resolvable to Fornsök. Used only at pipeline time to enrich site popups (links, images); the app itself stays static. **[verified]** |
-| Broborg | **RAÄ Husby-Långhundra 156:1**, probable L-number **L1943:7827** (**[reported — confirm]**). Uppland's largest fornborg, ~95×85 m, inner rampart ~300 m long, 8–15 m wide, **1–2 m high**, outer rampart ~140 m, two entrances; Migration Period, in use ~400–550 CE; famous for its vitrified inner wall (studied as a nuclear-waste-glass analogue by PNNL). The 1–2 m rampart height against a 1 m DEM is exactly the phase-0 visibility gate. **[verified]** |
+| Broborg | **RAÄ Husby-Långhundra 156:1** = **L1943:7827** **[phase-0 verified]**, KMR uuid `184ca0f6-16f9-4de8-bbec-99aa959f9824`, Fornsök URL `https://pub.raa.se/visa/objekt/lamning/<uuid>`, antikvarisk bedömning *Fornlämning*, aktualitetsstatus *Bekräftad i fält*, lägesosäkerhet 10 m. The KMR `beskrivning` matches the literature verbatim (inner rampart ~300 m × 8–15 m × 1–2 m, outer ~140 m, entrances WNW+ÖSÖ, förslaggad sten). Uppland's largest fornborg, ~95×85 m, inner rampart ~300 m long, 8–15 m wide, **1–2 m high**, outer rampart ~140 m, two entrances; Migration Period, in use ~400–550 CE; famous for its vitrified inner wall (studied as a nuclear-waste-glass analogue by PNNL). The 1–2 m rampart height against a 1 m DEM is exactly the phase-0 visibility gate. **[verified]** |
 
 ### 2.3 Soils — SGU *Jordarter 1:25 000–1:100 000*
 
@@ -127,8 +132,8 @@ script over a tile list.
 | Status | All SGU geological data open and free since **June 2024**; jordarter data refreshed April 2025. **[verified]** |
 | License | **CC0**. **[verified]** |
 | Download | GeoPackage via product page / GeoLagret catalogue. **[verified]** |
-| API | **OGC API — Features**: `https://api.sgu.se/oppnadata/jordarter25k-100k/ogc/features/v1`, collection **`grundlager`** confirmed, GeoJSON via `?f=json`, CQL2 filtering, no API key observed. Full collection list and CRS support unconfirmed — check `GET /collections` on first use. **[verified endpoint; details open]** |
-| Schema | Soil class attribute historically **`jg2`** (code) / **`jg2_tx`** (text); may be renamed in the current release — verify against one downloaded feature before hard-coding. Classes include Berg, Morän, Isälvssediment, Glacial/Postglacial lera, sand–grus, Torv, Gyttja, Vatten — the exact classes the land-cover rules in §4.7 need. **[reported]** |
+| API | **OGC API — Features**: `https://api.sgu.se/oppnadata/jordarter25k-100k/ogc/features/v1`, anonymous. Full collection list **[phase-0 verified]**: `blockighet`, `grundlager`, `landform`, `linjer`, `oversta-ytlager`, `punkter`, `tackningskarta`, `underliggande-lager`, `ytlager`. `storageCrs` = **EPSG:3006** and EPSG:3006 output is supported (plus CRS84/3857/RT90 variants) — no reprojection needed. |
+| Schema | Attributes unchanged: **`jg2`** (int code) / **`jg2_tx`** (text), plus `kartering`, `karttyp`, `symbol`, `geom_area`, `geom_length`. **[phase-0 verified]** Classes observed in the Broborg bbox (362 polygons): Sandig morän, Urberg, Glacial lera, Kärrtorv, Postglacial lera, Isälvssediment, Gyttjelera (eller lergyttja), Svämsediment ler–silt, Klapper, Vatten, Fyllning, Postglacial sand, Gyttja — exactly the classes the §4.7 rules need. |
 
 ### 2.4 Shoreline displacement — SGU *Strandförskjutningsmodell*
 
@@ -137,7 +142,7 @@ Better than hoped: SGU publishes a ready-made open-data shoreline displacement m
 | | |
 |---|---|
 | Product | **Strandförskjutningsmodell** (launched June 2022, replaced "Strandlinjer"): sea/land distribution in **100-year time steps**, built from the Påsse & Daniels (2015) national shore-level equations + a land-uplift model + a 50 m DEM. **[verified]** |
-| Download | Open data, GeoPackage per time range with per-century polygon layers (`issjohav_<year>`), observed at `https://resource.sgu.se/data/oppnadata/jord/strandforskjutningsmodell/strandforskjutning_<range>.gpkg`. **[reported — spot-check URL]** An OGC API endpoint for it is unconfirmed. **[open]** |
+| Download | GeoPackage per BP time range at `https://resource.sgu.se/data/oppnadata/jord/strandforskjutningsmodell/strandforskjutning_<from>_<to>.gpkg` (e.g. `strandforskjutning_1000_1900.gpkg`; directory listing is 403 — file URLs work). Layers **`issjohav_<bp>`** — ⚠️ keyed by **years BP (before 1950), not calendar year**, and **BP 1100 is missing** from the product. **[phase-0 verified]** Better: there is also an **OGC API — Features** endpoint `https://api.sgu.se/oppnadata/strandforskjutningsmodell/ogc/features/v1` with 14 collections `bp1-900` … `bp13000-13500`; polygon features carry `bp` (string), `year` (calendar year = 1950 − BP), `code` (**1 = Hav, 4 = Sjö**), `description`, `geom_area`. **[phase-0 verified]** Fort-era sanity check: **Hav polygons are present in the Broborg 4×4 km bbox for years 350–550 CE** — Långhundraleden was indeed a marine inlet in the fort's active period. |
 | Caveats | SGU: dating margins up to **±500 years**; "general progression, not for detailed studies". Fine for us — the slider is explicitly a model, and we say so. **[verified]** |
 | v1 usage | We do **not** ship SGU's 50 m-DEM polygons. Pipeline derives a per-site lookup table **century → water level (m RH 2000)** by intersecting SGU's per-century shoreline with our 1 m DEM near the site (or directly from the Påsse & Daniels equations), then the app draws that level on our own high-res terrain. Sanity anchors from literature for the Uppsala/Knivsta area (interpolated estimates, not published point values — **[reported]**): ~500 BCE ≈ 13–16 m, ~1 CE ≈ 10–12.5 m, ~500 CE ≈ 8–10 m, ~1000 CE ≈ 5–6.5 m above present sea level. Långhundraleden below Broborg was a navigable waterway in the fort's active period — the slider should visibly show it. |
 | Datum notes | DEM heights are RH 2000; "above present sea level" ≈ RH 2000 height to within decimetres here — acceptable v1 approximation, disclosed in methods. Post-isolation Mälaren is regulated at **+0.86 m RH 2000**, ~0.9 m above the Baltic — only relevant if we ever show post-1200 CE states; the fort's period predates isolation (final isolation ~1200s CE; Södertälje/Stockholm passages shoaling from ~500 CE onward). **[verified]** |
@@ -166,7 +171,14 @@ for Iron Age Uppland specifically was found [open]** — nearest anchors:
 
 Each phase ends with something viewable. Phases 0–6 are v1; 7–8 are designed now, built later.
 
-### Phase 0 — Data spike & the go/no-go gate (no app code)
+### Phase 0 — Data spike & the go/no-go gate (no app code) — ✅ DONE 2026-08-20, GATE PASSED
+
+Outcome: ramparts **clearly legible** in the 1 m DEM (inner ring complete incl. both
+entrance gaps; outer rampart a distinct concentric arc) — no Laserdata-skog fallback
+needed. Renders in `pipeline/spike/out/`. All schema assumptions checked; corrections
+folded into §2 and §7. One extra finding: the plan's Broborg coordinate was 2.6 km off
+(see §2.1); and §4.5's basin check came back **positive** — false basins up to ~6.3 ha
+exist in the slider range, so the per-century connectivity bitmask **is** needed.
 1. Create Geotorget account, order *Markhöjdmodell Nedladdning* (manual, free, one-time).
 2. Script: STAC query → windowed download of the 4×4 km Broborg DEM extent (§7.11).
 3. Download RAÄ Uppsala-county GeoPackage; `ogrinfo` the **new (Oct 2025) schema**; locate
@@ -311,13 +323,13 @@ landscape-scale visibility; the 1 m core grid exists for shading, not line-of-si
 - Rendering: one semi-transparent plane at level *h* with fresnel-ish shading; terrain
   shader depth-tints submerged ground (smooth shoreline, no z-fighting fringe).
 - **Flood-fill correctness:** a plane naively fills enclosed basins that never connected
-  to the sea. Decision: **phase 0 empirically checks whether any significant false basin
-  exists in the Broborg clip within the slider's level range** (cheap: flood-fill from the
-  DEM edge at each century level in the pipeline). If none (likely — the site overlooks an
-  open through-valley), v1 ships the plain plane and the methods panel says so. If yes,
-  the pipeline precomputes a per-century **sea-connectivity bitmask** (≤12 centuries × 1
-  bit/cell, trivially small compressed) and the shader masks the water. Either way the
-  logic stays in preprocessing, never in the browser.
+  to the sea. **Phase-0 result: false basins DO exist** — edge-connected flood fill on the
+  4×4 km clip at 1 m levels from 4–18 m found interior (non-sea-connected) wet components
+  at most levels, the largest ~6.3 ha at the 11 m level and ~2.3 ha at 15 m (fort-era
+  levels ~8–10 m are milder, ≤0.3 ha). Decision resolved: the pipeline precomputes the
+  per-century **sea-connectivity bitmask** (≤12 centuries × 1 bit/cell, trivially small
+  compressed) and the shader masks the water. The logic stays in preprocessing, never in
+  the browser. (`pipeline/spike/basin_check.py`.)
 
 ### 4.6 Procedural palisade — and the rampart-geometry reality
 Research finding that reshapes this feature: **KMR almost certainly provides only the
@@ -375,7 +387,7 @@ Plan:
 
 | Risk | Impact | Mitigation |
 |---|---|---|
-| **DEM resolution vs. rampart visibility** — 1–2 m-high, 8–15 m-wide ramparts on a 1 m grid should be visible, but TIN interpolation may soften them | Kills the core visual claim | Phase 0 gate before any app code; fallback to 0.5 m DEM from *Laserdata skog* point cloud (adds PDAL to the pipeline, nothing to the app) |
+| **DEM resolution vs. rampart visibility** — 1–2 m-high, 8–15 m-wide ramparts on a 1 m grid should be visible, but TIN interpolation may soften them | Kills the core visual claim | ✅ **Retired — phase-0 gate passed**: both ramparts and the entrance gaps clearly legible in the 1 m hillshade (`pipeline/spike/out/`); Laserdata-skog fallback not needed |
 | **Geotorget friction** — account + product-order steps are manual; API tiles need Basic auth; rate limits (429) | Delays phase 0; blocks CI-side data refresh | One-time manual step, documented in `pipeline/README`; credentials via env vars, never in CI; windowed COG reads keep volume tiny |
 | **RAÄ Oct-2025 schema unknown** — layer/attribute names (`lamningstyp`, `ing_lamn`) unverified in the new GeoPackage | Breaks site filtering assumptions | Phase 0 inspects real file first; pipeline isolates schema mapping in one module |
 | **No per-rampart geometry in KMR** | Palisade can't extrude "the registered rampart geometry" as originally envisioned | §4.6: DEM ridge extraction (primary), hand-digitized trace (fallback, needs your sign-off) |
@@ -387,19 +399,27 @@ Plan:
 
 ## Open questions (marked [open] above, consolidated)
 
-**For me to resolve in phase 0 (no input needed):**
-1. Exact Lantmäteriet attribution wording (from the terms accepted at ordering).
-2. Whether the pre-2026 2.5 km STAC collections still exist (moot if `dtm-cog` works).
-3. RAÄ new-GeoPackage schema: layer names, `lamningstyp` column, presence of any
-   structured dating column.
-4. Broborg's confirmed L-number (probable **L1943:7827**) + Fornsök UUID + exact
-   geometry type of its record.
-5. SGU jordarter current attribute names (`jg2`/`jg2_tx` or renamed) and full class list;
-   full OGC API collection list.
-6. Strandförskjutningsmodell exact download URLs; whether it also ships an uplift-surface
-   raster (which would let us compute levels without polygon intersection).
-7. Whether false basins exist at Broborg within the slider range (§4.5 decision).
-8. K-samsök production key requirement (only matters for popup enrichment — optional).
+**Phase-0 resolutions (spike run 2026-08-20):**
+1. Exact Lantmäteriet attribution wording — **still open.** The STAC collection declares
+   `license: CC-BY-4.0` with the terms at
+   `https://www.lantmateriet.se/globalassets/geodata/geodataprodukter/anvandningsvillkor_for_vardefulla_datamangder.pdf`
+   (host unreachable from the spike environment; pull the wording from that PDF or the
+   Geotorget order confirmation). Working text in §6.3 stands until then.
+2. ✅ Legacy `mhm-*` collections still resolve alongside `dtm-cog` — moot, `dtm-cog` works.
+3. ✅ RAÄ schema mapped (§2.2): relational `lamning` table + denormalized
+   `lämningar_län_<län>_*` layers; `lamningstyp` unchanged; **no structured dating column**.
+4. ✅ Broborg = **L1943:7827**, uuid `184ca0f6-16f9-4de8-bbec-99aa959f9824`, one site-extent
+   **Polygon** (~6 310 m²), centroid E 665 808 / N 6 627 881 (the plan's coordinate was
+   2.6 km off — corrected in §2.1).
+5. ✅ SGU jordarter: `jg2`/`jg2_tx` unchanged; full collection list in §2.3; EPSG:3006 in/out.
+6. ✅ Strandförskjutningsmodell URLs confirmed (`strandforskjutning_<from>_<to>.gpkg`,
+   `issjohav_<bp>` layers, **BP-keyed**, BP 1100 missing) **and** it has its own OGC API
+   (14 `bp*` collections; `code` 1 = Hav / 4 = Sjö). No uplift-surface raster seen among the
+   open-data files — level lookup will come from polygon∩DEM intersection or Påsse &
+   Daniels directly, as planned.
+7. ✅ False basins exist (largest ~6.3 ha at the 11 m level) → per-century connectivity
+   bitmask confirmed necessary (§4.5).
+8. K-samsök production key — **still open** (optional; only for popup enrichment).
 
 **Resolved by decision (delegated by project owner, 2026-08-19):**
 9. **Palisade fallback — approved.** Hand-digitized rampart trace over the LiDAR
@@ -470,5 +490,5 @@ bake the active caveats into the image margin.
 
 ---
 
-*Next step: your review. On approval, work starts at Phase 0 — no code before the
-hillshade gate passes.*
+*Phase 0 complete and the hillshade gate passed (2026-08-20). Next step: owner
+confirmation, then Phase 1 (Broborg terrain on screen).*

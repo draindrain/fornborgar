@@ -1,0 +1,6 @@
+# Raw downloads and derived rasters — never committed (licensing + size).
+# Credentials live in env vars (LANTMATERIET_USER / LANTMATERIET_PASS), never in files.
+data-cache/
+__pycache__/
+*.pyc
+.venv/
