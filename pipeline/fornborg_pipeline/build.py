@@ -1,10 +1,14 @@
-"""CLI: fetch -> clip -> manifest for one site.
+"""CLI: fetch -> clip -> water -> manifest for one site.
 
     python3 -m fornborg_pipeline.build --site broborg
 
 Raw downloads are cached in the gitignored `data-cache/` at the repo root and
 reused when they match the site config; the app-facing outputs land in
 `app/public/data/<siteId>/` (docs/data-formats.md).
+
+The water step (shoreline table + connectivity grid, contract §6/§7) runs off the
+grids this module just wrote, so it can also be re-run on its own without the
+Lantmäteriet credentials — see `fornborg_pipeline.water`.
 """
 
 from __future__ import annotations
@@ -13,13 +17,15 @@ import sys
 
 import click
 
+from . import water
 from .clip_dem import VerticalDatumError, build_grids, sample_nearest, write_grid
 from .fetch_dem import FetchError, fetch_source_mosaic, read_source_mosaic
 from .manifest import build_manifest, write_data_licenses, write_manifest
+from .shoreline import ShorelineError
 from .sites import SITES, get_site
 
 
-def run(site_id: str, force_download: bool = False) -> dict:
+def run(site_id: str, force_download: bool = False, skip_water: bool = False) -> dict:
     """Run the whole pipeline for one site. Returns the manifest dict."""
     cfg = get_site(site_id)
     print(f"== {cfg.name} ({cfg.id}) — center E {cfg.center_e:.0f} N {cfg.center_n:.0f}")
@@ -51,6 +57,11 @@ def run(site_id: str, force_download: bool = False) -> dict:
     print(f"  wrote {manifest_path}")
     print(f"  wrote {licenses_path}")
 
+    if not skip_water:
+        # Derives shoreline.json + water_connect.tif from the grids just written and
+        # patches this manifest (and DATA-LICENSES.md) with the water pair.
+        manifest = water.run(site_id, force_download=force_download)
+
     total = sum(p.stat().st_size for p in cfg.out_dir.glob("*") if p.is_file())
     print(f"== done: {cfg.out_dir} ({total / 1e6:.2f} MB total)")
     return manifest
@@ -68,15 +79,20 @@ def run(site_id: str, force_download: bool = False) -> dict:
 @click.option(
     "--force-download",
     is_flag=True,
-    help="Re-download the raw mosaic even if a valid cached copy exists.",
+    help="Re-download the raw mosaic (and the SGU extract) even if a valid cache exists.",
 )
-def cli(site_id: str, force_download: bool) -> None:
-    """Build the app data for a site: fetch the DEM, clip it, write the manifest."""
+@click.option(
+    "--skip-water",
+    is_flag=True,
+    help="Stop after the manifest; leave shoreline.json / water_connect.tif untouched.",
+)
+def cli(site_id: str, force_download: bool, skip_water: bool) -> None:
+    """Build the app data for a site: fetch the DEM, clip it, derive water, write the manifest."""
     try:
-        run(site_id, force_download=force_download)
+        run(site_id, force_download=force_download, skip_water=skip_water)
     except FetchError as exc:
         raise SystemExit(f"FETCH FAILED: {exc}") from exc
-    except VerticalDatumError as exc:
+    except (VerticalDatumError, ShorelineError) as exc:
         raise SystemExit(f"SANITY CHECK FAILED: {exc}") from exc
 
 

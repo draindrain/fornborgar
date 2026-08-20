@@ -171,6 +171,17 @@ def sample_nearest(array: np.ndarray, transform: Affine, e: float, n: float) -> 
     return float(array[row, col])
 
 
+def sample_nearest_many(
+    array: np.ndarray, transform: Affine, e: np.ndarray, n: np.ndarray
+) -> np.ndarray:
+    """Vectorized `sample_nearest` for point sets (shoreline boundary sampling)."""
+    col = np.floor((np.asarray(e, dtype=np.float64) - transform.c) / transform.a).astype(np.int64)
+    row = np.floor((transform.f - np.asarray(n, dtype=np.float64)) / -transform.e).astype(np.int64)
+    np.clip(col, 0, array.shape[1] - 1, out=col)
+    np.clip(row, 0, array.shape[0] - 1, out=row)
+    return array[row, col]
+
+
 def check_height_sanity(
     heights_m: np.ndarray, transform: Affine, cfg: SiteConfig, label: str
 ) -> float:
@@ -261,6 +272,29 @@ def build_grids(
         spec.name: build_grid(filled, source_transform, spec, cfg, filled_cells)
         for spec in cfg.grids
     }
+
+
+def grid_bounds(shape: tuple[int, int], transform: Affine) -> tuple[float, float, float, float]:
+    """(minE, minN, maxE, maxN) covered by a north-up grid of this shape."""
+    height, width = shape
+    min_e, max_n = transform.c, transform.f
+    return (min_e, max_n - height * -transform.e, min_e + width * transform.a, max_n)
+
+
+def read_grid(path: Path) -> tuple[np.ndarray, Affine, tuple[float, float, float, float]]:
+    """Read a committed grid back as (int16 decimeters, transform, bounds3006).
+
+    The counterpart of `write_grid`: the water steps run against the *committed*
+    COGs, so a rebuild of the water assets never needs the Lantmäteriet fetch path.
+    """
+    with rasterio.open(path) as src:
+        if src.count != 1:
+            raise ValueError(f"{path}: expected a single-band grid, got {src.count} bands")
+        if src.dtypes[0] != "int16":
+            raise ValueError(f"{path}: expected int16 decimeters, got {src.dtypes[0]}")
+        data = src.read(1)
+        transform = src.transform
+    return data, transform, grid_bounds(data.shape, transform)
 
 
 def write_grid(path: Path, grid: Grid) -> Path:

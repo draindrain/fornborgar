@@ -8,6 +8,7 @@ in tests without touching the network or the filesystem.
 from __future__ import annotations
 
 import json
+from collections.abc import Iterable
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -23,6 +24,14 @@ LANTMATERIET_ATTRIBUTION = {
     "license": "CC BY 4.0",
     "url": "https://www.lantmateriet.se",
 }
+
+# v1.1 (contract preamble): mandatory whenever `assets.shoreline` is present.
+SGU_ATTRIBUTION = {
+    "text": "Strandförskjutningsdata från Sveriges geologiska undersökning (CC0)",
+    "license": "CC0",
+    "url": "https://www.sgu.se",
+}
+WATER_LAYER = {"id": "water", "name": "Paleo-shoreline (SGU model)", "provenance": "model"}
 
 
 def _raa_attribution(fetched: str) -> dict:
@@ -122,6 +131,47 @@ def build_manifest(
     return manifest
 
 
+def add_water_assets(
+    manifest: dict,
+    shoreline_path: str,
+    connect_path: str,
+    source: dict | None = None,
+    processing: Iterable[str] = (),
+) -> dict:
+    """Patch the v1.1 water pair into an existing manifest, in place. Idempotent.
+
+    Additive per the contract's versioning policy — `schemaVersion` stays 1. The
+    shoreline asset, the SGU attribution entry and the `water` layer travel
+    together (see `validate_manifest`).
+    """
+    manifest.setdefault("assets", {})["shoreline"] = shoreline_path
+    manifest["assets"]["waterConnect"] = connect_path
+
+    layers = manifest.setdefault("layers", [])
+    if not any(layer.get("id") == WATER_LAYER["id"] for layer in layers):
+        # Contract order: terrain, sites, water, palisade.
+        insert_at = next(
+            (i for i, layer in enumerate(layers) if layer.get("id") == "palisade"), len(layers)
+        )
+        layers.insert(insert_at, dict(WATER_LAYER))
+
+    attribution = manifest.setdefault("attribution", [])
+    if not any(entry.get("text") == SGU_ATTRIBUTION["text"] for entry in attribution):
+        attribution.append(dict(SGU_ATTRIBUTION))
+
+    provenance = manifest.setdefault("provenance", {})
+    if source is not None:
+        sources = provenance.setdefault("sources", [])
+        sources = [s for s in sources if s.get("id") != source.get("id")]
+        sources.append(dict(source))
+        provenance["sources"] = sources
+    steps = provenance.setdefault("processing", [])
+    for entry in processing:
+        if entry not in steps:
+            steps.append(entry)
+    return manifest
+
+
 # --------------------------------------------------------------------------- #
 # validation — the invariants docs/data-formats.md §2 says the pipeline guarantees
 # --------------------------------------------------------------------------- #
@@ -189,9 +239,44 @@ def validate_manifest(manifest: dict) -> None:
         if layer["provenance"] not in ("measured", "model", "conjecture"):
             raise ValueError(f"layer {layer['id']!r}: invalid provenance {layer['provenance']!r}")
 
-    for entry in manifest["assets"].values():
+    assets = manifest["assets"]
+    for entry in assets.values():
         if entry.startswith("/") or ".." in entry:
             raise ValueError(f"asset path {entry!r} must be relative and contain no '..'")
+
+    _validate_water(manifest, assets)
+
+
+def _validate_water(manifest: dict, assets: dict) -> None:
+    """v1.1 §6/§7 rules: the water assets, layer and attribution travel together."""
+    has_shoreline = "shoreline" in assets
+    has_connect = "waterConnect" in assets
+    if has_shoreline != has_connect:
+        raise ValueError(
+            "assets.shoreline and assets.waterConnect are a pair (contract v1.1 preamble): "
+            f"shoreline={assets.get('shoreline')!r}, waterConnect={assets.get('waterConnect')!r}"
+        )
+
+    water = next((layer for layer in manifest["layers"] if layer.get("id") == "water"), None)
+    if water is not None and water.get("provenance") != "model":
+        raise ValueError(
+            f"the 'water' layer is derived from the SGU model; provenance must be 'model', "
+            f"got {water.get('provenance')!r}"
+        )
+
+    has_sgu = any(
+        entry.get("text") == SGU_ATTRIBUTION["text"] for entry in manifest.get("attribution", [])
+    )
+    if has_shoreline and not has_sgu:
+        raise ValueError(
+            "assets.shoreline is present but the SGU attribution entry is missing from "
+            f"`attribution` (contract v1.1 requires {SGU_ATTRIBUTION['text']!r})"
+        )
+    if has_sgu and not has_shoreline:
+        raise ValueError(
+            "the SGU shoreline attribution is present but assets.shoreline is not — "
+            "the app would credit a source it never loads"
+        )
 
 
 def write_manifest(path: Path, manifest: dict) -> Path:
@@ -231,10 +316,9 @@ renders the short attribution strings from `manifest.json` → `attribution`.
 - **Voluntary attribution:** *"Fornlämningsinformation från Riksantikvarieämbetet,
   Kulturmiljöregistret (CC0), hämtad {kmr_fetched}"*.
 
-## Later phases (added when the layers ship)
+{water_section}## Later phases (added when the layers ship)
 
-- Soils and shoreline displacement: Sveriges geologiska undersökning (SGU), **CC0** —
-  *"Jordarts- och strandförskjutningsdata från Sveriges geologiska undersökning (CC0)"*.
+- {later_sgu}
 
 ## Application code
 
@@ -242,8 +326,54 @@ MIT — see `LICENSE` at the repository root. The code license does not extend t
 files in this directory, which carry the licenses above.
 """
 
+LATER_SGU_PENDING = (
+    "Soils and shoreline displacement: Sveriges geologiska undersökning (SGU), **CC0** —\n"
+    '  *"Jordarts- och strandförskjutningsdata från Sveriges geologiska undersökning (CC0)"*.'
+)
+LATER_SGU_SHIPPED = (
+    "Soils (jordarter, phase 7): Sveriges geologiska undersökning (SGU), **CC0** — when it\n"
+    "  ships, the SGU attribution line above widens to *\"Jordarts- och\n"
+    "  strandförskjutningsdata från Sveriges geologiska undersökning (CC0)\"* (PLAN.md §6.3)."
+)
 
-def write_data_licenses(path: Path, cfg: SiteConfig, source_meta: dict) -> Path:
+WATER_SECTION_TEMPLATE = """## Paleo-shoreline — `shoreline.json`, `water_connect.tif`
+
+- **Source:** Sveriges geologiska undersökning, *Strandförskjutningsmodell* (sea/land
+  distribution in 100-year steps, built from the Påsse & Daniels (2015) shore-level
+  equations, a land-uplift model and a 50 m DEM).
+- **Endpoint:** OGC API — Features, `{api}`
+- **Collections read:** {collections}
+- **Fetched:** {fetched}
+- **License:** **CC0** — attribution not required, given voluntarily.
+- **Voluntary attribution:** *"Strandförskjutningsdata från Sveriges geologiska undersökning (CC0)"*.
+- **Caveat (shown in the app):** dating margins up to **±500 years**; SGU calls it a
+  general progression, not a basis for detailed studies.
+- **Processing applied:** none of SGU's geometry is shipped. `shoreline.json` holds one
+  water level per century, derived by sampling our own LiDAR DEM along SGU's modelled sea
+  (Hav) boundaries inside the site extent and taking the median (see the `method` field in
+  that file for the full derivation, including which steps are extrapolated).
+  `water_connect.tif` is derived from `dem_context.tif` alone — a priority-flood
+  sea-connectivity surface (the level at which each cell first connects to open water at
+  the grid edge), so the app can exclude enclosed basins that never met the sea. It
+  carries no SGU data and inherits the Lantmäteriet elevation license above.
+
+"""
+
+
+def water_section(water_meta: dict | None) -> str:
+    if not water_meta:
+        return ""
+    collections = ", ".join(f"`{c}`" for c in water_meta.get("collections", [])) or "n/a"
+    return WATER_SECTION_TEMPLATE.format(
+        api=water_meta.get("api", "n/a"),
+        collections=collections,
+        fetched=water_meta.get("fetched", "n/a"),
+    )
+
+
+def write_data_licenses(
+    path: Path, cfg: SiteConfig, source_meta: dict, water_meta: dict | None = None
+) -> Path:
     tiles = ", ".join(f"`{t}`" for t in source_meta.get("stacItems", [])) or "n/a"
     text = DATA_LICENSES_TEMPLATE.format(
         site_name=cfg.name,
@@ -252,6 +382,8 @@ def write_data_licenses(path: Path, cfg: SiteConfig, source_meta: dict) -> Path:
         tiles=tiles,
         fetched=source_meta.get("fetched", "n/a"),
         kmr_fetched=cfg.kmr_fetched or "n/a",
+        water_section=water_section(water_meta),
+        later_sgu=LATER_SGU_SHIPPED if water_meta else LATER_SGU_PENDING,
     )
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding="utf-8")

@@ -1,8 +1,9 @@
 """Fetch the raw 1 m DEM mosaic for a site from Lantmäteriet.
 
-This is the ONLY module in the package that touches the network. Everything
-downstream (clip_dem, manifest) works on plain arrays + config so it can be
-tested without a network.
+This is the only module that needs *credentials*, and the only one that fetches
+elevation data (`shoreline` fetches the anonymous SGU shoreline model). Everything
+downstream (clip_dem, connectivity, manifest) works on plain arrays + config so it
+can be tested without a network.
 
 Flow (PLAN.md §2.1): query the Höjd STAC API for `dtm-cog` items intersecting the
 site bbox (anonymous), then do windowed `/vsicurl` reads of just the site extent

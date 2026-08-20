@@ -28,10 +28,32 @@ renders the short attribution strings from `manifest.json` → `attribution`.
 - **Voluntary attribution:** *"Fornlämningsinformation från Riksantikvarieämbetet,
   Kulturmiljöregistret (CC0), hämtad 2026-08-20"*.
 
+## Paleo-shoreline — `shoreline.json`, `water_connect.tif`
+
+- **Source:** Sveriges geologiska undersökning, *Strandförskjutningsmodell* (sea/land
+  distribution in 100-year steps, built from the Påsse & Daniels (2015) shore-level
+  equations, a land-uplift model and a 50 m DEM).
+- **Endpoint:** OGC API — Features, `https://api.sgu.se/oppnadata/strandforskjutningsmodell/ogc/features/v1`
+- **Collections read:** `bp1-900`, `bp1000-1900`, `bp2000-2900`, `bp3000-3900`
+- **Fetched:** 2026-08-20T16:27:52+00:00
+- **License:** **CC0** — attribution not required, given voluntarily.
+- **Voluntary attribution:** *"Strandförskjutningsdata från Sveriges geologiska undersökning (CC0)"*.
+- **Caveat (shown in the app):** dating margins up to **±500 years**; SGU calls it a
+  general progression, not a basis for detailed studies.
+- **Processing applied:** none of SGU's geometry is shipped. `shoreline.json` holds one
+  water level per century, derived by sampling our own LiDAR DEM along SGU's modelled sea
+  (Hav) boundaries inside the site extent and taking the median (see the `method` field in
+  that file for the full derivation, including which steps are extrapolated).
+  `water_connect.tif` is derived from `dem_context.tif` alone — a priority-flood
+  sea-connectivity surface (the level at which each cell first connects to open water at
+  the grid edge), so the app can exclude enclosed basins that never met the sea. It
+  carries no SGU data and inherits the Lantmäteriet elevation license above.
+
 ## Later phases (added when the layers ship)
 
-- Soils and shoreline displacement: Sveriges geologiska undersökning (SGU), **CC0** —
-  *"Jordarts- och strandförskjutningsdata från Sveriges geologiska undersökning (CC0)"*.
+- Soils (jordarter, phase 7): Sveriges geologiska undersökning (SGU), **CC0** — when it
+  ships, the SGU attribution line above widens to *"Jordarts- och
+  strandförskjutningsdata från Sveriges geologiska undersökning (CC0)"* (PLAN.md §6.3).
 
 ## Application code
 
