@@ -292,7 +292,13 @@ export interface LandcoverControlOptions {
   classCount: number;
   /** `landcover_legend.json.caveat`, shown verbatim next to the control. */
   caveat: string;
-  /** Vegetation instances currently placed, read after every change. */
+  /**
+   * v1.3 (§10): does the legend mark any class `dynamic`? Those classes are derived
+   * at the century the slider shows, so the permanent note must not claim the whole
+   * layer is frozen at the reference year.
+   */
+  hasDynamicClasses?: boolean;
+  /** Vegetation instances **visible** at the current level, read after every change. */
   instanceCount(): number;
   onChange(): void;
 }
@@ -322,13 +328,20 @@ export function addLandcoverControls(
   const seed = folder.add(state.landcover, 'seed', 1, 999, 1).name('layout seed').onChange(changed);
 
   const readout = note(folder, 'control-readout', '');
-  note(folder, 'control-note', `${options.caveat} Modelled for ${formatYear(options.referenceYearCE)} only.`);
+  // Which century this layer speaks for, stated permanently — and since v1.3 that
+  // answer is split: the soil-derived classes are frozen at the reference year, the
+  // two hydrological ones follow the shoreline slider (contract §9/§10).
+  const scope = options.hasDynamicClasses
+    ? `Soil-derived classes modelled for ${formatYear(options.referenceYearCE)}; open water and the shore reed ` +
+      'belt follow the shoreline slider.'
+    : `Modelled for ${formatYear(options.referenceYearCE)} only.`;
+  note(folder, 'control-note', `${options.caveat} ${scope}`);
 
   const update = (): void => {
     for (const control of [show, density, seed]) control.updateDisplay();
     readout.textContent =
       `${formatYear(options.referenceYearCE)} · ${options.classCount} classes · ` +
-      `${options.instanceCount().toLocaleString('en-US')} plants`;
+      `${options.instanceCount().toLocaleString('en-US')} plants visible`;
   };
   update();
   folder.close();

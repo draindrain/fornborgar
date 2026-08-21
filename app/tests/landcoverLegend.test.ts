@@ -14,8 +14,11 @@ import { describe, expect, it } from 'vitest';
 
 import {
   AREA_FRACTION_TOLERANCE,
+  DYNAMIC_KINDS,
   LandcoverError,
   MAX_CLASSES,
+  dynamicClass,
+  staticVegetationClasses,
   validateLandcoverLegend,
   vegetationClasses,
 } from '../src/landcover/legend';
@@ -47,8 +50,10 @@ describe('landcover_legend.json validation (contract §10)', () => {
 
   it('exercises all three vegetation forms plus classes with none', () => {
     const legend = validateLandcoverLegend(testsiteLegend);
-    const types = vegetationClasses(legend).map((c) => c.vegetation.type).sort();
-    expect(types).toEqual(['broadleaf', 'conifer', 'reeds']);
+    // A set, not a list: since v1.3 the fixture may carry a *dynamic* reeds class
+    // alongside a static one, and what matters is that all three forms occur.
+    const types = new Set(vegetationClasses(legend).map((c) => c.vegetation.type));
+    expect([...types].sort()).toEqual(['broadleaf', 'conifer', 'reeds']);
     expect(legend.classes.some((c) => c.vegetation === null)).toBe(true);
     for (const c of vegetationClasses(legend)) expect(c.vegetation.densityPerHa).toBeGreaterThan(0);
   });
@@ -224,5 +229,173 @@ describe('landcover_legend.json validation (contract §10)', () => {
     const legend = validateLandcoverLegend(doc);
     expect(legend['futureKey']).toEqual({ anything: true });
     expect(legend.classes[0]['futureClassKey']).toBe(7);
+  });
+});
+
+// ------------------------------------------- v1.3: the `dynamic` marker -----
+
+/**
+ * A self-contained v1.3 legend, so these cases stay independent of whatever the
+ * committed testsite fixture happens to declare.
+ */
+const dynamicDoc = () => ({
+  schemaVersion: 1,
+  referenceYearCE: 500,
+  referenceLevelM: 8.6,
+  method: 'm',
+  caveat: 'c',
+  calibration: 'cal',
+  classes: [
+    {
+      index: 0,
+      id: 'water',
+      name: 'Open water',
+      color: '#2d5a6b',
+      rule: 'SGU Vatten, plus the runtime sea',
+      vegetation: null,
+      dynamic: { kind: 'water' },
+      areaFraction: 0.1,
+    },
+    {
+      index: 1,
+      id: 'peat_fen',
+      name: 'Peat fen',
+      color: '#7f9455',
+      rule: 'peat/gyttja',
+      vegetation: { type: 'reeds', densityPerHa: 400 },
+      areaFraction: 0.9,
+    },
+    {
+      index: 2,
+      id: 'shore_reeds',
+      name: 'Shore reed belt',
+      color: '#77875a',
+      rule: 'derived by the app at the current level',
+      vegetation: { type: 'reeds', densityPerHa: 500 },
+      dynamic: { kind: 'shore-band', bandM: 0.6 },
+      areaFraction: 0, // runtime-only class: no cells in the raster
+    },
+  ] as Record<string, unknown>[],
+});
+
+describe('landcover_legend.json dynamic classes (contract §10 v1.3)', () => {
+  it('accepts a legend with both dynamic kinds', () => {
+    const legend = validateLandcoverLegend(dynamicDoc());
+    expect(legend.classes[0].dynamic).toEqual({ kind: 'water' });
+    expect(legend.classes[2].dynamic).toEqual({ kind: 'shore-band', bandM: 0.6 });
+    // A purely-runtime class carries areaFraction 0 and still sums to 1 (§10).
+    expect(legend.classes[2].areaFraction).toBe(0);
+  });
+
+  it('treats an absent, null or omitted marker as a fully static class', () => {
+    const doc = dynamicDoc();
+    delete doc.classes[0]['dynamic'];
+    doc.classes[2]['dynamic'] = null;
+    const legend = validateLandcoverLegend(doc);
+    // Absent stays absent, an explicit null stays null — both read as "static".
+    expect(legend.classes[0].dynamic).toBeUndefined();
+    expect(legend.classes[2].dynamic).toBeNull();
+    expect(staticVegetationClasses(legend).map((c) => c.id)).toEqual(['peat_fen', 'shore_reeds']);
+    expect(dynamicClass(legend, 'water')).toBeNull();
+    expect(dynamicClass(legend, 'shore-band')).toBeNull();
+  });
+
+  it.each([
+    [
+      'an unknown dynamic kind',
+      () => {
+        const doc = dynamicDoc();
+        doc.classes[0]['dynamic'] = { kind: 'lake' };
+        return doc;
+      },
+      /dynamic\.kind "lake" is not one of/,
+    ],
+    [
+      'a shore band with bandM = 0',
+      () => {
+        const doc = dynamicDoc();
+        doc.classes[2]['dynamic'] = { kind: 'shore-band', bandM: 0 };
+        return doc;
+      },
+      /dynamic\.bandM must be a finite number > 0/,
+    ],
+    [
+      'a shore band with a negative bandM',
+      () => {
+        const doc = dynamicDoc();
+        doc.classes[2]['dynamic'] = { kind: 'shore-band', bandM: -0.6 };
+        return doc;
+      },
+      /dynamic\.bandM must be a finite number > 0/,
+    ],
+    [
+      'a shore band with no bandM at all',
+      () => {
+        const doc = dynamicDoc();
+        doc.classes[2]['dynamic'] = { kind: 'shore-band' };
+        return doc;
+      },
+      /dynamic\.bandM must be a finite number > 0/,
+    ],
+    [
+      'a water class carrying bandM',
+      () => {
+        const doc = dynamicDoc();
+        doc.classes[0]['dynamic'] = { kind: 'water', bandM: 0.6 };
+        return doc;
+      },
+      /dynamic\.bandM is only allowed on kind "shore-band"/,
+    ],
+    [
+      'two classes of the same dynamic kind',
+      () => {
+        const doc = dynamicDoc();
+        doc.classes[1]['dynamic'] = { kind: 'water' };
+        return doc;
+      },
+      /more than one class with dynamic\.kind "water"/,
+    ],
+    [
+      'a dynamic marker that is not an object',
+      () => {
+        const doc = dynamicDoc();
+        doc.classes[0]['dynamic'] = 'water';
+        return doc;
+      },
+      /dynamic must be an object or absent/,
+    ],
+  ])('rejects %s', (_label, make, message) => {
+    expect(() => validateLandcoverLegend(make(), 'landcover_legend.json')).toThrow(LandcoverError);
+    expect(() => validateLandcoverLegend(make(), 'landcover_legend.json')).toThrow(message as RegExp);
+  });
+
+  it('finds each dynamic class by kind, and only its own kind', () => {
+    const legend = validateLandcoverLegend(dynamicDoc());
+    expect(DYNAMIC_KINDS).toEqual(['water', 'shore-band']);
+    expect(dynamicClass(legend, 'water')?.id).toBe('water');
+    expect(dynamicClass(legend, 'shore-band')?.id).toBe('shore_reeds');
+    expect(dynamicClass(legend, 'shore-band')?.dynamic?.bandM).toBe(0.6);
+  });
+
+  it('keeps dynamic classes out of the raster-sampled vegetation set', () => {
+    const legend = validateLandcoverLegend(dynamicDoc());
+    // Both reed classes carry vegetation…
+    expect(vegetationClasses(legend).map((c) => c.id)).toEqual(['peat_fen', 'shore_reeds']);
+    // …but only the static one is sampled from the raster (§9 v1.3).
+    expect(staticVegetationClasses(legend).map((c) => c.id)).toEqual(['peat_fen']);
+  });
+
+  it('leaves a pre-v1.3 legend entirely static', () => {
+    const legend = validateLandcoverLegend(testsiteLegend);
+    const dynamicIds = legend.classes.filter((c) => c.dynamic).map((c) => c.id);
+    // Whatever the committed fixture declares, the two helper views must agree with
+    // it: static = vegetated minus dynamic, and each kind resolves at most once.
+    expect(staticVegetationClasses(legend).map((c) => c.id)).toEqual(
+      vegetationClasses(legend).filter((c) => !c.dynamic).map((c) => c.id),
+    );
+    for (const kind of DYNAMIC_KINDS) {
+      const found = dynamicClass(legend, kind);
+      if (found) expect(dynamicIds).toContain(found.id);
+    }
   });
 });
