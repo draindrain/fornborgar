@@ -244,10 +244,30 @@ corrections to this plan where the schema assumptions were wrong.
   toggle, labeled as a model, with the rules disclosed verbatim in the methods panel and
   the forest/open ratio sanity-checked against §2.5 literature.
 
-### Phase 8 — Regional scope (out of v1 entirely)
-- Multi-site picker, regional low-res terrain with per-site high-res insets, tiled/LOD
-  terrain, inter-fort intervisibility graphs. Decisions deliberately deferred; nothing in
-  v1 should preclude it (the manifest-per-site contract is the seam).
+### Phase 8 — National scope ("view any Swedish fornborg")
+- **Strategy researched and documented 2026-08-21 → `docs/national-scaleout.md`.**
+  Key measured facts: **1,304 registered fornborgar** nationally (1,227 bedömda som
+  fornlämning; Södermanland 242, Stockholm 240, Västra Götaland 223, …); 99.7 % fit the
+  v1 4×4 km extent (extent p95 = 350 m; only 3 sites > 1 km need a `large` preset);
+  centroids touch just 504 Lantmäteriet DEM tiles. Whole country ≈ **~4 GB of static
+  bundles (~3 MB/site)** after two encoding wins (water-connect as delta vs. DEM: 10×;
+  dropping COG overviews from web grids: −35 %) — the per-site static-bundle
+  architecture scales as-is. Hosting: app stays on GH Pages; bundles move to
+  Cloudflare R2 (free egress, fits the free tier). No tiled/LOD terrain needed.
+- **Far-field rings & horizon guarantee (owner decisions 2026-08-21, doc §2b):** every
+  site ships concentric 2000² rings (8×8 km @ 4 m → up to 128×128 km @ 64 m, coarser
+  vertical quantization on far rings) sized **adaptively per site** so the skyline
+  closes at the true refracted horizon (`d ≈ 3.83·√h` km) **from the first-person
+  viewpoint on the fort** — lowland forts stop at 64×64 km, high sea/lake-facing forts
+  get 128×128 km. Non-Swedish terrain in far rings (Norway, Finland, Åland) is filled
+  from **Copernicus GLO-30**, provenance-tagged. ~9 MB/site → **~12 GB national**
+  (≈ $0.03/mo on R2). Additive `grids.rings` manifest entry; render side needs
+  curvature-displaced annulus meshes (the horizon is ~280 m below flat-earth at 64 km),
+  log depth buffer, lazy ring loading; paleo-water rendered out to the 16 km ring
+  (uplift-gradient honesty caveat in the doc).
+- Sequenced 8a–8e: encoding + contract v1.2 → batch pipeline (registry, tile cache,
+  QA contact sheet) → ~25-site curated pilot on R2 → county-by-county fill to 1,304 →
+  intervisibility stretch (76 % of forts have a neighbor within their context extent).
 
 ---
 
@@ -490,5 +510,7 @@ bake the active caveats into the image margin.
 
 ---
 
-*Phase 0 complete and the hillshade gate passed (2026-08-20). Next step: owner
-confirmation, then Phase 1 (Broborg terrain on screen).*
+*Phase 0 complete and the hillshade gate passed (2026-08-20). Phases 1–6 (v1) shipped
+2026-08-20/21. Phase-8 national scale-out strategy documented 2026-08-21
+(`docs/national-scaleout.md`); next step: owner confirmation, then 8a (bundle encoding
++ contract v1.2).*
