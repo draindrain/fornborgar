@@ -5,6 +5,7 @@ __pycache__/
 *.pyc
 .venv/
 .pytest_cache/
+*.egg-info/
 *.aux.xml
 
 # Claude Code local state (agent worktrees, local settings)
