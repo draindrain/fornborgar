@@ -14,7 +14,12 @@ import { boundsLocalFrom3006, localFromGrid } from '../src/lib/coords';
 import { validateManifest, type GridManifest } from '../src/state/manifest';
 import { decodeHeights, elevationRange } from '../src/terrain/heightGrid';
 import { validateShoreline, levelAt } from '../src/water/shoreline';
-import { validateLandcoverLegend, vegetationClasses } from '../src/landcover/legend';
+import {
+  dynamicClass,
+  staticVegetationClasses,
+  validateLandcoverLegend,
+  vegetationClasses,
+} from '../src/landcover/legend';
 import { classHistogram, type LandcoverGrid } from '../src/landcover/landcoverGrid';
 import { sampleVegetation } from '../src/landcover/vegetation';
 // @ts-expect-error - plain .mjs generator, imported for its height function and shared constants
@@ -157,7 +162,7 @@ describe('synthetic land-cover fixture (contract §9/§10)', () => {
     expect(band.length).toBe(ctx.width * ctx.height);
   });
 
-  it('carries a legend whose classes the raster actually uses', async () => {
+  it('carries a legend whose static classes the raster actually uses', async () => {
     const legend = validateLandcoverLegend(
       JSON.parse(await readFile(join(DIR, 'landcover_legend.json'), 'utf8')),
       'landcover_legend.json',
@@ -171,29 +176,60 @@ describe('synthetic land-cover fixture (contract §9/§10)', () => {
       classes: Uint8Array.from(band as ArrayLike<number>),
     };
 
-    // Every raw value is a legal index, and every declared class is actually used.
+    // Every raw value is a legal index (§9), and every class the *raster* is
+    // responsible for is actually used. A v1.3 dynamic class is derived by the app
+    // from the connect grid at the current level, so it may legitimately hold no
+    // cells at all — this synthetic site has no modern mapped water, so both do.
     const counts = classHistogram(grid, legend.classes.length);
     expect(grid.classes.reduce((m, v) => (v > m ? v : m), 0)).toBeLessThan(legend.classes.length);
     for (let i = 0; i < legend.classes.length; i++) {
-      expect(counts[i], `class ${legend.classes[i].id} is declared but never used`).toBeGreaterThan(0);
+      const cls = legend.classes[i];
+      if (cls.dynamic) {
+        expect(counts[i], `dynamic class ${cls.id} must not be baked into the raster`).toBe(0);
+      } else {
+        expect(counts[i], `class ${cls.id} is declared but never used`).toBeGreaterThan(0);
+      }
     }
 
-    // areaFraction is what the raster really contains (§10: informational, ±0.001).
+    // areaFraction is what the raster really contains (§10: informational, ±0.001),
+    // which for a purely runtime class is 0.
     const total = grid.classes.length;
     for (let i = 0; i < legend.classes.length; i++) {
       expect(legend.classes[i].areaFraction!).toBeCloseTo(counts[i] / total, 3);
     }
+    for (const cls of legend.classes) {
+      if (cls.dynamic) expect(cls.areaFraction).toBe(0);
+    }
 
     // All three vegetation forms plus a class with none — the fixture exists to
-    // exercise every branch the app has.
+    // exercise every branch the app has. Reeds now ride on the dynamic shore band.
     expect(vegetationClasses(legend).map((c) => c.vegetation.type).sort()).toEqual([
       'broadleaf',
       'conifer',
       'reeds',
     ]);
+    expect(staticVegetationClasses(legend).map((c) => c.vegetation.type).sort()).toEqual(['broadleaf', 'conifer']);
     expect(legend.classes.some((c) => c.vegetation === null)).toBe(true);
     expect(legend.method).toContain('SYNTHETIC TEST DATA');
     expect(legend.calibration).toContain('SYNTHETIC TEST DATA');
+  });
+
+  it('declares the v1.3 dynamic pair the app derives at the current level', async () => {
+    const legend = validateLandcoverLegend(JSON.parse(await readFile(join(DIR, 'landcover_legend.json'), 'utf8')));
+
+    const water = dynamicClass(legend, 'water');
+    expect(water?.id).toBe('water');
+    expect(water?.dynamic?.bandM).toBeUndefined(); // §10 v1.3: water carries no band
+
+    const shore = dynamicClass(legend, 'shore-band');
+    expect(shore?.dynamic?.bandM).toBe(LANDCOVER.reedBandM);
+    expect(shore?.vegetation?.type).toBe('reeds');
+    // The rule text says the app derives it — the panel shows this verbatim.
+    expect(shore!.rule).toMatch(/[Dd]erived by the app/);
+    expect(water!.rule).toMatch(/[Dd]erived by the app/);
+
+    // The fixture ships the grid that derivation reads (§7).
+    expect(manifest.assets?.['waterConnect']).toBe('water_connect.tif');
   });
 
   it('agrees with the §6 table on the reference century, and applies its own rules', async () => {
@@ -208,21 +244,34 @@ describe('synthetic land-cover fixture (contract §9/§10)', () => {
     const classes = await readRaw(manifest.assets!['landcover']);
     const connect = await readRaw(manifest.assets!['waterConnect']);
     const reedTop = levelM + LANDCOVER.reedBandM;
+    const dynamicIndices = new Set(legend.classes.filter((c) => c.dynamic).map((c) => c.index));
+    expect(dynamicIndices.size).toBe(2);
 
-    // The two connectivity-driven classes must match their stated rules exactly —
-    // this is the check that the legend text and the raster cannot drift apart.
+    // v1.3: the hydrological classes are NOT in the raster. Cells that the old
+    // fixture called sea or shore band — the ones the app now paints at the level
+    // shown — carry an ordinary static class instead, and every raw value is a
+    // legal index (§9).
+    let formerSea = 0;
+    let formerBand = 0;
     for (let i = 0; i < classes.length; i++) {
+      expect(classes[i]).toBeLessThan(legend.classes.length);
+      expect(dynamicIndices.has(classes[i])).toBe(false);
       const connectM = connect[i] * ctx.encoding.scale;
-      if (classes[i] === 0) expect(connectM).toBeLessThanOrEqual(levelM + 1e-9);
-      else expect(connectM).toBeGreaterThan(levelM);
-      if (classes[i] === 1) expect(connectM).toBeLessThanOrEqual(reedTop + 1e-9);
+      if (connectM <= levelM) formerSea++;
+      else if (connectM <= reedTop) formerBand++;
     }
+    // ...and the ground the app will paint over really exists in this fixture, or
+    // the dynamic path would never light up here.
+    expect(formerSea).toBeGreaterThan(0);
+    expect(formerBand).toBeGreaterThan(0);
   });
 
-  it('keeps the false basin out of the sea class, though its floor is below the level', async () => {
+  it('keeps the false basin out of the sea, though its floor is below the level', async () => {
     const legend = validateLandcoverLegend(JSON.parse(await readFile(join(DIR, 'landcover_legend.json'), 'utf8')));
     const classes = await readRaw(manifest.assets!['landcover']);
+    const connect = await readRaw(manifest.assets!['waterConnect']);
     const dem = await readRaw(ctx.path);
+    const waterIndex = dynamicClass(legend, 'water')!.index;
 
     const b = FALSE_BASIN as { centreX: number; centreZ: number; floorRadius: number };
     const centreCol = Math.round((b.centreX - ctx.boundsLocal.minX) / ctx.resolution - 0.5);
@@ -235,8 +284,11 @@ describe('synthetic land-cover fixture (contract §9/§10)', () => {
         if (Math.hypot(dc, dr) * ctx.resolution > b.floorRadius) continue;
         const i = (centreRow + dr) * ctx.width + (centreCol + dc);
         if (dem[i] * ctx.encoding.scale < legend.referenceLevelM) below++;
-        // Every floor cell is dry land: the rule tests connectivity, not elevation.
-        expect(classes[i]).not.toBe(0);
+        // Every floor cell is dry land in the raster...
+        expect(classes[i]).not.toBe(waterIndex);
+        // ...and stays dry when the app derives the sea at the reference level too:
+        // the runtime rule tests connectivity, not elevation (§7/§9 v1.3).
+        expect(connect[i] * ctx.encoding.scale).toBeGreaterThan(legend.referenceLevelM);
       }
     }
     // ...and some of that floor really is below the reference water level.
@@ -259,7 +311,11 @@ describe('synthetic land-cover fixture (contract §9/§10)', () => {
     expect(sample.total).toBeGreaterThan(500);
     expect(sample.total).toBeLessThan(20_000);
     expect(sample.capped).toBe(false);
-    expect(sample.byType.map((t) => t.type).sort()).toEqual(['broadleaf', 'conifer', 'reeds']);
+    // Only the *static* classes are sampled from the raster: the reed belt is a v1.3
+    // dynamic class the app derives from the connect grid at the level shown, and it
+    // holds no raster cells to sample here (§9 v1.3).
+    expect(sample.byType.map((t) => t.type).sort()).toEqual(['broadleaf', 'conifer']);
+    expect(staticVegetationClasses(legend).map((c) => c.id).sort()).toEqual(['broadleaf', 'conifer']);
 
     const again = sampleVegetation(grid, legend, { seed: 1, densityScale: 1 });
     expect(again.total).toBe(sample.total);

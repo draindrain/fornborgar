@@ -58,7 +58,10 @@ export class Legend {
    * are the pipeline's declaration rather than the app's opinion. The optional
    * `landcover` legend adds one row per modelled class — swatch, name and the
    * informational area percentage the §10 legend carries — grouped like the site
-   * markers, and states the reference century it is valid for.
+   * markers, and states the reference century the raster is valid for. Classes the
+   * legend marks `dynamic` (§10 v1.3) are the disclosed exception: the app derives
+   * them at the current slider level, so their row says "follows the slider" rather
+   * than quoting a frozen area share.
    */
   setContent(layers: LayerEntry[], sites: SiteRecord[] | null, landcover: LandcoverLegend | null = null): void {
     this.body.replaceChildren();
@@ -75,17 +78,20 @@ export class Legend {
     if (landcover) {
       const group = el('div', 'legend-markers');
       group.append(
-        el('div', 'legend-markers-title', `Modelled land cover (${formatYear(landcover.referenceYearCE)})`),
+        el('div', 'legend-markers-title', `Modelled land cover (ref. ${formatYear(landcover.referenceYearCE)})`),
       );
       for (const cls of landcover.classes) {
         const row = el('div', 'legend-row legend-model');
         const swatch = el('span', 'legend-swatch');
         swatch.style.background = cls.color;
-        const percent =
-          typeof cls.areaFraction === 'number'
+        // A v1.3 dynamic class has no fixed extent to quote a percentage for: the app
+        // derives it at the century shown (§9/§10), so the row says so instead.
+        const suffix = cls.dynamic
+          ? ' · follows the slider'
+          : typeof cls.areaFraction === 'number'
             ? ` · ${(cls.areaFraction * 100).toFixed(cls.areaFraction < 0.1 ? 1 : 0)} %`
             : '';
-        row.append(swatch, el('span', 'legend-name', `${cls.name}${percent}`));
+        row.append(swatch, el('span', 'legend-name', `${cls.name}${suffix}`));
         group.append(row);
       }
       this.body.append(group);

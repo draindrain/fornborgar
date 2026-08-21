@@ -3,7 +3,7 @@
   "site": "testsite",
   "referenceYearCE": 500,
   "referenceLevelM": 4.35,
-  "method": "SYNTHETIC TEST DATA — no soil map, pollen record or rule engine was consulted. Classes are derived by app/scripts/make-test-dem.mjs from the fixture's own closed-form terrain and its §7 connectivity grid, for the single reference century 500 CE at the 4.35 m level its synthetic shoreline table gives at that year. It exists so the app's Phase-7 land-cover feature can be exercised end to end against app/public/data/testsite/ without the Python pipeline. A real site derives its classes from SGU Jordarter plus the DEM.",
+  "method": "SYNTHETIC TEST DATA — no soil map, pollen record or rule engine was consulted. Classes are derived by app/scripts/make-test-dem.mjs from the fixture's own closed-form terrain and its §7 connectivity grid, for the single reference century 500 CE at the 4.35 m level its synthetic shoreline table gives at that year. The two hydrological classes (open water and the shore reed belt) are marked `dynamic` instead: the app derives them from the same connectivity grid at whatever century the slider shows (§9/§10 v1.3), so they hold no raster cells here. It exists so the app's Phase-7 land-cover feature can be exercised end to end against app/public/data/testsite/ without the Python pipeline. A real site derives its classes from SGU Jordarter plus the DEM.",
   "caveat": "Synthetic test data — a rule model of one century, not a survey of past vegetation. (A real site states the rule engine's own caveat here.)",
   "calibration": "SYNTHETIC TEST DATA — not calibrated against anything. The forest/open split here is whatever the closed-form hill produces; a real site reports its forest/open ratio against the regional pollen literature (PLAN §2.5).",
   "source": {
@@ -14,35 +14,42 @@
     {
       "index": 0,
       "id": "water",
-      "name": "Water (sea, ~500 CE)",
+      "name": "Open water",
       "color": "#2d5a6b",
-      "rule": "Sea-connectivity value at or below the 4.3 m reference water level (connect ≤ level, docs/data-formats.md §7) — wet AND connected to the open sea, so enclosed basins below that level are excluded.",
+      "rule": "Open sea: sea-connectivity value at or below the water level the century slider shows (connect ≤ level, docs/data-formats.md §7) — wet AND connected to the open sea, so enclosed basins below that level stay dry. Derived by the app at the level shown, not read from the raster (§9 v1.3); this synthetic site has no modern mapped water, so the class holds no raster cells at all.",
       "vegetation": null,
-      "areaFraction": 0.0252
+      "dynamic": {
+        "kind": "water"
+      },
+      "areaFraction": 0
     },
     {
       "index": 1,
-      "id": "reeds",
-      "name": "Reed bed and shore fen",
+      "id": "shore_reeds",
+      "name": "Shore reed belt (follows the shoreline)",
       "color": "#7f9455",
-      "rule": "Dry at the reference level but flooded by a further 1.2 m rise (connect ≤ 5.5 m): the shallow, seasonally wet shore band.",
+      "rule": "The reed belt at the water's edge: ground standing within 1.2 m above the water line (level < connect ≤ level + 1.2 m, §7), i.e. dry at the level shown but flooded by that much more rise. Derived by the app from the connectivity grid at the century shown rather than read from the raster (§9 v1.3), so the belt follows the shoreline instead of standing stranded at the reference century; it therefore holds no raster cells.",
       "vegetation": {
         "type": "reeds",
         "densityPerHa": 600
       },
-      "areaFraction": 0.0171
+      "dynamic": {
+        "kind": "shore-band",
+        "bandM": 1.2
+      },
+      "areaFraction": 0
     },
     {
       "index": 2,
       "id": "broadleaf",
       "name": "Damp broadleaf woodland",
       "color": "#5c7f3c",
-      "rule": "Dry ground less than 4 m above the reference level (below 8.3 m), outside the fort's cleared crown — the valley floors and the enclosed basin.",
+      "rule": "Ground below 8.3 m — less than 4 m above the 4.3 m reference level, including the ground under it — outside the fort's cleared crown: the valley floors, the shore flats and the enclosed basin. Where the sea or the reed belt stands at the century shown, the app paints those over this ground (§9 v1.3).",
       "vegetation": {
         "type": "broadleaf",
         "densityPerHa": 90
       },
-      "areaFraction": 0.0731
+      "areaFraction": 0.1154
     },
     {
       "index": 3,

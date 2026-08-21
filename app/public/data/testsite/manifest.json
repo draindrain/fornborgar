@@ -104,7 +104,7 @@
     }
   ],
   "provenance": {
-    "generated": "2026-08-21T16:40:33Z",
+    "generated": "2026-08-21T19:18:10Z",
     "pipeline": "app/scripts/make-test-dem.mjs",
     "sources": [],
     "processing": [
@@ -115,8 +115,9 @@
       "priority-flood sea connectivity over the context grid (4-connected, every edge cell a sea entry)",
       "synthetic century -> level table on SGU-shaped BP centuries",
       "rampart crest ring restated from the same closed form that drew it (no ridge extraction)",
-      "land-cover rule model over the context grid (connectivity + height above the reference level + DEM slope)",
-      "uint8 class raster on the grids.context geometry, one reference century"
+      "land-cover rule model over the context grid (height above the reference level + DEM slope)",
+      "uint8 class raster on the grids.context geometry, one reference century",
+      "hydrological classes (open water, shore reed belt) left to the app as §10 v1.3 dynamic classes, derived from the connectivity grid at the century shown"
     ]
   }
 }

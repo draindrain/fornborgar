@@ -110,16 +110,64 @@ export interface SiteStyle {
   radius: number;
 }
 
+// The semantic palette. Colour carries the *evidence family*; shape and radius carry
+// the record's grain: a fort is a large ring, an area record (gravfält, fossil
+// åkermark) a 10–12 m symbol, and a single grave or clearance cairn a small 7–8 m
+// dot — the KMR extract holds hundreds of those per site extent, and at valley scale
+// big symbols would smother both the terrain and each other.
+
+/** Fornborg — the subject of the map, its own alarm-red. */
+const FORT = '#d64541';
+/** Grave families: earthen (mounds, flat graves) and stone-built (rösen, kistor). */
+const GRAVE = '#b5443c';
+const GRAVE_STONE = '#a85a4e';
+/** Settlement evidence: dwellings, house foundations, burnt-mound refuse. */
+const SETTLEMENT = '#d09a3c';
+/** Cultivation evidence: fossil fields, clearance cairns, terraces. */
+const CULTIVATION = '#8a9a4a';
+/** Roads and tracks. */
+const ROAD = '#8a6f4d';
+/** Rune inscriptions. */
+const RUNE = '#7a5fb5';
+/** Land organisation without a settlement/cultivation claim: enclosure banks. */
+const ENCLOSURE = '#8b8578';
+
 const STYLES: Record<string, SiteStyle> = {
-  Fornborg: { color: '#d64541', shape: 'ring', radius: 18 },
-  'Gravfält': { color: '#b5443c', shape: 'disc', radius: 11 },
-  'Grav- och boplatsområde': { color: '#b5443c', shape: 'ring', radius: 12 },
-  Boplats: { color: '#d09a3c', shape: 'square', radius: 10 },
-  'Boplatsområde': { color: '#d09a3c', shape: 'square', radius: 11 },
-  'Boplatslämning övrig': { color: '#d09a3c', shape: 'square', radius: 9 },
-  Runristning: { color: '#7a5fb5', shape: 'diamond', radius: 10 },
-  'Färdväg': { color: '#8a6f4d', shape: 'diamond', radius: 9 },
-  'Färdvägssystem': { color: '#8a6f4d', shape: 'diamond', radius: 9 },
+  Fornborg: { color: FORT, shape: 'ring', radius: 18 },
+
+  // Graves — area records first, then the single-grave point types (small radii).
+  'Gravfält': { color: GRAVE, shape: 'disc', radius: 11 },
+  'Grav- och boplatsområde': { color: GRAVE, shape: 'ring', radius: 12 },
+  'Gravgrupp': { color: GRAVE, shape: 'ring', radius: 8 },
+  'Hög': { color: GRAVE, shape: 'disc', radius: 8 },
+  'Flatmarksgrav': { color: GRAVE, shape: 'disc', radius: 7 },
+  'Stensättning': { color: GRAVE_STONE, shape: 'ring', radius: 7 },
+  'Röse': { color: GRAVE_STONE, shape: 'disc', radius: 8 },
+  'Grav markerad av sten/block': { color: GRAVE_STONE, shape: 'ring', radius: 7 },
+  'Stenkammargrav': { color: GRAVE_STONE, shape: 'disc', radius: 8 },
+
+  // Settlement evidence.
+  Boplats: { color: SETTLEMENT, shape: 'square', radius: 10 },
+  'Boplatsområde': { color: SETTLEMENT, shape: 'square', radius: 11 },
+  'Boplatslämning övrig': { color: SETTLEMENT, shape: 'square', radius: 9 },
+  'Boplatsvall': { color: SETTLEMENT, shape: 'square', radius: 9 },
+  'Husgrund, förhistorisk/medeltida': { color: SETTLEMENT, shape: 'square', radius: 9 },
+  'Skärvstenshög': { color: SETTLEMENT, shape: 'square', radius: 8 },
+
+  // Cultivation evidence — mapped field remains and the cairns cleared off them.
+  'Fossil åker': { color: CULTIVATION, shape: 'square', radius: 12 },
+  'Område med fossil åkermark': { color: CULTIVATION, shape: 'square', radius: 12 },
+  'Röjningsröseområde': { color: CULTIVATION, shape: 'ring', radius: 12 },
+  'Terrassering': { color: CULTIVATION, shape: 'square', radius: 11 },
+  'Röjningsröse': { color: CULTIVATION, shape: 'disc', radius: 7 },
+
+  // Enclosure banks — land organisation, no settlement or cultivation claimed.
+  'Hägnad': { color: ENCLOSURE, shape: 'ring', radius: 10 },
+  'Hägnadssystem': { color: ENCLOSURE, shape: 'ring', radius: 12 },
+
+  Runristning: { color: RUNE, shape: 'diamond', radius: 10 },
+  'Färdväg': { color: ROAD, shape: 'diamond', radius: 9 },
+  'Färdvägssystem': { color: ROAD, shape: 'diamond', radius: 9 },
 };
 
 const DEFAULT_STYLE: SiteStyle = { color: '#9a8f83', shape: 'disc', radius: 10 };
@@ -137,6 +185,9 @@ export const DRAPE_STEP = 5;
 /** Lift (scene meters) that keeps flat symbols from z-fighting the ground. */
 const MARKER_LIFT = 0.4;
 const OUTLINE_LIFT = 0.7;
+/** Marker/outline alpha — part of the material cache key, so sharing is exact. */
+const MARKER_OPACITY = 0.88;
+const OUTLINE_OPACITY = 0.8;
 
 /**
  * Densified copy of `points` ([x, z] pairs) with segments ≤ `step` meters.
@@ -187,7 +238,14 @@ export class SitesLayer {
   private readonly markers: THREE.Mesh[] = [];
   private readonly pickTargets: THREE.Mesh[] = [];
   private readonly outlines: DrapedLine[] = [];
-  private readonly materials: THREE.Material[] = [];
+  /**
+   * One material per *style*, not per site. A national extract puts hundreds of
+   * single-grave records in a single extent, and a material each would multiply
+   * GPU state (and disposal work) linearly for what is a handful of distinct
+   * colours. Keyed by everything that varies, so sharing can never change how a
+   * marker looks; owned here and disposed in `dispose()`.
+   */
+  private readonly materials = new Map<string, THREE.Material>();
   private readonly raycaster = new THREE.Raycaster();
   private readonly pointerNdc = new THREE.Vector2();
   private downAt: { x: number; y: number } | null = null;
@@ -271,11 +329,51 @@ export class SitesLayer {
       const mesh = o as THREE.Mesh;
       if (mesh.isMesh || (o as THREE.Line).isLine) mesh.geometry?.dispose();
     });
-    for (const m of this.materials) m.dispose();
+    for (const m of this.materials.values()) m.dispose();
+    this.materials.clear();
     this.group.clear();
   }
 
   // ----- construction ----------------------------------------------------- //
+
+  /** Cached-by-key material; `make` runs once per distinct key. */
+  private sharedMaterial<T extends THREE.Material>(key: string, make: () => T): T {
+    const cached = this.materials.get(key);
+    if (cached) return cached as T;
+    const material = make();
+    this.materials.set(key, material);
+    return material;
+  }
+
+  private markerMaterial(style: SiteStyle): THREE.Material {
+    return this.sharedMaterial(`marker:${style.color}:${MARKER_OPACITY}`, () =>
+      new THREE.MeshBasicMaterial({
+        color: new THREE.Color().setStyle(style.color, THREE.SRGBColorSpace),
+        transparent: true,
+        opacity: MARKER_OPACITY,
+        depthWrite: false,
+        polygonOffset: true,
+        polygonOffsetFactor: -2,
+        polygonOffsetUnits: -2,
+        side: THREE.DoubleSide,
+      }),
+    );
+  }
+
+  private outlineMaterial(style: SiteStyle): THREE.Material {
+    return this.sharedMaterial(`outline:${style.color}:${OUTLINE_OPACITY}`, () =>
+      new THREE.LineBasicMaterial({
+        color: new THREE.Color().setStyle(style.color, THREE.SRGBColorSpace),
+        transparent: true,
+        opacity: OUTLINE_OPACITY,
+      }),
+    );
+  }
+
+  /** The invisible pick volumes never differ, so they all share one material. */
+  private pickMaterial(): THREE.Material {
+    return this.sharedMaterial('pick', () => new THREE.MeshBasicMaterial({ visible: false }));
+  }
 
   private markerGeometry(style: SiteStyle): THREE.BufferGeometry {
     const r = style.radius;
@@ -301,19 +399,7 @@ export class SitesLayer {
 
   private buildMarker(site: SiteRecord): void {
     const style = siteStyle(site.lamningstyp);
-    const material = new THREE.MeshBasicMaterial({
-      color: new THREE.Color().setStyle(style.color, THREE.SRGBColorSpace),
-      transparent: true,
-      opacity: 0.88,
-      depthWrite: false,
-      polygonOffset: true,
-      polygonOffsetFactor: -2,
-      polygonOffsetUnits: -2,
-      side: THREE.DoubleSide,
-    });
-    this.materials.push(material);
-
-    const marker = new THREE.Mesh(this.markerGeometry(style), material);
+    const marker = new THREE.Mesh(this.markerGeometry(style), this.markerMaterial(style));
     marker.position.set(site.position.x, 0, site.position.z);
     marker.renderOrder = 2;
     marker.userData = { siteId: site.id, x: site.position.x, z: site.position.z };
@@ -323,7 +409,7 @@ export class SitesLayer {
     // Generous invisible pick volume — a flat disc is unclickable edge-on.
     const pick = new THREE.Mesh(
       new THREE.CylinderGeometry(Math.max(14, style.radius * 1.2), Math.max(14, style.radius * 1.2), 40, 8),
-      new THREE.MeshBasicMaterial({ visible: false }),
+      this.pickMaterial(),
     );
     pick.position.set(site.position.x, 0, site.position.z);
     pick.userData = { siteId: site.id, x: site.position.x, z: site.position.z };
@@ -350,12 +436,7 @@ export class SitesLayer {
 
   private buildOutlines(site: SiteRecord): void {
     const style = siteStyle(site.lamningstyp);
-    const material = new THREE.LineBasicMaterial({
-      color: new THREE.Color().setStyle(style.color, THREE.SRGBColorSpace),
-      transparent: true,
-      opacity: 0.8,
-    });
-    this.materials.push(material);
+    const material = this.outlineMaterial(style);
 
     for (const { points, close } of this.outlinePaths(site.geometryLocal!)) {
       if (points.length < 2) continue;

@@ -43,9 +43,13 @@ describe('buildMethodsModel (§6.2 disclosures)', () => {
     // Terrain: what it is and what it is NOT.
     expect(all).toContain('RH 2000');
     expect(all).toContain('NOT an Iron Age surface');
-    // Dating honesty.
+    // Dating honesty — the type-attribution sentence, and its honest weakening for
+    // the cultivation evidence (fossil fields and clearance cairns span Bronze Age
+    // to medieval, so what they witness is pre-modern land use, not Iron Age).
     expect(all).toContain('typisk datering');
     expect(all).toContain('400–550 CE');
+    expect(all).toContain('Bronze Age');
+    expect(all).toContain('pre-modern land use');
     // Shoreline: the pipeline's own derivation text, verbatim.
     expect(all).toContain(shoreline.method!);
     expect(all).toContain('±500');
@@ -61,6 +65,29 @@ describe('buildMethodsModel (§6.2 disclosures)', () => {
     expect(model.repositoryUrl).toBe(REPOSITORY_URL);
     expect(model.citations.length).toBeGreaterThanOrEqual(5);
     expect(model.citations.join('\n')).toContain('Påsse');
+  });
+
+  it('describes the widened KMR selection honestly, by evidence family', async () => {
+    const { manifest, shoreline, rampart, sites } = await loadBroborg();
+    const model = buildMethodsModel(manifest, shoreline, rampart, sites);
+    const text = model.sections.find((s) => s.id === 'sites')!.paragraphs.join('\n');
+
+    // The count is interpolated from the file, whatever the widened extract holds.
+    expect(text).toContain(`${sites.sites.length} lämningar`);
+    // Every family the selection now covers is named — no stale five-type list.
+    for (const family of [
+      'forts',
+      'single graves',
+      'settlement remains',
+      'cultivation remains',
+      'roads and enclosures',
+      'rune inscriptions',
+    ]) {
+      expect(text, family).toContain(family);
+    }
+    expect(text).not.toContain('(fornborgar, gravfält, boplatser, färdvägar, runristningar)');
+    // And what is deliberately left out is said out loud.
+    expect(text).toMatch(/excluded/);
   });
 
   it('badges sections from manifest.layers provenance', async () => {
@@ -121,6 +148,31 @@ const LANDCOVER_LEGEND = validateLandcoverLegend({
   ],
 });
 
+/**
+ * The same legend as above, upgraded to the v1.3 schema: the water class and an
+ * appended shore band are `dynamic`, i.e. the app derives them from the §7 connect
+ * grid at the century the slider shows. The methods text must switch with it.
+ */
+const BAND_M = 0.6;
+const DYNAMIC_LEGEND = validateLandcoverLegend({
+  ...LANDCOVER_LEGEND,
+  classes: [
+    { ...LANDCOVER_LEGEND.classes[0], dynamic: { kind: 'water' }, areaFraction: 0.0 },
+    { ...LANDCOVER_LEGEND.classes[1], vegetation: null, id: 'peat_fen', name: 'Peat fen', areaFraction: 0.1 },
+    { ...LANDCOVER_LEGEND.classes[2], areaFraction: 0.9 },
+    {
+      index: 3,
+      id: 'shore_reeds',
+      name: 'Shore reed belt (follows the shoreline)',
+      color: '#77875a',
+      rule: 'RULE THREE: the app derives this belt at the level shown.',
+      vegetation: { type: 'reeds', densityPerHa: 500 },
+      dynamic: { kind: 'shore-band', bandM: BAND_M },
+      areaFraction: 0.0,
+    },
+  ],
+});
+
 describe('buildMethodsModel — the land-cover section (contract §9/§10)', () => {
   it('reproduces the model\'s method, every class rule, calibration and caveat verbatim', async () => {
     const { manifest, shoreline, rampart, sites } = await loadBroborg();
@@ -141,6 +193,40 @@ describe('buildMethodsModel — the land-cover section (contract §9/§10)', () 
     // ...as is the SGU attribution the v1.2 amendment widens.
     expect(text).toContain('Sveriges geologiska undersökning');
     expect(text).toContain('SGU Jordarter');
+  });
+
+  it('keeps the pre-v1.3 sentence for a legend with no dynamic classes', async () => {
+    const { manifest } = await loadBroborg();
+    const model = buildMethodsModel(manifest, null, null, null, LANDCOVER_LEGEND);
+    const text = model.sections.find((s) => s.id === 'landcover')!.paragraphs.join('\n');
+    // Old data stays truthfully described: that raster really is frozen.
+    expect(text).toContain('never re-derived for another');
+    expect(text).toContain('only masks it');
+    expect(text).not.toContain('follows the slider');
+  });
+
+  it('describes the v1.3 carve-out when the legend marks classes dynamic', async () => {
+    const { manifest } = await loadBroborg();
+    const model = buildMethodsModel(manifest, null, null, null, DYNAMIC_LEGEND);
+    const text = model.sections.find((s) => s.id === 'landcover')!.paragraphs.join('\n');
+
+    // The sea and the belt follow the slider — and the panel must not still claim
+    // the model is frozen for every class.
+    expect(text).toContain('re-derived');
+    expect(text).not.toContain('never re-derived');
+    expect(text).toContain('open sea');
+    expect(text).toContain(`${BAND_M} m above the water line`);
+    expect(text).toContain('sea-connectivity grid');
+    // Trees are kept out of the belt, and everything else is still the frozen year.
+    expect(text).toContain('clear of trees');
+    expect(text).toContain('frozen 500 CE classification');
+    // The reference century and level are still stated (§10).
+    expect(text).toContain('500 CE');
+    expect(text).toContain('8.6 m');
+    // Rules stay verbatim, dynamic classes included.
+    for (const cls of DYNAMIC_LEGEND.classes) {
+      expect(text).toContain(`${cls.name} — ${cls.rule}`);
+    }
   });
 
   it('badges the section from manifest.layers, defaulting to model', async () => {
