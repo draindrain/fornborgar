@@ -238,11 +238,22 @@ corrections to this plan where the schema assumptions were wrong.
   registry so a second site is a data addition, not a code change.
 - **Milestone: public URL.**  ← end of v1
 
-### Phase 7 — Modeled Iron Age landscape (stretch, designed now)
+### Phase 7 — Modeled Iron Age landscape — ✅ DONE 2026-08-21
 - Pipeline rule engine (§4.7) → land-cover classification raster + legend; instanced
   low-poly vegetation (procedural cones/billboards) driven by it; "modeled landscape"
   toggle, labeled as a model, with the rules disclosed verbatim in the methods panel and
   the forest/open ratio sanity-checked against §2.5 literature.
+- Built as contract v1.2 (`docs/data-formats.md` §9–§10). One deliberate deviation from
+  §4.7's sketch: the classification ships as a **uint8 GeoTIFF on the exact context-grid
+  geometry (2 m)** instead of an indexed-palette PNG at 5–10 m — reuses the frozen §1
+  raster machinery end-to-end (pipeline COG writer, app geotiff decode), no PNG codec
+  dependency, finer than planned; the palette lives in the legend JSON. Reference
+  century fixed at **500 CE** (fort era, level 8.6 m from the §2.4 table); the app
+  masks vegetation below the *current* slider level via the §7 connect grid, so the
+  raster is never re-derived for other centuries. Broborg result: 39.4 % forest,
+  53.3 % open, 4.9 % reed marsh, 2.5 % water — dry-land forest:open 42:58, consistent
+  with the §2.5 "strongly grazing-opened Iron Age landscape" picture (no quantified
+  Uppland benchmark exists; disclosed in the legend's calibration paragraph).
 
 ### Phase 8 — National scope ("view any Swedish fornborg")
 - **Strategy researched and documented 2026-08-21 → `docs/national-scaleout.md`.**
@@ -511,6 +522,7 @@ bake the active caveats into the image margin.
 ---
 
 *Phase 0 complete and the hillshade gate passed (2026-08-20). Phases 1–6 (v1) shipped
-2026-08-20/21. Phase-8 national scale-out strategy documented 2026-08-21
+2026-08-20/21. Phase 7 (modeled Iron Age landscape) shipped 2026-08-21 as contract
+v1.2. Phase-8 national scale-out strategy documented 2026-08-21
 (`docs/national-scaleout.md`); next step: owner confirmation, then 8a (bundle encoding
-+ contract v1.2).*
++ contract v1.3).*

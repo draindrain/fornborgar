@@ -196,7 +196,7 @@ settled Sweden's tiles) but overview-only fetches keep the added transfer to rou
 across tile edges (§4.2) becomes the normal case rather than the exception. Copernicus
 GLO-30 adds a handful of 1°-tile downloads, cached the same way.
 
-Contract: one additive v1.2 item — optional `grids.rings: [ … ]` array (same per-grid
+Contract: one additive v1.3 item — optional `grids.rings: [ … ]` array (same per-grid
 schema as core/context, ordered inside-out, each with its own `encoding.scale` and
 optional connect-delta asset; a per-ring `sources` note distinguishes
 Lantmäteriet-only rings from Copernicus-filled ones). Old manifests have no rings;
@@ -285,7 +285,7 @@ acceptance metrics, and an automatic **hillshade thumbnail** per site. A contact
 HTML page of all thumbnails makes a full-country visual sweep a 30-minute human task —
 and doubles as the picker's preview imagery.
 
-## 5. Contract changes (additive, v1.2 amendment to docs/data-formats.md)
+## 5. Contract changes (additive, v1.3 amendment to docs/data-formats.md — v1.2 was taken by phase 7 land cover, 2026-08-21)
 
 1. **`assets.waterConnectDelta`** — int16 decimeters, `connect = dem_context + delta`,
    same geometry as `grids.context`; when present the app prefers it over
@@ -317,7 +317,7 @@ and doubles as the picker's preview imagery.
 
 | Step | Scope | Exit criterion |
 |---|---|---|
-| **8a. Encoding + contract v1.2** | delta grid, no-overview TIFFs, presets, `grids.rings` + ring pipeline, curvature/log-depth/lazy-ring rendering; rebuild Broborg with its full horizon ladder | Standing on Broborg's rampart, the skyline closes at the true horizon; near scene byte-equivalent to v1; ring-size estimates verified |
+| **8a. Encoding + contract v1.3** | delta grid, no-overview TIFFs, presets, `grids.rings` + ring pipeline, curvature/log-depth/lazy-ring rendering; rebuild Broborg with its full horizon ladder | Standing on Broborg's rampart, the skyline closes at the true horizon; near scene byte-equivalent to v1; ring-size estimates verified |
 | **8b. Batch machinery** | registry builder (incl. per-site horizon-ladder depth from crown/floor heights), tile + Copernicus cache, `build_site`, QA report + contact sheet | Broborg + 2 arbitrary registry sites build unattended; ladder-depth histogram sanity-checked against the 128 km cap |
 | **8c. Pilot: ~25 curated forts** | the famous ones (Torsburgen, Ismantorp, Eketorp, Gråborg, Runsa, Gåseborg, Birka borg, Halleberg, Ramundersborg, …) incl. the 3 `large`-preset outliers; R2 bucket + custom domain live; picker MVP | public URL serves 25+ sites from R2; manual QA pass |
 | **8d. County-by-county fill** | remaining ~1,280 sites, east-coast counties first (they exercise the water path) | all 1,304 built; QA contact-sheet sweep done |
@@ -347,4 +347,4 @@ fort's skyline closes at the true refracted horizon from the first-person viewpo
 64×64 km extents for lowland sites, 128×128 km for the high outliers, Copernicus-filled
 beyond the borders. ≈ $0.03/month on R2, and no architectural change: the v1
 per-site-bundle design scales to the whole country as-is. Next concrete step: 8a
-(encoding + contract v1.2, including `grids.rings` and the horizon rendering work).*
+(encoding + contract v1.3, including `grids.rings` and the horizon rendering work).*
