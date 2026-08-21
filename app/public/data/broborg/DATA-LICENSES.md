@@ -35,7 +35,7 @@ renders the short attribution strings from `manifest.json` → `attribution`.
   equations, a land-uplift model and a 50 m DEM).
 - **Endpoint:** OGC API — Features, `https://api.sgu.se/oppnadata/strandforskjutningsmodell/ogc/features/v1`
 - **Collections read:** `bp1-900`, `bp1000-1900`, `bp2000-2900`, `bp3000-3900`
-- **Fetched:** 2026-08-20T16:27:52+00:00
+- **Fetched:** 2026-08-21T21:18:42+00:00
 - **License:** **CC0** — attribution not required, given voluntarily.
 - **Voluntary attribution:** *"Strandförskjutningsdata från Sveriges geologiska undersökning (CC0)"*.
 - **Caveat (shown in the app):** dating margins up to **±500 years**; SGU calls it a

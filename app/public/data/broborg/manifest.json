@@ -68,7 +68,110 @@
       },
       "minElevation": 6.8,
       "maxElevation": 57.2
-    }
+    },
+    "rings": [
+      {
+        "path": "dem_ring3.tif",
+        "resolution": 4.0,
+        "width": 2000,
+        "height": 2000,
+        "bounds3006": {
+          "minE": 661810.0,
+          "minN": 6623880.0,
+          "maxE": 669810.0,
+          "maxN": 6631880.0
+        },
+        "boundsLocal": {
+          "minX": -4000.0,
+          "minZ": -4000.0,
+          "maxX": 4000.0,
+          "maxZ": 4000.0
+        },
+        "encoding": {
+          "dtype": "int16",
+          "scale": 0.5,
+          "unit": "m"
+        },
+        "minElevation": 4.5,
+        "maxElevation": 59.5
+      },
+      {
+        "path": "dem_ring4.tif",
+        "resolution": 8.0,
+        "width": 2000,
+        "height": 2000,
+        "bounds3006": {
+          "minE": 657810.0,
+          "minN": 6619880.0,
+          "maxE": 673810.0,
+          "maxN": 6635880.0
+        },
+        "boundsLocal": {
+          "minX": -8000.0,
+          "minZ": -8000.0,
+          "maxX": 8000.0,
+          "maxZ": 8000.0
+        },
+        "encoding": {
+          "dtype": "int16",
+          "scale": 0.5,
+          "unit": "m"
+        },
+        "minElevation": 2.0,
+        "maxElevation": 59.0,
+        "waterConnect": "water_connect_ring4.tif"
+      },
+      {
+        "path": "dem_ring5.tif",
+        "resolution": 16.0,
+        "width": 2000,
+        "height": 2000,
+        "bounds3006": {
+          "minE": 649810.0,
+          "minN": 6611880.0,
+          "maxE": 681810.0,
+          "maxN": 6643880.0
+        },
+        "boundsLocal": {
+          "minX": -16000.0,
+          "minZ": -16000.0,
+          "maxX": 16000.0,
+          "maxZ": 16000.0
+        },
+        "encoding": {
+          "dtype": "int16",
+          "scale": 0.5,
+          "unit": "m"
+        },
+        "minElevation": -0.5,
+        "maxElevation": 64.0
+      },
+      {
+        "path": "dem_ring6.tif",
+        "resolution": 32.0,
+        "width": 2000,
+        "height": 2000,
+        "bounds3006": {
+          "minE": 633810.0,
+          "minN": 6595880.0,
+          "maxE": 697810.0,
+          "maxN": 6659880.0
+        },
+        "boundsLocal": {
+          "minX": -32000.0,
+          "minZ": -32000.0,
+          "maxX": 32000.0,
+          "maxZ": 32000.0
+        },
+        "encoding": {
+          "dtype": "int16",
+          "scale": 1.0,
+          "unit": "m"
+        },
+        "minElevation": -1.0,
+        "maxElevation": 95.0
+      }
+    ]
   },
   "assets": {
     "sites": "sites.json",
@@ -135,6 +238,17 @@
         "fetched": "2026-08-20T13:13:20+00:00"
       },
       {
+        "id": "sgu-jordarter",
+        "product": "SGU Jordarter 1:25 000–1:100 000",
+        "api": "https://api.sgu.se/oppnadata/jordarter25k-100k/ogc/features/v1",
+        "collections": [
+          "grundlager",
+          "ytlager"
+        ],
+        "tiles": [],
+        "fetched": "2026-08-21T18:01:28+00:00"
+      },
+      {
         "id": "sgu-strandforskjutning",
         "product": "SGU Strandförskjutningsmodell",
         "api": "https://api.sgu.se/oppnadata/strandforskjutningsmodell/ogc/features/v1",
@@ -145,18 +259,7 @@
           "bp3000-3900"
         ],
         "tiles": [],
-        "fetched": "2026-08-20T16:27:52+00:00"
-      },
-      {
-        "id": "sgu-jordarter",
-        "product": "SGU Jordarter 1:25 000–1:100 000",
-        "api": "https://api.sgu.se/oppnadata/jordarter25k-100k/ogc/features/v1",
-        "collections": [
-          "grundlager",
-          "ytlager"
-        ],
-        "tiles": [],
-        "fetched": "2026-08-21T18:01:28+00:00"
+        "fetched": "2026-08-21T21:18:42+00:00"
       }
     ],
     "processing": [
@@ -168,7 +271,14 @@
       "priority-flood sea-connectivity grid (int16 dm, ceil-quantized)",
       "rampart crest from DEM transect ridge (detrended per-transect maximum)",
       "SGU jordarter polygons rasterized to the context grid (nearest-fill for gaps)",
-      "rule-based land-cover classification (uint8 class indices, contract §9)"
+      "rule-based land-cover classification (uint8 class indices, contract §9)",
+      "far-field rings: decimated windowed reads (average) from source COG overviews"
     ]
+  },
+  "horizon": {
+    "crownM": 50.4,
+    "floorM": 10.5,
+    "eyeM": 2.0,
+    "distanceKm": 24.8
   }
 }

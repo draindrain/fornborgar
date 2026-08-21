@@ -561,7 +561,8 @@ bake the active caveats into the image margin.
 2026-08-20/21. Phase 7 (modeled Iron Age landscape) shipped 2026-08-21 as contract
 v1.2. National scale-out strategy documented 2026-08-21
 (`docs/national-scaleout.md`) and split 2026-08-21: Phase 8 = far-field rings &
-horizon guarantee (contract v1.4 — implemented: ring pipeline + curvature/log-depth/
-lazy-ring rendering; Broborg ring rebuild is owner-run, needs Geotorget credentials);
-Phase 9 = national scope. Next step: rebuild Broborg with its ring ladder, then 9a
-(encoding wins + batch machinery).*
+horizon guarantee (contract v1.4 — ring pipeline + curvature/log-depth/lazy-ring
+rendering); Phase 9 = national scope. Broborg rebuilt with its ring ladder
+2026-08-21: rings 3–6 out to 64×64 km, horizon d ≈ 24.8 km (crown 50.4 m inside the
+KMR extent + 2 m eye, floor 10.5 m), far-water connect on the 16 km ring, zero
+sea-filled cells. Next step: 9a (encoding wins + batch machinery).*
