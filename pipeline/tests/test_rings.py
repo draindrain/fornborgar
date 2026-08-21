@@ -203,3 +203,43 @@ def test_ring_processing_steps_disclose_the_sea_fill():
     # No sea-filled cells -> no seam line for that ring.
     steps = ring_processing_steps([grid], [{"seaFilledCells": 0}])
     assert len(steps) == 1
+
+
+# --------------------------------------------------------------------------- #
+# STAC query bbox (the ring4 corner-tile regression, 2026-08-21)
+# --------------------------------------------------------------------------- #
+
+
+def test_wgs84_bbox_covers_the_projected_box_edges():
+    """A bbox from the two corners alone loses the latitude sag of the southern
+    edge (~700 m over 16 km this far east of the central meridian); the STAC
+    query then drops corner tiles and sea-fills real terrain. The bbox must
+    cover every densely sampled boundary point of the projected box."""
+    from pyproj import Transformer
+
+    from fornborg_pipeline.fetch_dem import wgs84_bbox
+
+    # Broborg's ring4 box — the case that dropped tile 661_67.
+    west, south, east, north = 657810.0, 6619880.0, 673810.0, 6635880.0
+    lon_min, lat_min, lon_max, lat_max = wgs84_bbox((west, south, east, north))
+
+    t = Transformer.from_crs(3006, 4326, always_xy=True)
+    xs = np.linspace(west, east, 200)
+    ys = np.linspace(south, north, 200)
+    boundary = (
+        [(x, south) for x in xs]
+        + [(x, north) for x in xs]
+        + [(west, y) for y in ys]
+        + [(east, y) for y in ys]
+    )
+    eps = 1e-9
+    for x, y in boundary:
+        lon, lat = t.transform(x, y)
+        assert lon_min - eps <= lon <= lon_max + eps
+        assert lat_min - eps <= lat <= lat_max + eps
+
+    # The specific miss: tile 661_67 (E 670–680 km, N 6610–6620 km) overlaps the
+    # box only in its SE corner sliver, and its WGS84 footprint must intersect
+    # the query bbox (it did not with the two-corner bbox).
+    tb = t.transform_bounds(670000.0, 6610000.0, 680000.0, 6620000.0, densify_pts=101)
+    assert not (tb[2] < lon_min or lon_max < tb[0] or tb[3] < lat_min or lat_max < tb[1])
