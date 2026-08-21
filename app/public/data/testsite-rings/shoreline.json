@@ -1,0 +1,128 @@
+{
+  "schemaVersion": 1,
+  "site": "testsite-rings",
+  "method": "SYNTHETIC TEST DATA — same closed-form level curve as the testsite fixture; see app/scripts/make-test-dem.mjs.",
+  "uncertainty": "Synthetic test data — not a shoreline model.",
+  "datumNote": "Levels are meters in the fixture's notional RH 2000 datum.",
+  "source": {
+    "product": "Synthetic — app/scripts/make-test-dem.mjs",
+    "fetched": "2026-08-21"
+  },
+  "steps": [
+    {
+      "yearCE": -1050,
+      "bp": 3000,
+      "levelM": 14
+    },
+    {
+      "yearCE": -950,
+      "bp": 2900,
+      "levelM": 13.3
+    },
+    {
+      "yearCE": -850,
+      "bp": 2800,
+      "levelM": 12.6
+    },
+    {
+      "yearCE": -750,
+      "bp": 2700,
+      "levelM": 11.8
+    },
+    {
+      "yearCE": -650,
+      "bp": 2600,
+      "levelM": 11.2
+    },
+    {
+      "yearCE": -550,
+      "bp": 2500,
+      "levelM": 10.5
+    },
+    {
+      "yearCE": -450,
+      "bp": 2400,
+      "levelM": 9.8
+    },
+    {
+      "yearCE": -350,
+      "bp": 2300,
+      "levelM": 9.2
+    },
+    {
+      "yearCE": -250,
+      "bp": 2200,
+      "levelM": 8.5
+    },
+    {
+      "yearCE": -150,
+      "bp": 2100,
+      "levelM": 7.9
+    },
+    {
+      "yearCE": -50,
+      "bp": 2000,
+      "levelM": 7.3
+    },
+    {
+      "yearCE": 50,
+      "bp": 1900,
+      "levelM": 6.7
+    },
+    {
+      "yearCE": 150,
+      "bp": 1800,
+      "levelM": 6.1
+    },
+    {
+      "yearCE": 250,
+      "bp": 1700,
+      "levelM": 5.6
+    },
+    {
+      "yearCE": 350,
+      "bp": 1600,
+      "levelM": 5.1
+    },
+    {
+      "yearCE": 450,
+      "bp": 1500,
+      "levelM": 4.6
+    },
+    {
+      "yearCE": 550,
+      "bp": 1400,
+      "levelM": 4.1
+    },
+    {
+      "yearCE": 650,
+      "bp": 1300,
+      "levelM": 3.6
+    },
+    {
+      "yearCE": 750,
+      "bp": 1200,
+      "levelM": 3.2
+    },
+    {
+      "yearCE": 850,
+      "bp": 1100,
+      "levelM": 2.8
+    },
+    {
+      "yearCE": 950,
+      "bp": 1000,
+      "levelM": 2.5
+    },
+    {
+      "yearCE": 1050,
+      "bp": 900,
+      "levelM": 2.2
+    },
+    {
+      "yearCE": 1150,
+      "bp": 800,
+      "levelM": 2
+    }
+  ]
+}

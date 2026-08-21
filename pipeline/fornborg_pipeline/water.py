@@ -28,10 +28,18 @@ from .connectivity import (
     WATER_CONNECT_PATH,
     basin_stats,
     build_connect_grid,
+    ring_connect_spec,
     write_connect_grid,
+    write_ring_connect_grid,
 )
 from .fetch_dem import FetchError
-from .manifest import add_water_assets, validate_manifest, write_data_licenses, write_manifest
+from .manifest import (
+    add_water_assets,
+    set_ring_water_connect,
+    validate_manifest,
+    write_data_licenses,
+    write_manifest,
+)
 from .shoreline import (
     SHORELINE_PATH,
     STRAND_PRODUCT,
@@ -42,7 +50,7 @@ from .shoreline import (
     sweref_projector,
     write_shoreline,
 )
-from .sites import SITES, SiteConfig, get_site
+from .sites import RING_LADDER, SITES, SiteConfig, get_site
 
 # Levels the run log reports false-basin area at: the fort era (~8-10 m) plus the
 # top of the slider range, where phase 0 found the big basins (PLAN.md §4.5).
@@ -104,6 +112,41 @@ def run_connectivity(cfg: SiteConfig, dem_dm, transform) -> None:
     path = write_connect_grid(cfg.out_dir / WATER_CONNECT_PATH, connect_dm, transform, cfg)
     print(f"  wrote {path} ({path.stat().st_size / 1e6:.2f} MB)")
     _check_identical_profile(cfg.out_dir / cfg.context.path, path)
+
+
+def run_ring_connectivity(cfg: SiteConfig, manifest: dict) -> tuple[str, str] | None:
+    """Build the §11 far-water connect grid on the 16 km ring, when the site has one.
+
+    Returns `(ring_dem_path, connect_path)` for the manifest patch, or None when
+    the site ships no rings (feature off, never an error). The grid exists only
+    for far-water *rendering* — analysis stays on the context connect grid (§7).
+    """
+    rings = manifest.get("grids", {}).get("rings", [])
+    if len(rings) < 2:
+        return None
+    entry = rings[1]  # the 16x16 km ring — §11 always ships ring3+ring4
+    ring_spec = next((s for s in RING_LADDER if s.path == entry.get("path")), None)
+    if ring_spec is None:
+        print(f"  far-water connect skipped: unknown ring path {entry.get('path')!r}")
+        return None
+    ring_path = cfg.out_dir / ring_spec.path
+    if not ring_path.exists():
+        print(f"  far-water connect skipped: {ring_path} is missing")
+        return None
+
+    dem_raw, transform, _bounds = read_grid(ring_path)
+    started = time.time()
+    connect_raw = build_connect_grid(dem_raw, scale=ring_spec.quant_scale)
+    print(
+        f"  far-water priority flood ({ring_spec.name}): {dem_raw.size:,} cells "
+        f"in {time.time() - started:.1f} s"
+    )
+    connect_spec = ring_connect_spec(ring_spec)
+    path = write_ring_connect_grid(
+        cfg.out_dir / connect_spec.path, connect_raw, transform, cfg, ring_spec
+    )
+    print(f"  wrote {path} ({path.stat().st_size / 1e6:.2f} MB)")
+    return ring_spec.path, connect_spec.path
 
 
 def _check_identical_profile(reference, candidate) -> None:
@@ -209,8 +252,15 @@ def run(site_id: str, force_download: bool = False) -> dict:
     print("-- sea connectivity")
     run_connectivity(cfg, dem_dm, transform)
 
+    print("-- far-water connectivity (contract §11)")
+    committed = json.loads((cfg.out_dir / "manifest.json").read_text(encoding="utf-8"))
+    ring_connect = run_ring_connectivity(cfg, committed)
+
     print("-- manifest")
     manifest = patch_manifest(cfg, water_meta)
+    if ring_connect is not None:
+        set_ring_water_connect(manifest, *ring_connect)
+        write_manifest(cfg.out_dir / "manifest.json", manifest)
     validate_manifest(manifest)
 
     total = sum(p.stat().st_size for p in cfg.out_dir.glob("*") if p.is_file())

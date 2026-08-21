@@ -47,6 +47,20 @@ export interface GridManifest {
   encoding: GridEncoding;
   minElevation: number;
   maxElevation: number;
+  /**
+   * v1.4 §11, ring entries only: a far-water connectivity grid on this ring's
+   * exact geometry (at most one ring carries it). Rendering only — analysis
+   * stays on the §7 context connect grid.
+   */
+  waterConnect?: string;
+}
+
+/** v1.4 §11: the informational ladder-depth derivation, for the methods panel. */
+export interface HorizonInfo {
+  crownM: number;
+  floorM: number;
+  eyeM: number;
+  distanceKm: number;
 }
 
 export interface AttributionEntry {
@@ -66,7 +80,14 @@ export interface SiteManifest {
   site: { id: string; name: string; raa?: Record<string, unknown> };
   crs?: { horizontal?: string; verticalDatum?: string };
   origin: Origin;
-  grids: { core: GridManifest; context: GridManifest };
+  grids: {
+    core: GridManifest;
+    context: GridManifest;
+    /** v1.4 §11: optional far-field rings, ordered inside-out. Absent = feature off. */
+    rings?: GridManifest[];
+  };
+  /** v1.4 §11: present iff `grids.rings` is (informational). */
+  horizon?: HorizonInfo;
   assets?: Record<string, string>;
   layers?: LayerEntry[];
   attribution?: AttributionEntry[];
@@ -148,6 +169,63 @@ function validateGrid(raw: unknown, path: string): GridManifest {
 }
 
 /**
+ * v1.4 §11: validate `grids.rings`. Throws on any violation; the caller catches,
+ * warns and drops the whole array — a malformed optional asset must never take
+ * the site down (the horizon guarantee is a data guarantee).
+ */
+function validateRings(raw: unknown, context: GridManifest): GridManifest[] {
+  if (!Array.isArray(raw) || raw.length === 0) {
+    throw new ManifestError('manifest.grids.rings must be a non-empty array when present (§11)');
+  }
+  let waterConnects = 0;
+  let previous = context;
+  let previousName = 'grids.context';
+  const rings = raw.map((entry, index) => {
+    const name = `grids.rings[${index}]`;
+    const ring = validateGrid(entry, name);
+    const inner = previous.boundsLocal;
+    const outer = ring.boundsLocal;
+    if (!(outer.minX < inner.minX && outer.minZ < inner.minZ && inner.maxX < outer.maxX && inner.maxZ < outer.maxZ)) {
+      throw new ManifestError(
+        `manifest.${name} must strictly contain ${previousName} (§11 inside-out containment chain)`,
+      );
+    }
+    if (ring.resolution <= previous.resolution) {
+      throw new ManifestError(
+        `manifest.${name}.resolution ${ring.resolution} must be coarser than ${previousName}'s ${previous.resolution} (§11)`,
+      );
+    }
+    const connect = (entry as Record<string, unknown>)['waterConnect'];
+    if (connect !== undefined) {
+      if (typeof connect !== 'string' || connect.length === 0 || connect.startsWith('/') || connect.includes('..')) {
+        throw new ManifestError(`manifest.${name}.waterConnect must be a relative path with no ".."`);
+      }
+      ring.waterConnect = connect;
+      waterConnects += 1;
+    }
+    previous = ring;
+    previousName = name;
+    return ring;
+  });
+  if (waterConnects > 1) {
+    throw new ManifestError('manifest.grids.rings: at most one ring may carry waterConnect (§11)');
+  }
+  return rings;
+}
+
+/** v1.4 §11: the informational horizon block, or null when absent/malformed. */
+function validateHorizon(raw: unknown): HorizonInfo | null {
+  if (raw === undefined || raw === null) return null;
+  const h = req(raw, 'horizon');
+  return {
+    crownM: num(h, 'crownM', 'horizon'),
+    floorM: num(h, 'floorM', 'horizon'),
+    eyeM: num(h, 'eyeM', 'horizon'),
+    distanceKm: num(h, 'distanceKm', 'horizon'),
+  };
+}
+
+/**
  * Validate a parsed manifest. Throws `ManifestError` with a human-readable
  * message; the caller renders that on-page (there is no silent fallback).
  */
@@ -180,6 +258,30 @@ export function validateManifest(raw: unknown): SiteManifest {
       context: validateGrid(grids['context'], 'grids.context'),
     },
   } as SiteManifest;
+
+  // v1.4 §11: rings and the horizon block are optional AND non-fatal — a
+  // malformed entry is a pipeline bug worth a loud console line, but the site
+  // must still load exactly as a ringless one would.
+  if (grids['rings'] !== undefined) {
+    try {
+      manifest.grids.rings = validateRings(grids['rings'], manifest.grids.context);
+    } catch (error) {
+      delete manifest.grids.rings;
+      console.warn(
+        `[fornborg] far-field rings dropped — ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+  try {
+    const horizon = validateHorizon(m['horizon']);
+    if (horizon) manifest.horizon = horizon;
+    else delete manifest.horizon;
+  } catch (error) {
+    delete manifest.horizon;
+    console.warn(
+      `[fornborg] horizon block dropped — ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
 
   const attribution = m['attribution'];
   manifest.attribution = Array.isArray(attribution)

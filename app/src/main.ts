@@ -22,6 +22,8 @@ import {
   loadLandcoverAssets,
   loadManifest,
   loadRampart,
+  loadRingConnect,
+  loadRingGrid,
   loadSites,
   loadWaterAssets,
   siteIdFromLocation,
@@ -56,7 +58,14 @@ declare global {
 
 const viewport = document.getElementById('viewport') as HTMLDivElement;
 
-const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+// Log depth buffer (§11): the far-field rings put sub-meter geometry and a
+// 32–96 km far plane in the same frustum; a linear depth buffer would z-fight.
+// Harmless for ringless sites (the testsite), so it is unconditional.
+const renderer = new THREE.WebGLRenderer({
+  antialias: true,
+  powerPreference: 'high-performance',
+  logarithmicDepthBuffer: true,
+});
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.toneMapping = THREE.NeutralToneMapping ?? THREE.ACESFilmicToneMapping;
@@ -290,10 +299,13 @@ async function start(): Promise<void> {
   hud.setSite(manifest.site.name, describeSite(manifest));
   hud.setAttribution(manifest.attribution ?? []);
 
-  // Elevation tint spans both grids so core and context stay colour-consistent.
+  // Elevation tint spans every grid the site ships — core, context and the §11
+  // rings (known from the manifest before any ring loads) — so near and far
+  // terrain stay colour-consistent when the rings stream in.
+  const tintGrids = [manifest.grids.core, manifest.grids.context, ...(manifest.grids.rings ?? [])];
   terrain.setElevationRange(
-    Math.min(manifest.grids.core.minElevation, manifest.grids.context.minElevation),
-    Math.max(manifest.grids.core.maxElevation, manifest.grids.context.maxElevation),
+    Math.min(...tintGrids.map((g) => g.minElevation)),
+    Math.max(...tintGrids.map((g) => g.maxElevation)),
   );
 
   const contextExtent = manifest.grids.context.boundsLocal;
@@ -306,8 +318,21 @@ async function start(): Promise<void> {
   await terrain.setContext(contextGrid, (f) => hud.setProgress('Building context terrain…', 0.40 + f * 0.1));
   rig.frameSite(contextGrid, terrain.getExaggeration());
 
-  const half = (contextExtent.maxX - contextExtent.minX) / 2;
-  scene.fog = new THREE.Fog(scene.background as THREE.Color, half * 1.1, half * 3.4);
+  // The fog band hugs the edge of whatever terrain exists: today's haze wall at
+  // the context edge until rings load, then pushed out with each ring so the
+  // skyline stays terrain out to the (curvature-corrected) horizon and only the
+  // outermost edge hazes over. Re-run after every ring arrives (§11).
+  function updateFog(): void {
+    const outer = terrain.outerHalfExtent();
+    const bg = scene.background as THREE.Color;
+    if (terrain.ringCount === 0) {
+      const half = (contextExtent.maxX - contextExtent.minX) / 2;
+      scene.fog = new THREE.Fog(bg, half * 1.1, half * 3.4);
+    } else {
+      scene.fog = new THREE.Fog(bg, outer * 0.75, outer * 1.02);
+    }
+  }
+  updateFog();
 
   window.__app = { ...(window.__app ?? {}), contextGrid };
 
@@ -514,6 +539,57 @@ async function start(): Promise<void> {
   hud.setProgress('Ready', 1);
   hud.finishLoading();
 
+  // --- v1.4 §11: far-field rings, lazily, inside-out ------------------------
+  // Startup above is byte-identical to a ringless build; the rings stream in
+  // behind it, each one extending the terrain, the fog line and the far plane.
+  // A missing or failed ring stops the chain and keeps what loaded — the fog
+  // line just stays nearer (the horizon guarantee is a data guarantee).
+  const ringsStatus = {
+    declared: manifest.grids.rings?.length ?? 0,
+    loaded: 0,
+    done: manifest.grids.rings?.length ? false : true,
+    farWater: false,
+  };
+  async function loadRingsLazily(): Promise<void> {
+    const rings = manifest.grids.rings;
+    if (!rings?.length) return;
+    for (let i = 0; i < rings.length; i++) {
+      try {
+        const ringGrid = await loadRingGrid(siteId, manifest, i);
+        await terrain.setRing(i, ringGrid);
+        ringsStatus.loaded += 1;
+        rig.setFarHorizon(terrain.outerHalfExtent());
+        updateFog();
+        console.info(
+          `[fornborg] ring ${i + 1}/${rings.length} up — terrain out to ` +
+            `${Math.round((terrain.outerHalfExtent() * 2) / 1000)} km`,
+        );
+      } catch (error) {
+        console.error(
+          `[fornborg] ${siteId}: ring ${i} failed, keeping the ${ringsStatus.loaded} nearer ring(s) — ` +
+            (error instanceof Error ? error.message : String(error)),
+        );
+        break;
+      }
+      // §11 far water: the ring that carries a connect grid extends the
+      // paleo-water plane out to its bounds, faded toward its edge.
+      if (rings[i].waterConnect && water) {
+        try {
+          const farConnect = await loadRingConnect(siteId, rings[i]);
+          water.setFarConnect(farConnect);
+          ringsStatus.farWater = true;
+        } catch (error) {
+          console.error(
+            `[fornborg] ${siteId}: far-water connect failed, water stays at the context extent — ` +
+              (error instanceof Error ? error.message : String(error)),
+          );
+        }
+      }
+    }
+    ringsStatus.done = true;
+  }
+  // -------------------------------------------------------------------------
+
   window.__app = {
     ...(window.__app ?? {}),
     scene,
@@ -635,6 +711,9 @@ async function start(): Promise<void> {
         applyLandcoverSettings();
       },
     },
+    // Phase 8 (§11). Present even for ringless sites, so a headless check can
+    // tell "feature off" (declared: 0, done: true) from "not wired up".
+    rings: ringsStatus,
     // Phase 6.
     methods: {
       open: () => methods.show(),
@@ -646,10 +725,12 @@ async function start(): Promise<void> {
     legend,
   };
 
-  // One more rendered frame, then the deterministic ready flag.
+  // One more rendered frame, then the deterministic ready flag. The ring chain
+  // starts after it: readiness means "the near scene is up", exactly as before.
   renderer.render(scene, rig.camera);
   requestAnimationFrame(() => {
     window.__terrainReady = true;
+    void loadRingsLazily();
   });
 }
 

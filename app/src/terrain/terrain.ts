@@ -10,9 +10,11 @@
 
 import * as THREE from 'three';
 import { heightAtLocal, localFromGrid } from '../lib/coords';
+import { refractedDropM } from '../lib/earth';
 import type { HeightGrid } from './heightGrid';
 import { ElevationTint, createContextMaterial, createSkirtMaterial, createTerrainMaterial } from './material';
 import {
+  buildDecimatedPatch,
   buildGridPatch,
   buildSkirt,
   chunkRanges,
@@ -63,6 +65,41 @@ export function featherEdges(core: HeightGrid, context: HeightGrid): HeightGrid 
   return { ...core, heights };
 }
 
+/**
+ * Render-only copy of a §11 ring grid with the earth-curvature drop baked in:
+ * every sample is lowered by `(1−k)·d²/2R` (d = horizontal distance from the
+ * scene origin — the guarantee viewpoint on the fort). At horizon scale this is
+ * the difference between a horizon and a wall (~280 m at 64 km). The raw grid is
+ * untouched; analysis grids stay flat-earth (the viewshed applies the identical
+ * drop internally, contract §4).
+ */
+export function applyCurvatureDrop(grid: HeightGrid): HeightGrid {
+  const { width, height, resolution } = grid;
+  const { minX, minZ } = grid.boundsLocal;
+  const heights = grid.heights.slice();
+  for (let row = 0; row < height; row++) {
+    const z = minZ + (row + 0.5) * resolution;
+    const zSq = z * z;
+    for (let col = 0; col < width; col++) {
+      const x = minX + (col + 0.5) * resolution;
+      heights[row * width + col] -= refractedDropM(x * x + zSq);
+    }
+  }
+  return { ...grid, heights };
+}
+
+/**
+ * Vertex stride per ring index (rings[0] = the 8×8 km ring, outward from
+ * there): the §2b density ladder — far-terrain legibility lives in shading
+ * (full-res normals), not silhouette. Indices beyond the table reuse its last
+ * entry.
+ */
+export const RING_DECIMATION_STEPS = [2, 2, 4, 4, 8] as const;
+
+export function ringStep(index: number): number {
+  return RING_DECIMATION_STEPS[Math.min(index, RING_DECIMATION_STEPS.length - 1)];
+}
+
 /** Dispose every geometry under `group` and empty it, leaving the group in place. */
 function disposeChildren(group: THREE.Group): void {
   for (const child of [...group.children]) {
@@ -80,22 +117,30 @@ export class Terrain {
 
   private readonly coreGroup = new THREE.Group();
   private readonly contextGroup = new THREE.Group();
+  private readonly ringGroup = new THREE.Group();
 
   private readonly coreMaterial = createTerrainMaterial();
   private readonly contextMaterial = createContextMaterial();
   private readonly skirtMaterial = createSkirtMaterial();
+  // Rings get their own material so the ground-space overlays (viewshed wash,
+  // land-cover tint, submerged-ground shading) never touch far terrain — those
+  // are core/context features by contract (§11).
+  private readonly ringMaterial = createContextMaterial();
 
   private tint: ElevationTint = new ElevationTint(0, 1);
   private exaggeration = 1;
 
   contextGrid: HeightGrid | null = null;
   coreGrid: HeightGrid | null = null;
+  /** Raw (flat-earth) §11 ring grids, inside-out; sparse until each loads. */
+  readonly ringGrids: (HeightGrid | null)[] = [];
 
   constructor() {
     this.group.name = 'terrain';
     this.contextGroup.name = 'terrain-context';
     this.coreGroup.name = 'terrain-core';
-    this.group.add(this.contextGroup, this.coreGroup);
+    this.ringGroup.name = 'terrain-rings';
+    this.group.add(this.ringGroup, this.contextGroup, this.coreGroup);
   }
 
   setElevationRange(min: number, max: number): void {
@@ -152,6 +197,73 @@ export class Terrain {
     }
   }
 
+  /**
+   * Build one §11 far-field ring as a decimated annulus around the next-finer
+   * grid (the context for rings[0]), with the earth-curvature drop baked into
+   * the render mesh and an outer skirt closing silhouette cracks. Quads that
+   * straddle the inner grid's edge stay in the annulus — the finer surface sits
+   * on or above the curvature-dropped coarser one, so the overlap hides the
+   * seam from above exactly as the context does under the core.
+   *
+   * Rings must arrive inside-out (lazy loading order, contract §11); `index` 0
+   * is the innermost ring.
+   */
+  async setRing(index: number, grid: HeightGrid, onProgress: (f: number) => void = () => {}): Promise<void> {
+    const inner = index === 0 ? this.contextGrid : this.ringGrids[index - 1] ?? null;
+    if (!inner) throw new Error(`setRing(${index}): the next-finer grid has not been built yet`);
+    this.ringGrids[index] = grid;
+
+    // Drop any prior build of this ring (a re-load), keeping the other rings.
+    for (const child of [...this.ringGroup.children]) {
+      if (child.name.startsWith(`ring-${index}-`)) {
+        child.traverse((o) => {
+          const mesh = o as THREE.Mesh;
+          if (mesh.isMesh) mesh.geometry.dispose();
+        });
+        this.ringGroup.remove(child);
+      }
+    }
+
+    const display = applyCurvatureDrop(grid);
+    const step = ringStep(index);
+    const cutout = coreCutoutQuads(inner, display);
+    const ranges = contextRingRanges(display, cutout);
+
+    let done = 0;
+    for (const range of ranges) {
+      const mesh = new THREE.Mesh(buildDecimatedPatch(display, range, step, this.tint), this.ringMaterial);
+      mesh.name = `ring-${index}-band`;
+      this.ringGroup.add(mesh);
+      onProgress((++done / (ranges.length + 1)) * 0.95);
+      await nextFrame();
+    }
+
+    // Outer skirt: with the curvature drop the ring's rim sits well below y=0,
+    // and the next ring out (or the fog) has to meet it without daylight.
+    const depth = Math.max(16, (display.maxElevation - display.minElevation) * 0.25);
+    const skirt = new THREE.Mesh(buildSkirt(display, depth, this.tint), this.skirtMaterial);
+    skirt.name = `ring-${index}-skirt`;
+    this.ringGroup.add(skirt);
+    onProgress(1);
+  }
+
+  /** Half-extent (m) of the widest built grid — what the fog and far plane track. */
+  outerHalfExtent(): number {
+    let half = 0;
+    const grids: (HeightGrid | null)[] = [this.contextGrid, ...this.ringGrids];
+    for (const grid of grids) {
+      if (!grid) continue;
+      const b = grid.boundsLocal;
+      half = Math.max(half, (b.maxX - b.minX) / 2, (b.maxZ - b.minZ) / 2);
+    }
+    return half;
+  }
+
+  /** How many §11 rings are currently built. */
+  get ringCount(): number {
+    return this.ringGrids.filter(Boolean).length;
+  }
+
   /** Build the 1 m core as 16 chunks plus its seam skirt, then re-cut the ring. */
   async setCore(grid: HeightGrid, onProgress: (f: number) => void = () => {}): Promise<void> {
     this.coreGrid = grid;
@@ -186,8 +298,10 @@ export class Terrain {
   dispose(): void {
     disposeChildren(this.coreGroup);
     disposeChildren(this.contextGroup);
+    disposeChildren(this.ringGroup);
     this.coreMaterial.dispose();
     this.contextMaterial.dispose();
     this.skirtMaterial.dispose();
+    this.ringMaterial.dispose();
   }
 }

@@ -159,18 +159,19 @@ async function loadBand(
 }
 
 /**
- * Fetch + decode one DEM COG into the meters `Float32Array` of the §1 array
+ * Fetch + decode one DEM COG (described by any manifest grid entry — core,
+ * context, or a §11 ring) into the meters `Float32Array` of the §1 array
  * convention. The manifest is authoritative for geometry; TIFF-embedded
  * georeferencing is deliberately ignored.
  */
-export async function loadGrid(
+export async function loadGridFromManifest(
   siteId: string,
-  name: 'core' | 'context',
-  manifest: SiteManifest,
+  name: string,
+  g: GridManifest,
+  origin: { e: number; n: number },
   onProgress: (f: number) => void = () => {},
 ): Promise<HeightGrid> {
-  const g = manifest.grids[name];
-  checkGridInvariants(name, g, manifest.origin);
+  checkGridInvariants(name, g, origin);
 
   const url = `${siteDataUrl(siteId)}${g.path}`;
   const band = await loadBand(url, g.path, g.width, g.height, onProgress, 'the manifest');
@@ -187,6 +188,64 @@ export async function loadGrid(
     heights,
     minElevation: min,
     maxElevation: max,
+  };
+}
+
+/** Fetch + decode the core or context DEM COG. */
+export async function loadGrid(
+  siteId: string,
+  name: 'core' | 'context',
+  manifest: SiteManifest,
+  onProgress: (f: number) => void = () => {},
+): Promise<HeightGrid> {
+  return loadGridFromManifest(siteId, name, manifest.grids[name], manifest.origin, onProgress);
+}
+
+// ------------------------------------------- v1.4 §11: far-field rings ------
+
+/** Fetch + decode one §11 ring DEM (per-ring `encoding.scale` — 0.5/1.0 m). */
+export async function loadRingGrid(
+  siteId: string,
+  manifest: SiteManifest,
+  index: number,
+  onProgress: (f: number) => void = () => {},
+): Promise<HeightGrid> {
+  const ring = manifest.grids.rings?.[index];
+  if (!ring) throw new Error(`manifest.grids.rings[${index}] is not declared for this site.`);
+  return loadGridFromManifest(siteId, `rings[${index}]`, ring, manifest.origin, onProgress);
+}
+
+/**
+ * Fetch + decode a ring's §11 far-water connectivity grid. Like the §7 grid, the
+ * file carries no manifest entry of its own — the ring entry is authoritative
+ * for its geometry and encoding scale. Rendering only.
+ */
+export async function loadRingConnect(
+  siteId: string,
+  ring: GridManifest,
+  onProgress: (f: number) => void = () => {},
+): Promise<ConnectGrid> {
+  const path = ring.waterConnect;
+  if (!path) throw new Error(`ring ${ring.path} declares no waterConnect grid.`);
+
+  const url = `${siteDataUrl(siteId)}${path}`;
+  const band = await loadBand(
+    url,
+    path,
+    ring.width,
+    ring.height,
+    onProgress,
+    `the ${ring.path} ring entry (authoritative for its geometry, docs/data-formats.md §11)`,
+  );
+
+  const values = decodeHeights(band, ring.encoding.scale);
+  onProgress(1);
+  return {
+    width: ring.width,
+    height: ring.height,
+    resolution: ring.resolution,
+    boundsLocal: ring.boundsLocal,
+    values,
   };
 }
 

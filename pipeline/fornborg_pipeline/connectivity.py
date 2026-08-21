@@ -36,7 +36,7 @@ from pathlib import Path
 import numpy as np
 from affine import Affine
 
-from .clip_dem import DECIMETER_SCALE, Grid, dequantize_decimeters, write_grid
+from .clip_dem import DECIMETER_SCALE, Grid, dequantize, dequantize_decimeters, write_grid
 from .sites import GridSpec, SiteConfig
 
 WATER_CONNECT_PATH = "water_connect.tif"
@@ -122,35 +122,42 @@ def flood_fill_elevation(dem: np.ndarray) -> np.ndarray:
     return connect
 
 
-def quantize_connect_decimeters(connect_m: np.ndarray) -> np.ndarray:
-    """Meters -> int16 decimeters, rounding UP (never down; see the module docstring)."""
-    raw = np.ceil(np.asarray(connect_m, dtype=np.float64) / DECIMETER_SCALE - CEIL_EPSILON)
+def quantize_connect(connect_m: np.ndarray, scale: float = DECIMETER_SCALE) -> np.ndarray:
+    """Meters -> int16 steps of `scale`, rounding UP (never down; see the module docstring)."""
+    raw = np.ceil(np.asarray(connect_m, dtype=np.float64) / scale - CEIL_EPSILON)
     if not np.isfinite(raw).all():
         raise ValueError("non-finite values reached quantization")
     if raw.min() < np.iinfo(np.int16).min or raw.max() > np.iinfo(np.int16).max:
-        raise ValueError(f"connect levels overflow int16 decimeters: {raw.min()}..{raw.max()}")
+        raise ValueError(
+            f"connect levels overflow int16 at scale {scale}: {raw.min()}..{raw.max()}"
+        )
     return raw.astype(np.int16)
 
 
-def build_connect_grid(dem_dm: np.ndarray) -> np.ndarray:
-    """int16-dm DEM -> int16-dm connect grid, with the `connect >= dem` invariant checked.
+def quantize_connect_decimeters(connect_m: np.ndarray) -> np.ndarray:
+    """Meters -> int16 decimeters — the §7 context-grid encoding."""
+    return quantize_connect(connect_m)
 
-    The invariant is asserted **after** quantization, against the same decimeter
+
+def build_connect_grid(dem_raw: np.ndarray, scale: float = DECIMETER_SCALE) -> np.ndarray:
+    """int16 DEM -> int16 connect grid at the same `scale`, `connect >= dem` checked.
+
+    The invariant is asserted **after** quantization, against the same quantized
     values the app compares — that is the form the app actually relies on.
     """
-    if dem_dm.dtype != np.int16:
-        raise ValueError(f"expected the int16 decimeter DEM, got {dem_dm.dtype}")
-    connect_m = flood_fill_elevation(dequantize_decimeters(dem_dm))
-    connect_dm = quantize_connect_decimeters(connect_m)
-    below = connect_dm < dem_dm
+    if dem_raw.dtype != np.int16:
+        raise ValueError(f"expected the int16 quantized DEM, got {dem_raw.dtype}")
+    connect_m = flood_fill_elevation(dequantize(dem_raw, scale))
+    connect_raw = quantize_connect(connect_m, scale)
+    below = connect_raw < dem_raw
     if below.any():
-        worst = int((dem_dm - connect_dm)[below].max())
+        worst = int((dem_raw - connect_raw)[below].max())
         raise ValueError(
             f"{int(below.sum())} cells have connect < dem after quantization "
-            f"(worst {worst} dm); the app's `connect <= h` test would report dry ground "
-            f"as sea-connected"
+            f"(worst {worst} steps of {scale} m); the app's `connect <= h` test would "
+            f"report dry ground as sea-connected"
         )
-    return connect_dm
+    return connect_raw
 
 
 def connect_grid_spec(cfg: SiteConfig) -> GridSpec:
@@ -171,6 +178,39 @@ def write_connect_grid(path: Path, connect_dm: np.ndarray, transform: Affine, cf
     grid = Grid(
         spec=spec,
         data=connect_dm,
+        transform=transform,
+        bounds3006=cfg.bounds3006(spec.half_extent),
+        min_elevation=round(float(heights.min()), 1),
+        max_elevation=round(float(heights.max()), 1),
+        filled_cells=0,
+    )
+    return write_grid(path, grid)
+
+
+def ring_connect_spec(ring_spec: GridSpec) -> GridSpec:
+    """The §11 ring-connect grid's geometry — identical to its ring by construction."""
+    return GridSpec(
+        name=f"waterConnect_{ring_spec.name}",
+        half_extent=ring_spec.half_extent,
+        resolution=ring_spec.resolution,
+        path=f"water_connect_{ring_spec.name}.tif",
+        quant_scale=ring_spec.quant_scale,
+    )
+
+
+def write_ring_connect_grid(
+    path: Path,
+    connect_raw: np.ndarray,
+    transform: Affine,
+    cfg: SiteConfig,
+    ring_spec: GridSpec,
+):
+    """Write a §11 far-water connect grid on a ring's geometry and quant scale."""
+    spec = ring_connect_spec(ring_spec)
+    heights = dequantize(connect_raw, spec.quant_scale)
+    grid = Grid(
+        spec=spec,
+        data=connect_raw,
         transform=transform,
         bounds3006=cfg.bounds3006(spec.half_extent),
         min_elevation=round(float(heights.min()), 1),

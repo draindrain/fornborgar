@@ -32,7 +32,10 @@ from rasterio.fill import fillnodata
 
 from .sites import EPSG_HORIZONTAL, GridSpec, SiteConfig
 
-DECIMETER_SCALE = 0.1  # height_m = raw * SCALE
+DECIMETER_SCALE = 0.1  # height_m = raw * SCALE (core/context; rings carry their own)
+# The quantization steps the contract allows (docs/data-formats.md §11): 0.1 m for
+# core/context, 0.5 m for rings 3-5, 1.0 m for rings 6-7.
+ALLOWED_SCALES = (0.1, 0.5, 1.0)
 BLOCKSIZE = 512
 
 
@@ -61,7 +64,7 @@ class Grid:
         return int(self.data.shape[0])
 
     def heights_m(self) -> np.ndarray:
-        return dequantize_decimeters(self.data)
+        return dequantize(self.data, self.spec.quant_scale)
 
 
 # --------------------------------------------------------------------------- #
@@ -143,18 +146,31 @@ def downsample_average(array: np.ndarray, factor: int) -> np.ndarray:
     )
 
 
-def quantize_decimeters(heights_m: np.ndarray) -> np.ndarray:
-    """Meters -> int16 decimeters (docs/data-formats.md §1). No offset."""
-    raw = np.round(np.asarray(heights_m, dtype=np.float64) * (1.0 / DECIMETER_SCALE))
+def quantize(heights_m: np.ndarray, scale: float) -> np.ndarray:
+    """Meters -> int16 steps of `scale` meters (docs/data-formats.md §1/§11). No offset."""
+    if scale <= 0:
+        raise ValueError(f"quantization scale must be positive, got {scale}")
+    raw = np.round(np.asarray(heights_m, dtype=np.float64) * (1.0 / scale))
     if not np.isfinite(raw).all():
         raise ValueError("non-finite heights reached quantization")
     if raw.min() < np.iinfo(np.int16).min or raw.max() > np.iinfo(np.int16).max:
-        raise ValueError(f"heights overflow int16 decimeters: {raw.min()}..{raw.max()}")
+        raise ValueError(
+            f"heights overflow int16 at scale {scale}: raw {raw.min()}..{raw.max()}"
+        )
     return raw.astype(np.int16)
 
 
+def dequantize(raw: np.ndarray, scale: float) -> np.ndarray:
+    return np.asarray(raw, dtype=np.float32) * np.float32(scale)
+
+
+def quantize_decimeters(heights_m: np.ndarray) -> np.ndarray:
+    """Meters -> int16 decimeters — the §1 core/context encoding."""
+    return quantize(heights_m, DECIMETER_SCALE)
+
+
 def dequantize_decimeters(raw: np.ndarray) -> np.ndarray:
-    return np.asarray(raw, dtype=np.float32) * np.float32(DECIMETER_SCALE)
+    return dequantize(raw, DECIMETER_SCALE)
 
 
 # --------------------------------------------------------------------------- #
@@ -183,13 +199,17 @@ def sample_nearest_many(
 
 
 def check_height_sanity(
-    heights_m: np.ndarray, transform: Affine, cfg: SiteConfig, label: str
+    heights_m: np.ndarray, transform: Affine, cfg: SiteConfig, label: str,
+    check_center: bool = True,
 ) -> float:
     """Abort if the heights look geoid-shifted. Returns the center height (m).
 
     This is a hard gate, not a correction: a failure means a vertical datum
     transform crept into the pipeline (PLAN.md §2.1) and the fix is to remove it,
-    never to subtract an offset.
+    never to subtract an offset. `check_center=False` skips the center-band test
+    only — used for the far-field rings, whose coarse block averages sample a
+    different "center" than the band was tuned against; the range gate (which is
+    what actually catches the geoid shift) always runs.
     """
     lo, hi = cfg.elevation_range
     zmin, zmax = float(np.min(heights_m)), float(np.max(heights_m))
@@ -202,6 +222,8 @@ def check_height_sanity(
             f"read path — do NOT offset the values."
         )
     center = sample_nearest(heights_m, transform, cfg.center_e, cfg.center_n)
+    if not check_center:
+        return center
     clo, chi = cfg.center_height_range
     if not (clo <= center <= chi):
         raise VerticalDatumError(
@@ -224,20 +246,25 @@ def build_grid(
     spec: GridSpec,
     cfg: SiteConfig,
     filled_cells: int = 0,
+    source_resolution: float | None = None,
 ) -> Grid:
     """Crop -> block-average -> quantize one output grid from a filled source mosaic.
 
-    `source` must already be nodata-free (see `fill_nodata`).
+    `source` must already be nodata-free (see `fill_nodata`). `source_resolution`
+    defaults to the site's 1 m mosaic; ring mosaics arrive pre-decimated at the
+    ring's own resolution (factor 1).
     """
+    if source_resolution is None:
+        source_resolution = cfg.source_resolution
     bounds = cfg.bounds3006(spec.half_extent)
     cropped, cropped_transform = crop_to_bounds(source, source_transform, bounds)
 
-    ratio = spec.resolution / cfg.source_resolution
+    ratio = spec.resolution / source_resolution
     factor = int(round(ratio))
     if abs(ratio - factor) > 1e-9 or factor < 1:
         raise ValueError(
             f"grid {spec.name}: resolution {spec.resolution} m is not an integer multiple "
-            f"of the source resolution {cfg.source_resolution} m"
+            f"of the source resolution {source_resolution} m"
         )
     reduced = downsample_average(cropped, factor)
     transform = Affine(spec.resolution, 0.0, bounds[0], 0.0, -spec.resolution, bounds[3])
@@ -248,9 +275,12 @@ def build_grid(
             f"expected {spec.size}x{spec.size}"
         )
 
-    raw = quantize_decimeters(reduced)
-    heights = dequantize_decimeters(raw)
-    check_height_sanity(heights, transform, cfg, f"grid {spec.name}")
+    raw = quantize(reduced, spec.quant_scale)
+    heights = dequantize(raw, spec.quant_scale)
+    check_height_sanity(
+        heights, transform, cfg, f"grid {spec.name}",
+        check_center=spec.resolution <= cfg.context.resolution,
+    )
 
     return Grid(
         spec=spec,
@@ -320,7 +350,7 @@ def write_grid(path: Path, grid: Grid) -> Path:
         # No `nodata=`: the contract says the committed file carries no nodata tag.
     ) as dst:
         dst.write(grid.data, 1)
-        dst.update_tags(1, SCALE=str(DECIMETER_SCALE))
+        dst.update_tags(1, SCALE=str(grid.spec.quant_scale))
     return path
 
 

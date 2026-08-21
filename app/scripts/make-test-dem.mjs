@@ -658,7 +658,7 @@ function reportVegetation(legend, counts, resolution) {
 
 // ------------------------------------------------------------------ output --
 
-function buildGrid({ size, resolution }) {
+function buildGrid({ size, resolution, quantScale = SCALE }) {
   // boundsLocal, concentric on the origin (contract §1: minZ is the NORTH edge).
   const halfExtent = (size * resolution) / 2;
   const boundsLocal = { minX: -halfExtent, minZ: -halfExtent, maxX: halfExtent, maxZ: halfExtent };
@@ -678,7 +678,7 @@ function buildGrid({ size, resolution }) {
     const z = boundsLocal.minZ + (row + 0.5) * resolution;
     for (let col = 0; col < size; col++) {
       const x = boundsLocal.minX + (col + 0.5) * resolution;
-      const dm = Math.round(heightAt(x, z) / SCALE);
+      const dm = Math.round(heightAt(x, z) / quantScale);
       raw[row * size + col] = dm;
       if (dm < minRaw) minRaw = dm;
       if (dm > maxRaw) maxRaw = dm;
@@ -689,8 +689,8 @@ function buildGrid({ size, resolution }) {
     raw,
     boundsLocal,
     bounds3006,
-    minElevation: Number((minRaw * SCALE).toFixed(1)),
-    maxElevation: Number((maxRaw * SCALE).toFixed(1)),
+    minElevation: Number((minRaw * quantScale).toFixed(1)),
+    maxElevation: Number((maxRaw * quantScale).toFixed(1)),
   };
 }
 
@@ -959,7 +959,143 @@ function main() {
   console.log(`manifest.json written to ${OUT_DIR}`);
 }
 
+// -------------------------------------- v1.4 §11: the ringed fixture --------
+
+/**
+ * `--rings` writes a SECOND committed fixture, `testsite-rings`: the same
+ * closed-form terrain sampled over two far-field rings on top of the standard
+ * core/context pair, plus the water pair and a §11 far-water connect grid on
+ * the outer ring. It exists so the ring rendering path (lazy loading, annulus
+ * meshes, curvature drop, far water) is eyeball-able and headless-testable
+ * without Lantmäteriet credentials. `testsite` itself stays ringless — it is
+ * the proof that rings are optional.
+ */
+const RINGS_OUT_DIR = join(HERE, '..', 'public', 'data', 'testsite-rings');
+
+const RING_GRIDS = [
+  { path: 'dem_ring3.tif', size: 256, resolution: 4, quantScale: 0.5 },
+  { path: 'dem_ring4.tif', size: 256, resolution: 8, quantScale: 1.0, waterConnect: 'water_connect_ring4.tif' },
+];
+
+function mainRings() {
+  mkdirSync(RINGS_OUT_DIR, { recursive: true });
+
+  const built = {};
+  for (const [name, spec] of Object.entries(GRIDS)) {
+    const grid = buildGrid(spec);
+    writeTiff(join(RINGS_OUT_DIR, spec.path), grid.raw, spec.size, spec.resolution, grid.bounds3006);
+    built[name] = { spec, grid };
+  }
+  const rings = RING_GRIDS.map((spec) => {
+    const grid = buildGrid(spec);
+    writeTiff(join(RINGS_OUT_DIR, spec.path), grid.raw, spec.size, spec.resolution, grid.bounds3006);
+    console.log(
+      `${spec.path}: ${spec.size}x${spec.size} @ ${spec.resolution} m (±${spec.quantScale} m), ` +
+        `z ${grid.minElevation}–${grid.maxElevation} m`,
+    );
+    return { spec, grid };
+  });
+
+  // §7 context connect + §6 table, same derivations as the plain fixture.
+  const context = built.context;
+  const connect = priorityFlood(context.grid.raw, context.spec.size, context.spec.size);
+  writeTiff(join(RINGS_OUT_DIR, CONNECT_PATH), connect, context.spec.size, context.spec.resolution, context.grid.bounds3006);
+  const steps = buildShorelineSteps();
+  writeFileSync(
+    join(RINGS_OUT_DIR, SHORELINE_PATH),
+    `${JSON.stringify(
+      {
+        schemaVersion: 1,
+        site: 'testsite-rings',
+        method:
+          'SYNTHETIC TEST DATA — same closed-form level curve as the testsite fixture; see ' +
+          'app/scripts/make-test-dem.mjs.',
+        uncertainty: 'Synthetic test data — not a shoreline model.',
+        datumNote: "Levels are meters in the fixture's notional RH 2000 datum.",
+        source: { product: 'Synthetic — app/scripts/make-test-dem.mjs', fetched: new Date().toISOString().slice(0, 10) },
+        steps,
+      },
+      null,
+      2,
+    )}\n`,
+  );
+
+  // §11 far-water connect on the outer ring (already-integral lattice, so the
+  // contract's CEIL quantization is a no-op, as for the context grid).
+  const outer = rings[rings.length - 1];
+  const ringConnect = priorityFlood(outer.grid.raw, outer.spec.size, outer.spec.size);
+  writeTiff(
+    join(RINGS_OUT_DIR, outer.spec.waterConnect),
+    ringConnect,
+    outer.spec.size,
+    outer.spec.resolution,
+    outer.grid.bounds3006,
+  );
+
+  // §11 horizon block, derived genuinely from the fixture's own surface.
+  const crownM = built.core.grid.maxElevation;
+  const sortedOuter = Array.from(outer.grid.raw).sort((a, b) => a - b);
+  const floorM = Math.max(0, sortedOuter[Math.floor(sortedOuter.length * 0.05)] * outer.spec.quantScale);
+  const distanceKm = Number((3.83 * Math.sqrt(Math.max(0, crownM + 2 - floorM))).toFixed(1));
+
+  const gridManifest = ({ spec, grid }) => ({
+    path: spec.path,
+    resolution: spec.resolution,
+    width: spec.size,
+    height: spec.size,
+    bounds3006: grid.bounds3006,
+    boundsLocal: grid.boundsLocal,
+    encoding: { dtype: 'int16', scale: spec.quantScale ?? SCALE, unit: 'm' },
+    minElevation: grid.minElevation,
+    maxElevation: grid.maxElevation,
+  });
+
+  const manifest = {
+    schemaVersion: 1,
+    site: { id: 'testsite-rings', name: 'Synthetic test site (ringed)' },
+    crs: { horizontal: 'EPSG:3006', verticalDatum: 'RH2000' },
+    origin: { e: ORIGIN.e, n: ORIGIN.n },
+    grids: {
+      core: gridManifest(built.core),
+      context: gridManifest(built.context),
+      rings: rings.map((ring) => ({
+        ...gridManifest(ring),
+        ...(ring.spec.waterConnect ? { waterConnect: ring.spec.waterConnect } : {}),
+      })),
+    },
+    horizon: { crownM, floorM: Number(floorM.toFixed(1)), eyeM: 2.0, distanceKm },
+    assets: { shoreline: SHORELINE_PATH, waterConnect: CONNECT_PATH },
+    layers: [
+      { id: 'terrain', name: 'Terrain (synthetic)', provenance: 'model' },
+      { id: 'water', name: 'Paleo-shoreline (synthetic model)', provenance: 'model' },
+    ],
+    attribution: [
+      {
+        text: 'Synthetic fixture — procedurally generated by app/scripts/make-test-dem.mjs. Not real elevation data.',
+        license: 'MIT',
+      },
+    ],
+    provenance: {
+      generated: new Date().toISOString().replace(/\.\d{3}Z$/, 'Z'),
+      pipeline: 'app/scripts/make-test-dem.mjs',
+      sources: [],
+      processing: [
+        'procedural height function sampled over the core/context pair and two far-field rings',
+        'per-ring int16 quantization (0.5 m / 1.0 m) per contract §11',
+        'priority-flood sea connectivity over the context grid and the outer ring',
+        'synthetic century -> level table on SGU-shaped BP centuries',
+      ],
+    },
+  };
+  writeFileSync(join(RINGS_OUT_DIR, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`);
+  console.log(
+    `manifest.json written to ${RINGS_OUT_DIR} — ${rings.length} rings, ` +
+      `horizon crown ${crownM} m / floor ${floorM.toFixed(1)} m / d ${distanceKm} km`,
+  );
+}
+
 // Only run when invoked directly, so tests can import `heightAt`.
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
-  main();
+  if (process.argv.includes('--rings')) mainRings();
+  else main();
 }

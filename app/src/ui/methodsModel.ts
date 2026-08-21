@@ -156,6 +156,43 @@ function landcoverParagraphs(legend: LandcoverLegend): string[] {
   ];
 }
 
+/**
+ * v1.4 §11: how the far-field rings were made and what was done to them —
+ * per-ring resolutions/quantization from the manifest itself, the curvature
+ * constant shared with the viewshed, and the far-water fade caveat. Absent for
+ * ringless sites: the panel never describes terrain the viewer cannot see.
+ */
+function horizonDisclosure(manifest: SiteManifest): string | null {
+  const rings = manifest.grids.rings;
+  if (!rings?.length) return null;
+  const ladder = rings
+    .map((r) => {
+      const km = Math.round((r.width * r.resolution) / 1000);
+      return `${km}×${km} km at ${r.resolution} m (±${r.encoding.scale} m quantization)`;
+    })
+    .join(', ');
+  const h = manifest.horizon;
+  const derivation = h
+    ? ` Ladder depth is derived per site: crown ${h.crownM} m + ${h.eyeM} m eye − ` +
+      `surrounding floor ${h.floorM} m gives a refracted horizon at ~${h.distanceKm} km, ` +
+      `and rings extend until they close it.`
+    : '';
+  const hasFarWater = rings.some((r) => r.waterConnect);
+  return (
+    `Far-field rings extend the terrain beyond the context window: ${ladder}. Outer rings are ` +
+    `block-averaged reads from the source elevation model's overview levels — silhouettes, not ` +
+    `survey-grade surfaces.${derivation} Ring meshes are lowered by the earth-curvature drop ` +
+    `(1−k)·d²/2R with k = 0.13, the same correction the viewshed applies, so the skyline sits ` +
+    `where the refracted horizon actually is; analysis grids stay flat and the viewshed still ` +
+    `runs on the 2 m context grid only.` +
+    (hasFarWater
+      ? ` The paleo-shoreline is drawn out to the 16 km ring and faded toward its edge: ` +
+        `post-glacial uplift is a gradient, so a single per-century level grows less valid ` +
+        `with distance from the site.`
+      : '')
+  );
+}
+
 function provenanceOf(manifest: SiteManifest, layerId: string): Provenance | null {
   const entry = manifest.layers?.find((l) => l.id === layerId);
   return (entry?.provenance as Provenance | undefined) ?? null;
@@ -191,6 +228,8 @@ export function buildMethodsModel(
     TERRAIN_IS_NOT,
     EXAGGERATION_NOTE,
   ];
+  const horizonParagraph = horizonDisclosure(manifest);
+  if (horizonParagraph) terrain.splice(1, 0, horizonParagraph);
   const processing = processingLines(manifest);
   if (processing) terrain.splice(1, 0, processing);
   sections.push({ id: 'terrain', title: 'Terrain', badge: provenanceOf(manifest, 'terrain') ?? 'measured', paragraphs: terrain });

@@ -17,6 +17,12 @@ export interface OrbitRig {
   controls: OrbitControls;
   /** Re-frame the site given the grid that is currently the best available. */
   frameSite(grid: HeightGrid, exaggeration: number): void;
+  /**
+   * Raise the far plane so terrain out to `outerHalfExtent` meters stays in
+   * frame (§11 far-field rings). Sticky: survives later `frameSite` calls. The
+   * renderer's log depth buffer keeps the widened near/far ratio artifact-free.
+   */
+  setFarHorizon(outerHalfExtent: number): void;
 }
 
 export function createOrbitRig(domElement: HTMLElement, aspect: number): OrbitRig {
@@ -33,6 +39,10 @@ export function createOrbitRig(domElement: HTMLElement, aspect: number): OrbitRi
   controls.maxPolarAngle = 88 * DEG;
   controls.zoomSpeed = 0.9;
   controls.rotateSpeed = 0.7;
+
+  // §11: once rings load, the far plane must reach past the outermost ring's
+  // corner whatever grid frameSite was last called with. 0 until rings exist.
+  let farFloor = 0;
 
   function frameSite(grid: HeightGrid, exaggeration: number): void {
     const { minX, maxX, minZ, maxZ } = grid.boundsLocal;
@@ -52,10 +62,19 @@ export function createOrbitRig(domElement: HTMLElement, aspect: number): OrbitRi
     camera.position.set(cx + horizontal * inv, cy + distance * Math.sin(pitch), cz + horizontal * inv);
     controls.maxDistance = half * 6;
     camera.near = Math.max(0.5, half / 5000);
-    camera.far = half * 24;
+    camera.far = Math.max(half * 24, farFloor);
     camera.updateProjectionMatrix();
     controls.update();
   }
 
-  return { camera, controls, frameSite };
+  function setFarHorizon(outerHalfExtent: number): void {
+    // ×3 covers the square's diagonal from any orbit position with headroom.
+    farFloor = Math.max(farFloor, outerHalfExtent * 3);
+    if (camera.far < farFloor) {
+      camera.far = farFloor;
+      camera.updateProjectionMatrix();
+    }
+  }
+
+  return { camera, controls, frameSite, setFarHorizon };
 }
