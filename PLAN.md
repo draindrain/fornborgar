@@ -254,6 +254,13 @@ corrections to this plan where the schema assumptions were wrong.
   dropping COG overviews from web grids: −35 %) — the per-site static-bundle
   architecture scales as-is. Hosting: app stays on GH Pages; bundles move to
   Cloudflare R2 (free egress, fits the free tier). No tiled/LOD terrain needed.
+- **Far-field rings (owner request 2026-08-21, sized in the same doc §2b):** extend each
+  site with concentric 2000² rings — 8×8 km @ 4 m, 16×16 km @ 8 m, 32×32 km @ 16 m at
+  0.5 m vertical quantization — for a 16 km view radius and haze-faded horizon at
+  +~4 MB/site (~9.3 GB national, still free-tier). Additive `grids.rings` manifest
+  entry; render-side needs curvature-displaced annulus meshes, log depth buffer, lazy
+  ring loading, and the paleo-water plane extended outward. Optional 64 km `horizon`
+  preset for curated lowland sites.
 - Sequenced 8a–8e: encoding + contract v1.2 → batch pipeline (registry, tile cache,
   QA contact sheet) → ~25-site curated pilot on R2 → county-by-county fill to 1,304 →
   intervisibility stretch (76 % of forts have a neighbor within their context extent).

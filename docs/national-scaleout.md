@@ -76,7 +76,8 @@ assets). First-load payload per site stays ≈ 3 MB — comfortably below v1's r
 | Scenario | Total |
 |---|---|
 | All 1,304 sites, current encoding | ~7.8 GB |
-| All 1,304 sites, optimized encoding (§2.1–2) | **~4 GB** |
+| All 1,304 sites, optimized encoding (§2.1–2), 4×4 km as today | **~4 GB** |
+| — with the far-field ring ladder to 32×32 km (§2b) | **~9.3 GB** |
 | App shell (GH Pages, unchanged) | ~1 MB |
 | National site index (`index.json`, §6.1) | ~0.2 MB |
 
@@ -88,6 +89,75 @@ server, no database. The one thing that must change is *where the bundles live* 
 Do we need to compress? We already do (int16 decimeters + DEFLATE ≈ 4.5× vs raw
 float32). The §2 items are worth doing because they halve storage *and* per-site load
 time for ~1–2 days of work, but nothing breaks without them.
+
+## 2b. Far-field rings: doubling the view, and the horizon (added 2026-08-21)
+
+Owner request: extend the per-site view beyond 4×4 km — lower detail farther out, ideally
+far enough to see a plausible horizon. This slots cleanly into the existing two-ring
+design, because each doubling of extent at halved resolution costs the same 2000×2000
+pixel budget (constant *angular* detail: ~1 m of ground per km of distance, ≈ 0.06°):
+
+| Ring | Extent | Res | Grid | Quant | Compressed **[measured 2026-08-21]** |
+|---|---|---|---|---|---|
+| core | 2×2 km | 1 m | 2000² | 0.1 m | 1.10 MB |
+| context | 4×4 km | 2 m | 2000² | 0.1 m | 1.43 MB |
+| ring 3 | 8×8 km | 4 m | 2000² | 0.5 m | **0.85 MB** |
+| ring 4 | 16×16 km | 8 m | 2000² | 0.5 m | **1.20 MB** |
+| ring 5 | 32×32 km | 16 m | 2000² | 0.5 m | **1.68 MB** |
+
+Sizes measured by block-mean downsampling the real Broborg context grid and compressing
+with deflate + predictor. The 0.5 m vertical quantization on far rings is the key win
+(≈ ½ the bytes of 0.1 m): at ≥ 2 km viewing distance 0.5 m subtends < 0.015°, and the
+manifest's per-grid `encoding.scale` field already expresses it — **no schema change**,
+just `"scale": 0.5` on ring grids. Disclosed per-ring in the methods panel.
+
+- **"Double the view" (8×8 km)**: +~1 MB/site → ~4.1 MB/site, **~5.4 GB national**.
+- **Full ladder to 32×32 km** (16 km view radius): +~3.7 MB of terrain + ~0.3 MB ring
+  water-connect deltas → **~7 MB/site, ~9.3 GB national — still inside the R2 free
+  tier.** This is the recommended default.
+- **True horizon**: from a rampart ~50 m up, the refracted horizon sits at ~27 km, so
+  16 km radius doesn't quite close the sky in flat terrain. An optional `horizon`
+  preset adds a 6th ring (64×64 km @ 32 m, 1.0 m quant, ~1.5 MB) for a ~32 km radius —
+  curated/lowland-coastal sites only. Everywhere else, atmospheric haze fading out at
+  the 16 km edge reads naturally.
+
+Rendering requirements the app must add (none change the analysis contract):
+
+1. **Earth-curvature displacement on far rings** — at 16 km the refracted drop is
+   ~17.5 m, at 32 km ~70 m; without sinking ring vertices by `(1−k)·d²/2R` the skyline
+   sits visibly too high. Analysis grids stay flat (the viewshed already applies
+   curvature internally); this is a render-mesh transform only.
+2. **Annulus meshes, decimated** — each ring renders only its outer annulus (75 % of
+   cells), at reduced vertex density (¼–⅛), with normals sampled from the full-res
+   grid; far-terrain legibility lives in shading, not silhouette. Keeps total scene
+   vertices ≈ 9–10 M (vs ~7 M today).
+3. **Logarithmic depth buffer** (three.js flag) — a 32 km far plane with sub-meter
+   near geometry needs it.
+4. **Lazy ring loading** — core+context first (today's experience, unchanged startup),
+   rings stream in behind; low-end/mobile stops at 8×8 km. A missing ring is just a
+   nearer fog line — graceful everywhere.
+5. **Water on the rings** — extend the paleo-shoreline plane and per-ring connect
+   deltas outward. This is the emotional payoff of the whole feature: from Broborg's
+   rampart at 500 CE the entire Långhundraleden inlet system toward the Baltic becomes
+   visible water. Flood-fill at ring resolution is the same priority-flood, sea entry
+   from the outermost ring's edge (which is far more robustly "open sea" than the
+   4×4 km edge — this *simplifies* §4.3's sea-entry concern for coastal sites).
+
+Viewshed: unchanged at 2 m/4×4 km for the interactive tool. As a cheap follow-on, the
+same XDraw worker can optionally run on the 16 m/32×32 km grid ("far sight" mode, 4 M
+cells again) to answer *"could they see Birka from here?"*-class questions, with the
+resolution caveat stated in-panel.
+
+Pipeline cost: outer rings are read from the source COGs' **overview levels** (×4–×32
+exist per PLAN §2.1) via decimated windowed reads — a few MB per touched tile instead
+of ~110 MB. The tile *footprint* grows (a 32 km box spans up to ~4×4 tiles; national
+union roughly 2,000–3,000 tiles instead of 504) but overview-only fetches keep the
+added transfer to ~20–30 GB one-time, alongside the full-res cache. Mosaicking across
+tile edges (§4.2) simply gets more exercise.
+
+Contract: one additive v1.2 item — optional `grids.rings: [ … ]` array (same per-grid
+schema as core/context, ordered inside-out, each with its own `encoding.scale` and
+optional connect-delta asset). Old manifests have no rings; old apps ignore them.
 
 ## 3. Storage & hosting
 
@@ -226,6 +296,8 @@ disk for the tile cache).
 
 ---
 
-*Summary: 1,304 sites, ~4 GB optimized (~3 MB/site), $0/month on R2 free tier, no
-architectural change — the v1 per-site-bundle design scales to the whole country as-is.
-Next concrete step: 8a (encoding + contract v1.2).*
+*Summary: 1,304 sites; ~4 GB optimized (~3 MB/site) at today's 4×4 km extent, ~9.3 GB
+(~7 MB/site) with the far-field ring ladder giving a 16 km view radius and a haze-faded
+horizon — either way $0/month on R2's free tier, and no architectural change: the v1
+per-site-bundle design scales to the whole country as-is. Next concrete step: 8a
+(encoding + contract v1.2, now including the `grids.rings` amendment).*
