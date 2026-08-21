@@ -76,6 +76,35 @@ describe('validateSites (contract §3)', () => {
   });
 });
 
+/**
+ * The evidence families the widened KMR selection is drawn in. Colour carries the
+ * family, so these lists are what the assertions below compare against each other —
+ * an exact hex would pin the palette, which is a design choice, not a contract.
+ */
+const GRAVE_POINT_TYPES = [
+  'Hög',
+  'Stensättning',
+  'Röse',
+  'Gravgrupp',
+  'Flatmarksgrav',
+  'Grav markerad av sten/block',
+  'Stenkammargrav',
+];
+const SETTLEMENT_TYPES = ['Boplats', 'Skärvstenshög', 'Husgrund, förhistorisk/medeltida', 'Boplatsvall'];
+const CULTIVATION_TYPES = [
+  'Fossil åker',
+  'Område med fossil åkermark',
+  'Röjningsröse',
+  'Röjningsröseområde',
+  'Terrassering',
+];
+const ENCLOSURE_TYPES = ['Hägnad', 'Hägnadssystem'];
+const ROAD_TYPES = ['Färdväg', 'Färdvägssystem'];
+
+const NEW_TYPES = [...GRAVE_POINT_TYPES, ...SETTLEMENT_TYPES, ...CULTIVATION_TYPES, ...ENCLOSURE_TYPES].filter(
+  (t) => t !== 'Boplats',
+);
+
 describe('siteStyle', () => {
   it('maps the PLAN §2.2 types and falls back for unknown ones', () => {
     expect(siteStyle('Fornborg').shape).toBe('ring');
@@ -85,6 +114,65 @@ describe('siteStyle', () => {
     const fallback = siteStyle('Something new');
     expect(fallback.color).toBeTruthy();
     expect(fallback.radius).toBeGreaterThan(0);
+  });
+
+  it('styles every type of the widened selection, none left on the gray fallback', () => {
+    const fallback = siteStyle('Något helt annat');
+    for (const type of NEW_TYPES) {
+      const style = siteStyle(type);
+      expect(style, type).not.toEqual(fallback);
+      expect(['ring', 'disc', 'square', 'diamond'], type).toContain(style.shape);
+      expect(style.radius, type).toBeGreaterThan(0);
+    }
+  });
+
+  it('keeps single-grave point records small and area records large', () => {
+    // A national extract puts hundreds of grave points in one 4x4 km frame; big
+    // symbols would smother both the terrain and each other.
+    for (const type of GRAVE_POINT_TYPES) {
+      expect(siteStyle(type).radius, type).toBeLessThanOrEqual(8);
+      expect(siteStyle(type).radius, type).toBeGreaterThanOrEqual(7);
+    }
+    expect(siteStyle('Röjningsröse').radius).toBeLessThanOrEqual(8); // a single cairn is a point too
+    for (const type of ['Fossil åker', 'Område med fossil åkermark', 'Röjningsröseområde', 'Terrassering']) {
+      expect(siteStyle(type).radius, type).toBeGreaterThanOrEqual(10);
+      expect(siteStyle(type).radius, type).toBeLessThanOrEqual(12);
+    }
+    // ...and the fort itself stays the biggest symbol on the map.
+    for (const type of NEW_TYPES) {
+      expect(siteStyle(type).radius, type).toBeLessThan(siteStyle('Fornborg').radius);
+    }
+  });
+
+  it('groups the new types into the existing semantic colour families', () => {
+    const colorsOf = (types: string[]) => new Set(types.map((t) => siteStyle(t).color));
+
+    // Graves keep the red family they already had (at most one extra tone for the
+    // stone-built forms), and share it with the committed gravfält style.
+    const graves = colorsOf([...GRAVE_POINT_TYPES, 'Gravfält']);
+    expect(graves.size).toBeLessThanOrEqual(2);
+    expect(siteStyle('Hög').color).toBe(siteStyle('Gravfält').color);
+
+    // Settlement evidence is one amber, cultivation evidence one green-brown, and
+    // enclosures a single neutral — each family internally consistent...
+    expect(colorsOf(SETTLEMENT_TYPES).size).toBe(1);
+    expect(siteStyle('Skärvstenshög').color).toBe(siteStyle('Boplats').color);
+    expect(colorsOf(CULTIVATION_TYPES).size).toBe(1);
+    expect(colorsOf(ENCLOSURE_TYPES).size).toBe(1);
+
+    // ...and mutually distinct, so the map reads as evidence families, not a rainbow.
+    const families = [
+      siteStyle('Gravfält').color,
+      siteStyle('Boplats').color,
+      siteStyle('Fossil åker').color,
+      siteStyle('Hägnad').color,
+      siteStyle('Färdväg').color,
+      siteStyle('Runristning').color,
+      siteStyle('Fornborg').color,
+      siteStyle('Något helt annat').color,
+    ];
+    expect(new Set(families).size).toBe(families.length);
+    expect(colorsOf(ROAD_TYPES).size).toBe(1); // roads were and stay one brown
   });
 });
 

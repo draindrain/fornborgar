@@ -25,14 +25,42 @@
  * `customProgramCacheKey` is extended so a material carrying this injection can never
  * share a compiled program with one that does not.
  *
+ * ## Two textures, two filters — deliberately different
+ *
  * The class texture is `NearestFilter` in both directions: class **indices** must
  * never be interpolated (§9), or a 2 m boundary between class 0 and class 4 would
  * briefly read as classes 1–3.
+ *
+ * The §7 connect texture this module also carries (v1.3, below) is `LinearFilter`
+ * for the opposite reason: it holds *meters*, a continuous field, and the water
+ * line and the reed belt's edge are level sets of it. Filtering them linearly is
+ * what makes the band a smooth contour instead of a 2 m staircase — the same
+ * recipe, and the same reason, as `water/water.ts`'s `connectTexture()`.
+ *
+ * ## v1.3 — dynamic hydrology (contract §9/§10 amendment)
+ *
+ * The raster is frozen at one reference century, but two of its classes were pure
+ * functions of the water level. A legend may now mark them `dynamic`:
+ * `{kind:'water'}` and `{kind:'shore-band', bandM}`. When the site also ships a §7
+ * connect grid, this module derives both at the **current slider level** instead of
+ * reading them from the raster:
+ *
+ *     connect ≤ level                     → the water class's colour (the sea)
+ *     level < connect ≤ level + bandM      → the shore-band class's colour
+ *
+ * over whatever static class the raster holds there, and still *before* the §7 water
+ * tint, so submerged ground shades last exactly as it did pre-v1.3. Sites with no
+ * connect grid, and legends with no `dynamic` classes, take neither branch
+ * (`uLandcoverHydroOn` stays 0) and render exactly as before.
+ *
+ * `hydroTintClass()` below is the executable spec of that GLSL precedence; the tests
+ * use it as the truth table.
  */
 
 import * as THREE from 'three';
+import type { ConnectGrid } from '../water/connectGrid';
 import type { LandcoverGrid } from './landcoverGrid';
-import { MAX_CLASSES, type LandcoverLegend } from './legend';
+import { MAX_CLASSES, dynamicClass, type LandcoverLegend } from './legend';
 
 /**
  * How hard the wash is mixed into the shaded terrain colour. Moderate on purpose:
@@ -41,9 +69,79 @@ import { MAX_CLASSES, type LandcoverLegend } from './legend';
  */
 export const TINT_MIX = 0.45;
 
+/**
+ * "No level in play" — far below any connect value, so both dynamic branches are
+ * false everywhere. `setWaterLevel(null)` restores it.
+ */
+export const NO_LEVEL_SENTINEL = -1e9;
+
+/**
+ * The executable spec of the dynamic-tint precedence the fragment shader implements
+ * (contract §9 v1.3). Pure, so the tests can use it as a truth table.
+ *
+ *   sea wins over band, band wins over the raster class, and the band never repaints
+ *   the sea. `bandM ≤ 0` disables the band entirely.
+ *
+ * Pass `-1` for `waterClassIndex` / `bandClassIndex` when the legend declares no
+ * class of that kind; the corresponding branch is then inert, exactly like the
+ * `uLandcoverSeaOn` / `uLandcoverBandM` guards in the GLSL.
+ */
+export function hydroTintClass(
+  connectValue: number,
+  levelM: number,
+  bandM: number,
+  rasterClass: number,
+  waterClassIndex: number,
+  bandClassIndex: number,
+): number {
+  if (waterClassIndex >= 0 && connectValue <= levelM) return waterClassIndex;
+  if (bandClassIndex >= 0 && bandM > 0 && connectValue > levelM && connectValue <= levelM + bandM) {
+    return bandClassIndex;
+  }
+  return rasterClass;
+}
+
+/**
+ * Half-float R texture of the §7 connect grid, addressed by world XZ.
+ *
+ * Deliberately the same recipe as `water/water.ts`'s `connectTexture()`, down to the
+ * filter choice: linear filtering is what makes the shoreline (and the band's outer
+ * edge) a smooth contour instead of a 2 m staircase; half-float is filterable in
+ * WebGL2 core (R32F is not). Note the contrast with the class texture above, which is
+ * `NearestFilter` precisely because *its* values must never be interpolated.
+ */
+function connectTexture(grid: ConnectGrid): THREE.DataTexture {
+  const data = new Uint16Array(grid.values.length);
+  for (let i = 0; i < grid.values.length; i++) data[i] = THREE.DataUtils.toHalfFloat(grid.values[i]);
+  const texture = new THREE.DataTexture(data, grid.width, grid.height, THREE.RedFormat, THREE.HalfFloatType);
+  texture.magFilter = THREE.LinearFilter;
+  texture.minFilter = THREE.LinearFilter;
+  texture.wrapS = THREE.ClampToEdgeWrapping;
+  texture.wrapT = THREE.ClampToEdgeWrapping;
+  texture.needsUpdate = true;
+  return texture;
+}
+
+/** A 1x1 stand-in, so the sampler uniform is always bound even with hydro off. */
+function placeholderConnectTexture(): THREE.DataTexture {
+  const texture = new THREE.DataTexture(
+    new Uint16Array([THREE.DataUtils.toHalfFloat(0)]),
+    1,
+    1,
+    THREE.RedFormat,
+    THREE.HalfFloatType,
+  );
+  texture.needsUpdate = true;
+  return texture;
+}
+
 export class LandcoverTint {
   readonly texture: THREE.DataTexture;
   readonly classCount: number;
+  /** The §7 connect texture, or `null` when the site ships no connect grid. */
+  readonly connectTexture: THREE.DataTexture | null;
+
+  private readonly placeholder: THREE.DataTexture | null;
 
   private readonly uniforms: {
     uLandcoverClass: { value: THREE.DataTexture };
@@ -53,9 +151,26 @@ export class LandcoverTint {
     uLandcoverPalette: { value: THREE.Color[] };
     uLandcoverCount: { value: number };
     uLandcoverMix: { value: number };
+    // --- v1.3 dynamic hydrology (§9/§10) ---------------------------------------
+    uLandcoverConnect: { value: THREE.DataTexture };
+    /** Current slider level, m. `NO_LEVEL_SENTINEL` = no level in play. */
+    uLandcoverLevel: { value: number };
+    /** Shore-band width above the water line, m. 0 disables the band branch. */
+    uLandcoverBandM: { value: number };
+    /** 1 iff a connect grid *and* at least one dynamic class are present. */
+    uLandcoverHydroOn: { value: number };
+    /** 1 iff the legend declares a `dynamic: {kind:'water'}` class. */
+    uLandcoverSeaOn: { value: number };
+    uLandcoverSeaColor: { value: THREE.Color };
+    uLandcoverBandColor: { value: THREE.Color };
   };
 
-  constructor(grid: LandcoverGrid, legend: LandcoverLegend) {
+  /**
+   * `connect` is the §7 grid, or `null` for a site that ships no water assets. It is
+   * used only when the legend declares v1.3 `dynamic` classes; §7 and §9 share the
+   * context grid's geometry by contract, so the class rect addresses both textures.
+   */
+  constructor(grid: LandcoverGrid, legend: LandcoverLegend, connect: ConnectGrid | null = null) {
     this.classCount = legend.classes.length;
 
     // A copy, not a view: the texture owns its bytes for the renderer's lifetime
@@ -85,6 +200,18 @@ export class LandcoverTint {
       );
     }
 
+    // --- v1.3: the two runtime-derived classes, if this legend declares them ---
+    const waterClass = dynamicClass(legend, 'water');
+    const bandClass = dynamicClass(legend, 'shore-band');
+    const hasDynamic = waterClass !== null || bandClass !== null;
+    // Both halves are required: a legend can declare dynamic classes at a site that
+    // ships no water assets (then the feature is simply off, never an error), and a
+    // site can ship a connect grid under a pre-v1.3 legend.
+    const hydroOn = connect !== null && hasDynamic;
+
+    this.connectTexture = hydroOn ? connectTexture(connect) : null;
+    this.placeholder = this.connectTexture ? null : placeholderConnectTexture();
+
     const b = grid.boundsLocal;
     this.uniforms = {
       uLandcoverClass: { value: this.texture },
@@ -95,6 +222,17 @@ export class LandcoverTint {
       uLandcoverPalette: { value: palette },
       uLandcoverCount: { value: this.classCount },
       uLandcoverMix: { value: TINT_MIX },
+      uLandcoverConnect: { value: (this.connectTexture ?? this.placeholder) as THREE.DataTexture },
+      uLandcoverLevel: { value: NO_LEVEL_SENTINEL },
+      uLandcoverBandM: { value: hydroOn && bandClass?.dynamic?.bandM ? bandClass.dynamic.bandM : 0 },
+      uLandcoverHydroOn: { value: hydroOn ? 1 : 0 },
+      uLandcoverSeaOn: { value: hydroOn && waterClass ? 1 : 0 },
+      uLandcoverSeaColor: {
+        value: new THREE.Color().setStyle(waterClass?.color ?? '#808080', THREE.SRGBColorSpace),
+      },
+      uLandcoverBandColor: {
+        value: new THREE.Color().setStyle(bandClass?.color ?? '#808080', THREE.SRGBColorSpace),
+      },
     };
   }
 
@@ -107,7 +245,7 @@ export class LandcoverTint {
     const uniforms = this.uniforms;
     const previousCompile = material.onBeforeCompile;
     const previousKey = material.customProgramCacheKey.bind(material);
-    material.customProgramCacheKey = () => `${previousKey()}|landcover1`;
+    material.customProgramCacheKey = () => `${previousKey()}|landcover2`;
 
     material.onBeforeCompile = (shader, renderer) => {
       previousCompile.call(material, shader, renderer);
@@ -132,6 +270,13 @@ export class LandcoverTint {
             `uniform vec3 uLandcoverPalette[${MAX_CLASSES}];`,
             'uniform int uLandcoverCount;',
             'uniform float uLandcoverMix;',
+            'uniform sampler2D uLandcoverConnect;',
+            'uniform float uLandcoverLevel;',
+            'uniform float uLandcoverBandM;',
+            'uniform float uLandcoverHydroOn;',
+            'uniform float uLandcoverSeaOn;',
+            'uniform vec3 uLandcoverSeaColor;',
+            'uniform vec3 uLandcoverBandColor;',
           ].join('\n'),
         )
         .replace(
@@ -148,6 +293,22 @@ export class LandcoverTint {
             `    for (int i = 0; i < ${MAX_CLASSES}; i++) {`,
             '      if (i >= uLandcoverCount) break;',
             '      if (i == lcIndex) lcColor = uLandcoverPalette[i];',
+            '    }',
+            // v1.3 (§9): the two classes that are functions of the water level are
+            // derived here, at the CURRENT level, instead of being read from the
+            // reference-century raster. `hydroTintClass()` above is the same rule in
+            // TypeScript. The connect lookup is linear-filtered on purpose, so the
+            // sea edge and the band edge are smooth contours (module comment).
+            '    if (uLandcoverHydroOn > 0.5) {',
+            '      float lcConnect = texture2D(uLandcoverConnect, lcUv).r;',
+            '      if (uLandcoverSeaOn > 0.5 && lcConnect <= uLandcoverLevel) {',
+            '        lcColor = uLandcoverSeaColor;',
+            // `lcConnect > uLandcoverLevel` is redundant while the sea branch is on,
+            // and load-bearing when it is off: the band must never repaint the sea.
+            '      } else if (uLandcoverBandM > 0.0 && lcConnect > uLandcoverLevel',
+            '                 && lcConnect <= uLandcoverLevel + uLandcoverBandM) {',
+            '        lcColor = uLandcoverBandColor;',
+            '      }',
             '    }',
             '    // Multiply, so the relief shading still reads through the wash.',
             '    vec3 lcShaded = gl_FragColor.rgb * (lcColor * 2.0);',
@@ -174,7 +335,34 @@ export class LandcoverTint {
     this.uniforms.uLandcoverMix.value = Math.max(0, Math.min(1, mix));
   }
 
+  /**
+   * Push the current shoreline level into the dynamic classes (§9 v1.3). `null` =
+   * no level in play, which parks the level at `NO_LEVEL_SENTINEL` so neither the
+   * sea nor the band branch can fire. A no-op for a tint with hydro off.
+   */
+  setWaterLevel(levelM: number | null): void {
+    this.uniforms.uLandcoverLevel.value = levelM === null ? NO_LEVEL_SENTINEL : levelM;
+  }
+
+  /** The level currently driving the dynamic classes, or `null` for the sentinel. */
+  get waterLevel(): number | null {
+    const value = this.uniforms.uLandcoverLevel.value;
+    return value === NO_LEVEL_SENTINEL ? null : value;
+  }
+
+  /** Is the v1.3 dynamic derivation live (connect grid **and** dynamic classes)? */
+  get hydroEnabled(): boolean {
+    return this.uniforms.uLandcoverHydroOn.value > 0.5;
+  }
+
+  /** Shore-band width in meters, 0 when the legend declares no shore-band class. */
+  get bandM(): number {
+    return this.uniforms.uLandcoverBandM.value;
+  }
+
   dispose(): void {
     this.texture.dispose();
+    this.connectTexture?.dispose();
+    this.placeholder?.dispose();
   }
 }

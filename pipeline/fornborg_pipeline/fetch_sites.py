@@ -6,11 +6,16 @@ linestring,polygon}`` layers, which join attributes and geometry in one place)
 and writes the site-local overlay records the app renders as flat cartographic
 markers with Fornsök popups.
 
-Selection follows PLAN.md §2.2's type filter — fornborgar, gravfält, boplatser,
-färdvägar, runristningar — by ``lamningstyp`` verbatim. There is deliberately no
-per-record dating: KMR's structured dating is sparsely populated, so period
-attribution is by *type* ("typisk datering"), disclosed in the methods panel,
-never invented here.
+Selection follows PLAN.md §2.2's type filter, by ``lamningstyp`` verbatim: the
+fort types themselves, graves of every registered form (from gravfält down to the
+single stensättning, hög or röse), settlement remains, mapped field remains
+(fossil åker, röjningsrösen, terrasseringar), enclosure remains, färdvägar and
+runristningar. Historic-era types (Lägenhetsbebyggelse, "Husgrund, historisk
+tid", Bytomt/gårdstomt) stay out: wrong era for a 500 CE model. There is
+deliberately no per-record dating: KMR's structured dating is sparsely populated,
+so period attribution is by *type* ("typisk datering"), disclosed in the methods
+panel, never invented here — and the cultivation types span the Bronze Age to the
+medieval period, which the panel says rather than pretending they are Iron Age.
 
 GeoPackage reading is delegated to ``ogr2ogr`` (gdal-bin), spawned per layer
 with a bbox filter; everything after that is plain GeoJSON + origin subtraction
@@ -47,6 +52,14 @@ LAYER_PREFIX = "lämningar_län_uppsala"
 # Reminders from phase 0: there is no `Runsten` type (runstenar are
 # `Runristning`) and no `Hålväg` type (hollow ways are `Färdväg` /
 # `Färdvägssystem`).
+#
+# The single-grave, field-remain and enclosure types were added after a survey of
+# 195 fornborgar across four kommuner in three counties measured how much evidence
+# the original nine-type filter was leaving on the table: 99 % of forts have at
+# least one of them inside their 4x4 km extent (Stensättning 98 %, Röse 78 %,
+# Hög 59 %, Fossil åker 58 %, Skärvstenshög 43 %, Röjningsröse 39 %, Hägnad 38 %,
+# Terrassering 36 %). Every spelling here was verified against live kommun
+# GeoPackages, not transcribed from the type list.
 SELECTED_TYPES = frozenset(
     {
         "Fornborg",
@@ -58,6 +71,26 @@ SELECTED_TYPES = frozenset(
         "Färdväg",
         "Färdvägssystem",
         "Runristning",
+        # graves, single and grouped
+        "Hög",
+        "Stensättning",
+        "Röse",
+        "Gravgrupp",
+        "Flatmarksgrav",
+        "Grav markerad av sten/block",
+        "Stenkammargrav",
+        "Skärvstenshög",
+        # settlement remains
+        "Husgrund, förhistorisk/medeltida",
+        "Boplatsvall",
+        # land organization and cultivation
+        "Hägnad",
+        "Hägnadssystem",
+        "Fossil åker",
+        "Område med fossil åkermark",
+        "Röjningsröse",
+        "Röjningsröseområde",
+        "Terrassering",
     }
 )
 

@@ -12,7 +12,7 @@
 import type { SiteManifest } from '../state/manifest';
 import type { ShorelineTable } from '../water/shoreline';
 import { formatYear } from '../water/shoreline';
-import type { LandcoverLegend } from '../landcover/legend';
+import { dynamicClass, type LandcoverLegend } from '../landcover/legend';
 import type { RampartFile } from '../overlays/palisade';
 import type { SitesFile } from '../overlays/sites';
 
@@ -47,7 +47,11 @@ const DATING_HONESTY =
   'KMR records rarely carry per-site dating. Period attribution here is by site type ' +
   '("typisk datering" — e.g. gravfält of this form are overwhelmingly Iron Age in this ' +
   'region), not a per-record fact, except where excavation literature says otherwise: ' +
-  'Broborg itself is dated ~400–550 CE (Migration Period) by excavation.';
+  'Broborg itself is dated ~400–550 CE (Migration Period) by excavation. That attribution ' +
+  'is weakest for the cultivation remains: fossil field systems, clearance cairns and ' +
+  'terraces span the Bronze Age to the medieval period, so where the model reads ' +
+  'cultivation from them it is reading pre-modern land use, not specifically Iron Age ' +
+  'land use.';
 
 const PALISADE_STATUS =
   'No palisade has been excavated at Broborg, and no archaeological evidence for its ' +
@@ -87,6 +91,50 @@ export const CITATIONS: string[] = [
  * raster — render-side masking against the Phase-4 slider — because that is our
  * behaviour to disclose, not the pipeline's.
  */
+/**
+ * The app-authored "what the app does with the raster" sentence.
+ *
+ * Two variants, chosen by the legend itself: a v1.3 legend that marks classes
+ * `dynamic` gets the honest description of the §9 carve-out (the sea and the shore
+ * reed belt follow the slider, everything else is frozen), and a legend without them
+ * keeps the pre-v1.3 sentence — old data must stay truthfully described.
+ */
+function landcoverAppBehaviour(legend: LandcoverLegend): string {
+  const year = formatYear(legend.referenceYearCE);
+  const level = legend.referenceLevelM.toFixed(1);
+  const water = dynamicClass(legend, 'water');
+  const band = dynamicClass(legend, 'shore-band');
+  const bandM = typeof band?.dynamic?.bandM === 'number' ? Number(band.dynamic.bandM.toFixed(2)) : null;
+
+  if (!water && !band) {
+    return (
+      `The raster models one reference century — ${year}, at a modelled water ` +
+      `level of ${level} m — and is never re-derived for another. Scrubbing the ` +
+      `shoreline slider only masks it: vegetation whose ground is under water at the level shown is hidden, ` +
+      `so nothing is ever drawn standing in the sea.`
+    );
+  }
+
+  const subjects: string[] = [];
+  if (water) subjects.push('open sea');
+  if (band && bandM !== null) {
+    subjects.push(`the shore reed belt (the ground within ${bandM} m above the water line)`);
+  }
+  const subject = subjects.join(' and ');
+  const verb = subjects.length > 1 ? 'are' : 'is';
+
+  return (
+    `The raster models the reference century ${year}, at a modelled water level of ${level} m. Two ` +
+    `purely hydrological classes are the disclosed exception (contract §9 v1.3): ${subject} ` +
+    `${verb} re-derived by the app at the century shown, from the same sea-connectivity grid and the same ` +
+    `"connected to the open sea" semantics the water layer itself uses — no rule engine runs in the ` +
+    `browser.` +
+    (band ? ' Ground inside the belt is kept clear of trees, too.' : '') +
+    ` Every other class is the frozen ${year} classification, which the slider only masks: vegetation ` +
+    `standing in the sea at the level shown is hidden, so nothing is ever drawn standing in the water.`
+  );
+}
+
 function landcoverParagraphs(legend: LandcoverLegend): string[] {
   const rules = legend.classes.map((c) => `${c.name} — ${c.rule}`);
   const source = legend.source ?? {};
@@ -95,10 +143,7 @@ function landcoverParagraphs(legend: LandcoverLegend): string[] {
 
   return [
     legend.method,
-    `The raster models one reference century — ${formatYear(legend.referenceYearCE)}, at a modelled water ` +
-      `level of ${legend.referenceLevelM.toFixed(1)} m — and is never re-derived for another. Scrubbing the ` +
-      `shoreline slider only masks it: vegetation whose ground is under water at the level shown is hidden, ` +
-      `so nothing is ever drawn standing in the sea.`,
+    landcoverAppBehaviour(legend),
     `Class rules, verbatim: ${rules.join(' | ')}`,
     legend.calibration,
     legend.caveat,
@@ -158,8 +203,13 @@ export function buildMethodsModel(
       paragraphs: [
         `Site markers and outlines come from the Kulturmiljöregistret (KMR) county extract, ` +
           `fetched ${sites.fetched ?? 'from RAÄ'} — ${sites.sites.length} lämningar of the selected ` +
-          `types (fornborgar, gravfält, boplatser, färdvägar, runristningar) inside this extent. ` +
-          `Geometry and descriptions are shown as registered, unmodified.`,
+          `types inside this extent: forts; grave fields and single graves (högar, stensättningar, ` +
+          `rösen, flatmarksgravar, stenkammargravar); settlement remains (boplatser, boplatsvallar, ` +
+          `skärvstenshögar, förhistoriska/medeltida husgrunder); cultivation remains (fossil åker, ` +
+          `röjningsrösen, terrasseringar); roads and enclosures (färdvägar, hägnader); and rune ` +
+          `inscriptions. Historic-era types (bytomter, historiska husgrunder, lägenhetsbebyggelse) ` +
+          `are deliberately excluded as the wrong era for this model. Geometry and descriptions are ` +
+          `shown as registered, unmodified.`,
         DATING_HONESTY,
       ],
     });

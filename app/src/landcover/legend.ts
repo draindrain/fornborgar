@@ -26,6 +26,23 @@ export interface VegetationSpec {
   [key: string]: unknown;
 }
 
+/** Contract §10 v1.3: the two runtime-derived class kinds. */
+export const DYNAMIC_KINDS = ['water', 'shore-band'] as const;
+export type DynamicKind = (typeof DYNAMIC_KINDS)[number];
+
+/**
+ * Contract §10 v1.3: marks a class the app derives at the **current slider level**
+ * from the §7 connect grid instead of reading it from the raster — `water` is sea
+ * wherever `connect ≤ level`, `shore-band` the strip `level < connect ≤ level+bandM`.
+ * Absent = fully static class (the pre-v1.3 behavior).
+ */
+export interface DynamicSpec {
+  kind: DynamicKind;
+  /** Band width above the water line, m; required (> 0) iff kind is 'shore-band'. */
+  bandM?: number;
+  [key: string]: unknown;
+}
+
 export interface LandcoverClass {
   /** == the raw value in the class raster (§9). Contiguous from 0. */
   index: number;
@@ -38,7 +55,12 @@ export interface LandcoverClass {
   rule: string;
   /** `null` = no instances (open / water / bare classes). */
   vegetation: VegetationSpec | null;
-  /** Informational fraction of the full raster; the set sums to 1 ± 0.001. */
+  /** v1.3: present iff the app derives this class at the current level (§9/§10). */
+  dynamic?: DynamicSpec | null;
+  /**
+   * Informational fraction of the full raster; the set sums to 1 ± 0.001. Measured
+   * on the raster, so a purely-runtime dynamic class carries 0.
+   */
   areaFraction?: number;
   [key: string]: unknown;
 }
@@ -111,6 +133,33 @@ function validateVegetation(raw: unknown, path: string, where: string): Vegetati
   return { ...(v as object), type: type as VegetationType, densityPerHa } as VegetationSpec;
 }
 
+function validateDynamic(raw: unknown, path: string, where: string): DynamicSpec | null {
+  if (raw === null || raw === undefined) return null;
+  if (typeof raw !== 'object' || Array.isArray(raw)) {
+    throw new LandcoverError(`${path}: ${where}dynamic must be an object or absent (§10 v1.3).`);
+  }
+  const d = raw as Record<string, unknown>;
+  const kind = d['kind'];
+  if (typeof kind !== 'string' || !(DYNAMIC_KINDS as readonly string[]).includes(kind)) {
+    throw new LandcoverError(
+      `${path}: ${where}dynamic.kind ${JSON.stringify(kind)} is not one of ` +
+        `${DYNAMIC_KINDS.map((k) => JSON.stringify(k)).join(' | ')} (§10 v1.3).`,
+    );
+  }
+  const bandM = d['bandM'];
+  if (kind === 'shore-band') {
+    if (typeof bandM !== 'number' || !Number.isFinite(bandM) || !(bandM > 0)) {
+      throw new LandcoverError(
+        `${path}: ${where}dynamic.bandM must be a finite number > 0 for kind "shore-band" ` +
+          `(got ${JSON.stringify(bandM)}) (§10 v1.3).`,
+      );
+    }
+  } else if (bandM !== undefined) {
+    throw new LandcoverError(`${path}: ${where}dynamic.bandM is only allowed on kind "shore-band" (§10 v1.3).`);
+  }
+  return { ...(d as object), kind: kind as DynamicKind } as DynamicSpec;
+}
+
 /**
  * Validate a parsed `landcover_legend.json`. `path` is the URL/filename used in the
  * error messages, so a bad asset says which file it came from.
@@ -151,6 +200,7 @@ export function validateLandcoverLegend(raw: unknown, path = 'landcover_legend.j
   }
 
   const seen = new Set<string>();
+  const seenDynamicKinds = new Set<DynamicKind>();
   let fractionTotal = 0;
   let fractionCount = 0;
 
@@ -181,8 +231,27 @@ export function validateLandcoverLegend(raw: unknown, path = 'landcover_legend.j
     // showing a class whose derivation it cannot state.
     const rule = str(c, 'rule', path, where);
     const vegetation = validateVegetation(c['vegetation'], path, where);
+    const dynamic = validateDynamic(c['dynamic'], path, where);
+    if (dynamic) {
+      if (seenDynamicKinds.has(dynamic.kind)) {
+        throw new LandcoverError(
+          `${path}: more than one class with dynamic.kind ${JSON.stringify(dynamic.kind)} — at most one of ` +
+            'each kind per legend (§10 v1.3).',
+        );
+      }
+      seenDynamicKinds.add(dynamic.kind);
+    }
 
-    const cls: LandcoverClass = { ...(c as object), index: i, id, name, color, rule, vegetation } as LandcoverClass;
+    const cls: LandcoverClass = {
+      ...(c as object),
+      index: i,
+      id,
+      name,
+      color,
+      rule,
+      vegetation,
+      ...(dynamic ? { dynamic } : {}),
+    } as LandcoverClass;
 
     const areaFraction = c['areaFraction'];
     if (areaFraction !== undefined && areaFraction !== null) {
@@ -230,4 +299,19 @@ export function vegetationClasses(legend: LandcoverLegend): (LandcoverClass & { 
   return legend.classes.filter(
     (c): c is LandcoverClass & { vegetation: VegetationSpec } => c.vegetation !== null,
   );
+}
+
+/**
+ * The vegetated classes sampled from the **raster** — i.e. excluding v1.3 dynamic
+ * classes, whose vegetation is derived from the connect grid at the current level.
+ */
+export function staticVegetationClasses(
+  legend: LandcoverLegend,
+): (LandcoverClass & { vegetation: VegetationSpec })[] {
+  return vegetationClasses(legend).filter((c) => !c.dynamic);
+}
+
+/** The single class of the given dynamic kind, or null when the legend has none. */
+export function dynamicClass(legend: LandcoverLegend, kind: DynamicKind): LandcoverClass | null {
+  return legend.classes.find((c) => c.dynamic?.kind === kind) ?? null;
 }

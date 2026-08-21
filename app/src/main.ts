@@ -132,6 +132,11 @@ function applyWaterSettings(): void {
   // the slider, not the water toggle — the modelled landscape must stay consistent
   // with the century the viewer has chosen even with the water plane hidden.
   vegetation?.setWaterLevel(water.levelM);
+  // v1.3 (§9/§10): and the two dynamic land-cover classes — the open sea's ground
+  // tint and the shore reed belt — are derived at that same level, so scrubbing
+  // leaves no stale water tint on drained seabed and no stranded reed belt.
+  landcoverTint?.setWaterLevel(water.levelM);
+  landcoverReadout?.update(); // the plant readout counts what is visible *now*
   waterReadout?.update();
   if (controlState.water.show && waterCaveat) {
     hud.showCaveatOnce('water', waterCaveat.badge, waterCaveat.text);
@@ -345,30 +350,36 @@ async function start(): Promise<void> {
     window.__viewshedStamp = (window.__viewshedStamp ?? 0) + 1;
   };
 
+  // --- Phase 4 assets, loaded first (v1.3) ---------------------------------
+  // Load order and attach order are two different things here, and since the v1.3
+  // amendment they genuinely differ. The §6/§7 water assets are *loaded* first
+  // because the land-cover tint takes the §7 connect grid in its constructor (the
+  // dynamic sea and shore band are derived from it at the current level); the water
+  // *layer* is still attached after the tint, below, because attach order is shading
+  // order and contract §9 fixes that as viewshed -> landcover -> water.
+  const assets = await loadWaterAssets(siteId, manifest, (f) =>
+    hud.setProgress('Loading paleo-shoreline model…', 0.94 + f * 0.03),
+  );
+
   // --- Phase 7 (first half): the land-cover ground tint ---------------------
-  // The assets load *here*, before the water, purely because of the shader chain.
   // All three ground overlays inject into the same two terrain materials, each
   // chaining the handler it found, so **attach order is shading order**; contract
   // §9 fixes that order as viewshed -> landcover -> water, because submerged ground
   // must still read as submerged whatever the land cover says. The rest of the
-  // layer (the vegetation, which needs the water assets loaded below, and the UI)
-  // is wired after the palisade block.
+  // layer (the vegetation and the UI) is wired after the palisade block.
   const landcover = await loadLandcoverAssets(siteId, manifest, (f) =>
-    hud.setProgress('Loading modeled landscape…', 0.94 + f * 0.03),
+    hud.setProgress('Loading modeled landscape…', 0.97 + f * 0.03),
   );
   if (landcover) {
-    landcoverTint = new LandcoverTint(landcover.grid, landcover.legend);
+    landcoverTint = new LandcoverTint(landcover.grid, landcover.legend, assets?.connect ?? null);
     for (const material of terrain.overlayMaterials) landcoverTint.attach(material);
   }
 
   // --- Phase 4: paleo-shoreline (optional assets; absent = feature off) -----
-  // Both §6/§7 assets or nothing. The water plane is parented under the terrain
-  // group so it inherits vertical exaggeration (contract §0 / PLAN §4.5), and
-  // its tint is chained onto the same materials the viewshed overlay injected
-  // into — see water/water.ts for how the two shader injections compose.
-  const assets = await loadWaterAssets(siteId, manifest, (f) =>
-    hud.setProgress('Loading paleo-shoreline model…', 0.97 + f * 0.03),
-  );
+  // The water plane is parented under the terrain group so it inherits vertical
+  // exaggeration (contract §0 / PLAN §4.5), and its tint is chained onto the same
+  // materials the viewshed overlay and the land-cover tint injected into — see
+  // water/water.ts for how the injections compose.
   if (assets) {
     water = new WaterLayer(assets.table, assets.connect);
     terrain.group.add(water.mesh);
@@ -445,10 +456,20 @@ async function start(): Promise<void> {
   // water at the current slider level.
   if (landcover) {
     const connect = assets?.connect ?? null;
+    // v1.3: the dynamic shore band's candidates are precomputed over every level the
+    // slider can reach. The §6 table is monotone in the year, so the two endpoints
+    // bracket it; Math.min/max keeps that true whichever way round the table runs.
+    const levelRange: [number, number] | null = water
+      ? [
+          Math.min(water.levelAt(water.years[0]), water.levelAt(water.years[1])),
+          Math.max(water.levelAt(water.years[0]), water.levelAt(water.years[1])),
+        ]
+      : null;
     vegetation = new VegetationLayer(landcover.grid, landcover.legend, {
       groundAt,
       getExaggeration: () => terrain.getExaggeration(),
       connectAt: connect ? (x, z) => connectAtLocal(connect, x, z) : null,
+      levelRange,
     });
     scene.add(vegetation.group);
     if (water) vegetation.setWaterLevel(water.levelM);
@@ -460,7 +481,11 @@ async function start(): Promise<void> {
       referenceYearCE: landcover.legend.referenceYearCE,
       classCount: landcover.legend.classes.length,
       caveat: landcover.legend.caveat,
-      instanceCount: () => vegetation?.count ?? 0,
+      // v1.3: some classes follow the slider, so the note has to say which.
+      hasDynamicClasses: landcover.legend.classes.some((c) => c.dynamic),
+      // What is standing at the century shown, not what was placed: with the band
+      // window and the split suppression thresholds those differ a lot (§9 v1.3).
+      instanceCount: () => vegetation?.visibleCount ?? 0,
       onChange: () => applyLandcoverSettings(),
     });
     applyLandcoverSettings();
@@ -593,6 +618,13 @@ async function start(): Promise<void> {
       },
       get visibleCount() {
         return vegetation?.visibleCount ?? 0;
+      },
+      // v1.3 dynamic shore band, for headless checks of the slider behaviour.
+      get bandM() {
+        return vegetation?.bandM ?? 0;
+      },
+      get bandCount() {
+        return vegetation?.bandCount ?? 0;
       },
       setEnabled(on: boolean) {
         controlState.landcover.show = on;

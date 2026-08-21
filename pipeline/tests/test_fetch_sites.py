@@ -105,6 +105,26 @@ class TestRecords:
         assert "Hålväg" not in SELECTED_TYPES
         assert {"Fornborg", "Gravfält", "Färdväg", "Färdvägssystem"} <= SELECTED_TYPES
 
+    def test_widened_evidence_types_are_selected(self):
+        # The land-cover model reads graves, field remains and roads by type, so the
+        # extract has to carry them. Spellings are Lämningstypslistan v5.0 verbatim,
+        # verified against live kommun GeoPackages.
+        assert {
+            "Hög",
+            "Stensättning",
+            "Röse",
+            "Skärvstenshög",
+            "Husgrund, förhistorisk/medeltida",
+            "Fossil åker",
+            "Röjningsröseområde",
+            "Terrassering",
+            "Hägnad",
+        } <= SELECTED_TYPES
+        # Historic-era types stay out: wrong era for a 500 CE model.
+        assert "Lägenhetsbebyggelse" not in SELECTED_TYPES
+        assert "Husgrund, historisk tid" not in SELECTED_TYPES
+        assert "Bytomt/gårdstomt" not in SELECTED_TYPES
+
 
 class TestValidation:
     def _doc(self):

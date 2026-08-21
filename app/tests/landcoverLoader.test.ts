@@ -178,6 +178,41 @@ describe('land-cover loading (contract §9/§10)', () => {
     expect(error).toHaveBeenCalledWith(expect.stringContaining('not a valid index'));
   });
 
+  it('loads a legend whose last class is runtime-only (contract §10 v1.3)', async () => {
+    // A `dynamic` shore band holds no cells: areaFraction 0 and an index the raster
+    // never contains. The loader's "every raw value is a legal index" check is a
+    // `<` test, so a class beyond the maximum raster value is legal by construction.
+    const doc = JSON.parse(await readFile(join(DIR, 'landcover_legend.json'), 'utf8')) as {
+      classes: Record<string, unknown>[];
+    };
+    // Start from a legend with no dynamic markers, whatever the fixture ships, so
+    // this case pins the loader rather than the fixture's current class layout.
+    for (const c of doc.classes) delete c['dynamic'];
+    doc.classes.push({
+      index: doc.classes.length,
+      id: 'shore_reeds_runtime_only',
+      name: 'Shore reed belt (follows the shoreline)',
+      color: '#77875a',
+      rule: 'derived by the app at the current level from water_connect.tif',
+      vegetation: { type: 'reeds', densityPerHa: 500 },
+      dynamic: { kind: 'shore-band', bandM: 0.6 },
+      areaFraction: 0,
+    });
+
+    stubFetch({ 'landcover_legend.json': { body: JSON.stringify(doc) } });
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const assets = await loadLandcoverAssets('testsite', manifest);
+    expect(error).not.toHaveBeenCalled();
+    expect(assets).not.toBeNull();
+
+    const { grid, legend } = assets!;
+    const band = legend.classes[legend.classes.length - 1];
+    expect(band.dynamic).toEqual({ kind: 'shore-band', bandM: 0.6 });
+    expect(band.areaFraction).toBe(0);
+    // No cell in the raster addresses it — that is what "runtime-only" means.
+    expect(grid.classes.reduce((m, v) => (v > m ? v : m), 0)).toBeLessThan(band.index);
+  });
+
   it('reports progress and never scales the class indices', async () => {
     stubFetch();
     const seen: number[] = [];

@@ -250,8 +250,29 @@ corrections to this plan where the schema assumptions were wrong.
   dependency, finer than planned; the palette lives in the legend JSON. Reference
   century fixed at **500 CE** (fort era, level 8.6 m from the §2.4 table); the app
   masks vegetation below the *current* slider level via the §7 connect grid, so the
-  raster is never re-derived for other centuries. Broborg result: 39.4 % forest,
-  53.3 % open, 4.9 % reed marsh, 2.5 % water — dry-land forest:open 42:58, consistent
+  raster is never re-derived for other centuries. Amended 2026-08-21 (i): an eighth
+  class, **"Settled ground (kept clear)"**, claims the registered footprints of the
+  era's occupied remains plus a disclosed 20 m margin — without it the soil rules
+  reforested the fort interior and the grave fields (Broborg's own footprint had
+  classified 100 % forest, i.e. trees inside the hillfort).
+  Amended 2026-08-21 (ii), the general-improvements bundle (contract **v1.3**):
+  **(a) dynamic hydrology** — the open sea and the shore reed belt leave the raster
+  and are re-derived by the app at the *current* slider level from the §7 connect
+  grid (§9 carve-out; classes marked `dynamic` in the legend), fixing the stale
+  sea tint and the reed belt stranded at the reference shoreline (it was only valid
+  ±~100 yr of 500 CE); **(b) widened KMR evidence** — single graves, skärvstenshögar,
+  prehistoric house grounds etc. join the proxies and the kept-clear footprints
+  (basis: `pipeline/spike/type_survey.py`, 195 forts in 3 counties, 99 % have such
+  records in frame; Broborg's own extract grew 38 → 127 records); **(c) mapped field
+  remains** (fossil åker, röjningsrösen, terraces) classify as farmland on their own
+  evidence before any proximity heuristic; **(d) färdväg lines** keep an 8 m open
+  corridor; **(e) "Wooded pasture (grazed, half-open)"** — sparse broadleaf (20/ha)
+  on till within a 300 m grazing radius of the evidence (deliberately tighter than
+  the 700 m farmland radius: infield/outland — at 700 m the rule swallowed most of
+  the broadleaf forest). Broborg result: 25.3 % closed forest, 11.5 % wooded
+  pasture, 57.5 % open ground (3.4 % settled), 5.7 % peat fen, 0.1 % modern water in
+  the raster, plus the runtime sea (2.5 %) and reed belt (1.3 %) at the 500 CE
+  level — consistent
   with the §2.5 "strongly grazing-opened Iron Age landscape" picture (no quantified
   Uppland benchmark exists; disclosed in the legend's calibration paragraph).
 

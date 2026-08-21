@@ -3,44 +3,47 @@
   "site": "broborg",
   "referenceYearCE": 500,
   "referenceLevelM": 8.6,
-  "method": "Every 2 m cell of the 4×4 km context extent was classified once, for 500 CE, by a rule engine reading four inputs: the sea-connectivity grid (water_connect.tif) against the 500 CE water level of 8.6 m RH 2000 interpolated from shoreline.json; the SGU Jordarter polygons (grundlager, ytlager) rasterized onto the same grid, with any cell no polygon covered (0.0 % of the extent here) taking its nearest neighbour's class and the surface layer's peat veneer carried as a separate flag; slope in degrees from the committed LiDAR DEM (np.gradient); and the Euclidean distance to the nearest of the 35 registered grave or settlement records in sites.json, used as the cultivation proxy. The rules are applied in a fixed precedence — water first, then wetland, then farmland, then the drier classes — and each class's rule text below states its own branch verbatim. SGU maps the present-day soil surface; treating it as the ground of 500 CE is the model's central assumption. The raster answers only 'what might this landscape have looked like around 500 CE?'.",
+  "method": "Every 2 m cell of the 4×4 km context extent was classified once, for 500 CE, by a rule engine reading seven inputs: the SGU Jordarter polygons (grundlager, ytlager) rasterized onto the grid, with any cell no polygon covered (0.0 % of the extent here) taking its nearest neighbour's class and the surface layer's peat veneer carried as a separate flag; slope in degrees from the committed LiDAR DEM (np.gradient); the sea-connectivity grid (water_connect.tif) against the 500 CE water level of 8.6 m RH 2000 interpolated from shoreline.json, read for one test only — whether the ground drained long enough ago to plough; the Euclidean distance to the nearest of the 121 registered grave or settlement records in sites.json, used as the cultivation proxy and the grazing radius; the distance to the registered footprints of the era's occupied remains (the fornborg extent plus those same grave and settlement records), whose ground is modelled as kept clear of trees; the distance to the 1 registered field remains (fossil åker, röjningsrösen, terrasseringar), which are cultivated ground on the record's own evidence rather than by proximity; and the distance to the 0 registered road records, whose line is kept as an open corridor. The rules are applied in a fixed precedence — mapped water first, then peat fen, then the occupied footprints, then the road corridors, then farmland (mapped evidence before the proximity heuristic), then the remaining open ground, then wooded pasture and forest — and each class's rule text below states its own branch verbatim. Two classes are deliberately not in the raster: the open sea and the 0.6 m shore reed band above it are exact functions of the connectivity grid and the water level, so the app draws them for whatever century the slider shows instead of reading a frozen 500 CE copy — contract §9's v1.3 carve-out, using the same data and the same 'connect ≤ level' semantics as the §7 water rendering. Every other class was classified once, for 500 CE. SGU maps the present-day soil surface; treating it as the ground of 500 CE is the model's central assumption. The raster answers only 'what might this landscape have looked like around 500 CE?'.",
   "caveat": "Modeled landscape, not evidence: a rule engine derived this from modern SGU soil mapping, DEM slope and the modelled shoreline — there is no direct evidence for the vegetation shown at any single point.",
-  "calibration": "Measured on this raster: 39.4 % forest (26.2 % broadleaf, 13.1 % conifer), 53.3 % open ground (27.9 % farmland, 24.6 % wet meadow/pasture, 0.9 % dry gravel corridor), 4.9 % reed marsh and 2.5 % open water at the 500 CE level. Counting only dry land, the forest-to-open ratio is 42:58. No quantified (REVEALS-type) openness figure for Iron Age Uppland has been found (PLAN.md §2.5 records this as open), so there is no local number to calibrate against and none has been fitted. The nearest published benchmark — Hultberg et al. (2019), REVEALS openness of 90–97 % for agrarian Scania — is cited as methodological context only: it describes a different region and a later, far more intensively cleared agrarian landscape, and this model does not aim at it. The pollen records that do cover this valley (Karlsson 1999 for the Arlanda–Knivsta area; the Stockholm University thesis on shore displacement and paleoenvironment along Långhundraleden) are qualitative here: they describe an Iron Age landscape opening around settlement and waterway while forest persisted on till and bedrock, which is the pattern this classification reproduces. The ratio is reported, not force-fitted (PLAN.md §4.7).",
+  "calibration": "Measured on this raster: 25.3 % closed forest (12.6 % broadleaf, 12.7 % conifer), 57.5 % open ground (29.4 % farmland, 24.3 % wet meadow/pasture, 0.5 % dry gravel corridor, 3.4 % settled ground kept clear), and 11.5 % wooded pasture — grazed and half-open, so it is reported as its own term and counted with the open ground in the ratio below, not with the forest. Then 5.7 % peat fen and 0.1 % modern (SGU 'Vatten') water. The sea is not in the raster: at the 500 CE level the sea additionally covers 2.5 % of the extent and the shore reed belt 1.3 %, both re-derived by the app for the century it is showing. Counting only dry land, the forest-to-open ratio is 27:73. No quantified (REVEALS-type) openness figure for Iron Age Uppland has been found (PLAN.md §2.5 records this as open), so there is no local number to calibrate against and none has been fitted. The nearest published benchmark — Hultberg et al. (2019), REVEALS openness of 90–97 % for agrarian Scania — is cited as methodological context only: it describes a different region and a later, far more intensively cleared agrarian landscape, and this model does not aim at it. The pollen records that do cover this valley (Karlsson 1999 for the Arlanda–Knivsta area; the Stockholm University thesis on shore displacement and paleoenvironment along Långhundraleden) are qualitative here: they describe an Iron Age landscape opening around settlement and waterway while forest persisted on till and bedrock, which is the pattern this classification reproduces. The ratio is reported, not force-fitted (PLAN.md §4.7).",
   "source": {
     "product": "SGU Jordarter 1:25 000–1:100 000",
     "api": "https://api.sgu.se/oppnadata/jordarter25k-100k/ogc/features/v1",
-    "fetched": "2026-08-21T16:46:25+00:00"
+    "fetched": "2026-08-21T18:01:28+00:00"
   },
   "classes": [
     {
       "index": 0,
       "id": "water",
-      "name": "Water (sea, ~500 CE)",
+      "name": "Open water",
       "color": "#2d5a6b",
-      "rule": "Sea-connected at the modelled 500 CE water level: the priority-flood connectivity grid (water_connect.tif, contract §7) is at or below 8.6 m RH 2000 — or SGU maps the present ground as 'Vatten'. Applied first, so every later rule sees only what this one leaves.",
+      "rule": "SGU maps the present ground as 'Vatten' — the lakes and watercourses that hold water whatever the sea is doing. These are the only water cells in the raster: the Iron Age sea is deliberately not baked into it, because it is an exact function of the sea-connectivity grid (water_connect.tif, contract §7) and the water level being shown. The app draws it at the century on the slider — every cell whose connection level is at or below the current level (connect ≤ current level), the same data and the same semantics as the §7 water rendering. At the 500 CE reference level of 8.6 m RH 2000 that sea covers 2.5 % of the extent.",
       "vegetation": null,
-      "areaFraction": 0.0245
+      "dynamic": {
+        "kind": "water"
+      },
+      "areaFraction": 0.0006
     },
     {
       "index": 1,
-      "id": "reed_marsh",
-      "name": "Reed marsh / shore fen",
-      "color": "#77875a",
-      "rule": "Not water, and either SGU's ground layer maps peat or gyttja (Kärrtorv, Mosstorv, Torv, Gyttja), or its surface layer maps a peat veneer over another soil, or the ground lies within 0.6 m above the 500 CE water line. The shore band is a modelling choice, not a mapped feature.",
+      "id": "peat_fen",
+      "name": "Peat fen / reed marsh",
+      "color": "#6f7f52",
+      "rule": "Not water, and either SGU's ground layer maps peat or gyttja (Kärrtorv, Mosstorv, Torv, Gyttja) or its surface layer maps a peat veneer over another soil. Mapped soil is what defines this class, which is why it is static and does not move with the slider: a fen stranded inland by the falling sea is still a fen.",
       "vegetation": {
         "type": "reeds",
         "densityPerHa": 500
       },
-      "areaFraction": 0.0488
+      "areaFraction": 0.0565
     },
     {
       "index": 2,
       "id": "farmland",
       "name": "Open farmland",
       "color": "#d1b96e",
-      "rule": "Not water or marsh, and all four of: SGU maps a postglacial fine sediment (Postglacial lera, Gyttjelera (eller lergyttja), Svämsediment, ler--silt, Postglacial sand) or the margin of a till unit within 40 m of one; the ground stands more than 3.0 m above the 500 CE water line (seabed drained more recently than that is too wet to plough); the slope is under 5°; and a registered grave or settlement site (Gravfält, Grav- och boplatsområde, Boplats, Boplatsområde, Boplatslämning övrig) lies within 700 m. Proximity to burial and settlement remains is the only cultivation proxy used — no Iron Age field system is mapped here.",
+      "rule": "Not water, fen, settled ground or road corridor, and then either of two branches. Mapped evidence first: ground within 20 m of the registered footprint of a field remain (Fossil åker, Område med fossil åkermark, Röjningsröse, Röjningsröseområde, Terrassering) on a slope under 5° is farmland directly — the record attests cultivation, so no proximity heuristic and no soil test is applied to it. Otherwise, proximity: all four of: SGU maps a postglacial fine sediment (Postglacial lera, Gyttjelera (eller lergyttja), Svämsediment, ler--silt, Postglacial sand) or the margin of a till unit within 40 m of one; the ground stands more than 3.0 m above the 500 CE water line (seabed drained more recently than that is too wet to plough); the slope is under 5°; and a registered grave or settlement site — grave forms (Hög, Stensättning, Röse, Gravgrupp, Flatmarksgrav, Grav markerad av sten/block, Stenkammargrav), grave fields and mixed grave/settlement areas (Gravfält, Grav- och boplatsområde), settlement remains (Boplats, Boplatsområde, Boplatslämning övrig, Boplatsvall, 'Husgrund, förhistorisk/medeltida') and fire-cracked-stone heaps (Skärvstenshög) — lies within 700 m. Away from the mapped field remains, proximity to burial and settlement evidence is the only cultivation proxy this model has.",
       "vegetation": null,
-      "areaFraction": 0.2789
+      "areaFraction": 0.2937
     },
     {
       "index": 3,
@@ -49,28 +52,28 @@
       "color": "#a9c07a",
       "rule": "The remaining fine-grained ground: postglacial sediments that failed the farmland test — too close to the water line, too steep, or too far from a settlement proxy — plus Glacial lera and modern Fyllning (fill). Fyllning is a present-day anthropogenic deposit with no Iron Age counterpart; it is folded in here rather than given a class of its own, and that choice is disclosed rather than hidden.",
       "vegetation": null,
-      "areaFraction": 0.2457
+      "areaFraction": 0.2427
     },
     {
       "index": 4,
       "id": "dry_corridor",
       "name": "Dry open corridor",
       "color": "#c9b79a",
-      "rule": "Isälvssediment (glaciofluvial sand and gravel) and Klapper (boulder beach gravel) — the well-drained esker and beach deposits that carry the dry routes across an otherwise wet valley floor.",
+      "rule": "Two kinds of open route. Ahead of the farmland rules: registered roads and hollow-way systems (Färdväg, Färdvägssystem) within 8 m of their registered line are kept as open corridor, because a route in use is not a wood. Then, among what the wetter rules leave: Isälvssediment (glaciofluvial sand and gravel) and Klapper (boulder beach gravel) — the well-drained esker and beach deposits that carry the dry routes across an otherwise wet valley floor.",
       "vegetation": null,
-      "areaFraction": 0.0086
+      "areaFraction": 0.0046
     },
     {
       "index": 5,
       "id": "broadleaf_forest",
       "name": "Broadleaf forest",
       "color": "#4f7a3a",
-      "rule": "The remaining till (Sandig morän and the other morän classes) on ground no steeper than 12°.",
+      "rule": "The remaining till (Sandig morän and the other morän classes) on ground no steeper than 12° and more than 700 m from the era's grave and settlement evidence — closer in, the same till is modelled as grazed wooded pasture instead of closed wood.",
       "vegetation": {
         "type": "broadleaf",
         "densityPerHa": 90
       },
-      "areaFraction": 0.2622
+      "areaFraction": 0.1258
     },
     {
       "index": 6,
@@ -82,7 +85,44 @@
         "type": "conifer",
         "densityPerHa": 120
       },
-      "areaFraction": 0.1313
+      "areaFraction": 0.1267
+    },
+    {
+      "index": 7,
+      "id": "settlement_cleared",
+      "name": "Settled ground (kept clear)",
+      "color": "#b08d6e",
+      "rule": "Within 20 m of the registered footprint of an occupied remain in sites.json — the fornborg extent itself (Fornborg) plus the era's grave and settlement records: grave forms (Hög, Stensättning, Röse, Gravgrupp, Flatmarksgrav, Grav markerad av sten/block, Stenkammargrav), grave fields and mixed grave/settlement areas (Gravfält, Grav- och boplatsområde), settlement remains (Boplats, Boplatsområde, Boplatslämning övrig, Boplatsvall, 'Husgrund, förhistorisk/medeltida') and fire-cracked-stone heaps (Skärvstenshög) — and not already water or fen. Applied before the road, farmland and forest rules, so occupied ground is neither ploughed nor reforested: a fort interior or grave field in use is modelled as trampled, grazed and deliberately kept open. Enclosure remains (Hägnad, Hägnadssystem) are deliberately not in this list — a fence bank says how land was divided, not that its ground was occupied — and roads have their own corridor rule. The KMR extent is a registration boundary, not an excavated plan, and the 20 m margin is a modelling choice, not a mapped feature.",
+      "vegetation": null,
+      "areaFraction": 0.0341
+    },
+    {
+      "index": 8,
+      "id": "shore_reeds",
+      "name": "Shore reed belt (follows the shoreline)",
+      "color": "#77875a",
+      "rule": "Ground within 0.6 m above the water line of the century being shown. It is an exact function of the sea-connectivity grid (water_connect.tif, contract §7) and the current slider level — the strip where current level < connect ≤ current level + 0.6 m — so the app derives it at runtime and it is never baked into the raster, which is why its area fraction is 0 rather than a measured share. At the 500 CE reference level of 8.6 m RH 2000 the belt covers 1.3 % of the extent. The band is a modelling choice, not a mapped feature; ground inside it is also kept clear of trees.",
+      "vegetation": {
+        "type": "reeds",
+        "densityPerHa": 500
+      },
+      "dynamic": {
+        "kind": "shore-band",
+        "bandM": 0.6
+      },
+      "areaFraction": 0.0
+    },
+    {
+      "index": 9,
+      "id": "wooded_pasture",
+      "name": "Wooded pasture (grazed, half-open)",
+      "color": "#8aa562",
+      "rule": "Till on ground no steeper than 12° within 300 m of the era's registered grave and settlement evidence — grave forms (Hög, Stensättning, Röse, Gravgrupp, Flatmarksgrav, Grav markerad av sten/block, Stenkammargrav), grave fields and mixed grave/settlement areas (Gravfält, Grav- och boplatsområde), settlement remains (Boplats, Boplatsområde, Boplatslämning övrig, Boplatsvall, 'Husgrund, förhistorisk/medeltida') and fire-cracked-stone heaps (Skärvstenshög) — that no earlier rule claimed: grazed, half-open woodland rather than closed forest. This is the strongly grazing-opened landscape around Iron Age settlement that the pollen literature describes (PLAN.md §2.5), and it carries sparse broadleaf at 20 stems per hectare against the closed wood's 90. The 300 m radius is a modelling choice, not a mapped boundary, and is deliberately tighter than the farmland rule's 700 m: the infield's grazed fringe, while closed forest persists on the outland till.",
+      "vegetation": {
+        "type": "broadleaf",
+        "densityPerHa": 20
+      },
+      "areaFraction": 0.1152
     }
   ]
 }

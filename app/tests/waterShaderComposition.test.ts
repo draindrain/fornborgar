@@ -14,7 +14,7 @@
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
 
-import { LandcoverTint } from '../src/landcover/tint';
+import { LandcoverTint, NO_LEVEL_SENTINEL, hydroTintClass } from '../src/landcover/tint';
 import { validateLandcoverLegend } from '../src/landcover/legend';
 import type { LandcoverGrid } from '../src/landcover/landcoverGrid';
 import { ViewshedOverlay } from '../src/viewshed/overlay';
@@ -51,6 +51,41 @@ const landcoverLegend = validateLandcoverLegend({
     { index: 0, id: 'water', name: 'Water', color: '#2d5a6b', rule: 'r0', vegetation: null },
     { index: 1, id: 'wood', name: 'Wood', color: '#33512f', rule: 'r1', vegetation: { type: 'conifer', densityPerHa: 90 } },
     { index: 2, id: 'open', name: 'Open', color: '#a9a267', rule: 'r2', vegetation: null },
+  ],
+});
+
+/**
+ * The v1.3 variant of the same legend: the water class is the runtime sea and a
+ * runtime-only shore band is appended (no raster cells — `areaFraction` would be 0).
+ */
+const dynamicLegend = validateLandcoverLegend({
+  schemaVersion: 1,
+  referenceYearCE: 500,
+  referenceLevelM: 8.6,
+  method: 'test',
+  caveat: 'test',
+  calibration: 'test',
+  classes: [
+    {
+      index: 0,
+      id: 'water',
+      name: 'Open water',
+      color: '#2d5a6b',
+      rule: 'r0',
+      vegetation: null,
+      dynamic: { kind: 'water' },
+    },
+    { index: 1, id: 'wood', name: 'Wood', color: '#33512f', rule: 'r1', vegetation: { type: 'conifer', densityPerHa: 90 } },
+    { index: 2, id: 'open', name: 'Open', color: '#a9a267', rule: 'r2', vegetation: null },
+    {
+      index: 3,
+      id: 'shore_reeds',
+      name: 'Shore reed belt',
+      color: '#77875a',
+      rule: 'r3 — derived at the current level',
+      vegetation: { type: 'reeds', densityPerHa: 500 },
+      dynamic: { kind: 'shore-band', bandM: 0.6 },
+    },
   ],
 });
 
@@ -244,9 +279,12 @@ describe('three-way ground-overlay composition (contract §9)', () => {
     const key = chained().customProgramCacheKey();
     expect(key).not.toBe(plain.customProgramCacheKey());
     expect(key).toContain('viewshed1');
-    expect(key).toContain('landcover1');
+    // v1.3 bumped the land-cover key: a tint with the dynamic-hydrology branches can
+    // never share a compiled program with a pre-v1.3 one.
+    expect(key).toContain('landcover2');
+    expect(key).not.toContain('landcover1|');
     expect(key).toContain('water1');
-    expect(key.indexOf('landcover1')).toBeLessThan(key.indexOf('water1'));
+    expect(key.indexOf('landcover2')).toBeLessThan(key.indexOf('water1'));
   });
 
   it('survives any attach order, only the shading order changes', () => {
@@ -280,5 +318,174 @@ describe('land-cover tint state', () => {
     tint.setEnabled(true);
     expect(tint.enabled).toBe(true);
     tint.dispose();
+  });
+});
+
+// ------------------------------------------------ v1.3 dynamic hydrology ----
+
+describe('land-cover tint: dynamic hydrology (contract §9/§10 v1.3)', () => {
+  it('carries its own hydro uniforms and both branches when given a connect grid', () => {
+    const material = new THREE.MeshStandardMaterial();
+    const tint = new LandcoverTint(landcoverGrid, dynamicLegend, connect);
+    tint.attach(material);
+    const shader = compile(material);
+
+    for (const name of [
+      'uLandcoverConnect',
+      'uLandcoverLevel',
+      'uLandcoverBandM',
+      'uLandcoverHydroOn',
+      'uLandcoverSeaColor',
+      'uLandcoverBandColor',
+    ]) {
+      expect(shader.fragmentShader).toContain(name);
+      expect(shader.uniforms[name]).toBeDefined();
+    }
+    // Never the water layer's uniforms: a site may ship no water assets at all.
+    expect(shader.fragmentShader).not.toContain('uWaterLevel');
+
+    // Sea first, band second, and the band's own guard is in the source.
+    const sea = shader.fragmentShader.indexOf('lcColor = uLandcoverSeaColor');
+    const band = shader.fragmentShader.indexOf('lcColor = uLandcoverBandColor');
+    expect(sea).toBeGreaterThanOrEqual(0);
+    expect(band).toBeGreaterThan(sea);
+    expect(shader.fragmentShader).toContain('lcConnect <= uLandcoverLevel + uLandcoverBandM');
+
+    expect(tint.hydroEnabled).toBe(true);
+    expect(tint.bandM).toBeCloseTo(0.6, 10);
+    // Meters, a continuous field: linear on purpose, unlike the class indices.
+    expect(tint.connectTexture?.magFilter).toBe(THREE.LinearFilter);
+    expect(tint.connectTexture?.minFilter).toBe(THREE.LinearFilter);
+    expect(tint.connectTexture?.type).toBe(THREE.HalfFloatType);
+    expect(tint.texture.magFilter).toBe(THREE.NearestFilter);
+    tint.dispose();
+  });
+
+  it('keeps the contract order viewshed -> landcover -> water with hydro on', () => {
+    const material = new THREE.MeshStandardMaterial();
+    new ViewshedOverlay(4, 4, BOUNDS).attach(material);
+    new LandcoverTint(landcoverGrid, dynamicLegend, connect).attach(material);
+    new WaterLayer(table, connect).attachTerrain(material);
+
+    const shader = compile(material);
+    const viewshed = shader.fragmentShader.indexOf('uViewshedOn > 0.5');
+    const landcover = shader.fragmentShader.indexOf('uLandcoverOn > 0.5');
+    const hydro = shader.fragmentShader.indexOf('uLandcoverHydroOn > 0.5');
+    const water = shader.fragmentShader.indexOf('uWaterOn > 0.5');
+    expect(viewshed).toBeLessThan(landcover);
+    expect(landcover).toBeLessThan(hydro); // the branches sit inside the wash block
+    expect(hydro).toBeLessThan(water);
+  });
+
+  it.each([
+    ['no connect grid', () => new LandcoverTint(landcoverGrid, dynamicLegend, null)],
+    ['a legend with no dynamic classes', () => new LandcoverTint(landcoverGrid, landcoverLegend, connect)],
+  ])('compiles with the branches inert given %s', (_label, make) => {
+    const material = new THREE.MeshStandardMaterial();
+    const tint = make();
+    tint.attach(material);
+    const shader = compile(material);
+
+    expect(tint.hydroEnabled).toBe(false);
+    expect(tint.bandM).toBe(0);
+    expect(tint.connectTexture).toBeNull();
+    // The uniforms still exist (one program per material, not per legend) and the
+    // sampler is still bound — the guard is the value, not the source.
+    expect(shader.uniforms['uLandcoverHydroOn']).toEqual({ value: 0 });
+    expect((shader.uniforms['uLandcoverConnect'] as { value: unknown }).value).toBeInstanceOf(THREE.DataTexture);
+    expect(shader.fragmentShader).toContain('uLandcoverHydroOn > 0.5');
+    tint.dispose();
+  });
+
+  it('tracks the slider level and parks at the sentinel for null', () => {
+    const tint = new LandcoverTint(landcoverGrid, dynamicLegend, connect);
+    expect(tint.waterLevel).toBeNull();
+
+    const material = new THREE.MeshStandardMaterial();
+    tint.attach(material);
+    const shader = compile(material);
+    const level = shader.uniforms['uLandcoverLevel'] as { value: number };
+    expect(level.value).toBe(NO_LEVEL_SENTINEL);
+
+    tint.setWaterLevel(8.6);
+    expect(tint.waterLevel).toBe(8.6);
+    expect(level.value).toBe(8.6); // the shared uniform object, so no re-attach needed
+
+    tint.setWaterLevel(null);
+    expect(tint.waterLevel).toBeNull();
+    expect(level.value).toBe(NO_LEVEL_SENTINEL);
+    // The sentinel is far below any real connect value, so neither branch can fire.
+    expect(hydroTintClass(-500, NO_LEVEL_SENTINEL, 0.6, 2, 0, 3)).toBe(2);
+    tint.dispose();
+  });
+
+  it('paints the sea class where the legend declares one and none where it does not', () => {
+    const withSea = new LandcoverTint(landcoverGrid, dynamicLegend, connect);
+    expect(withSea.hydroEnabled).toBe(true);
+
+    // Same legend with the water class made static again — a legal v1.3 legend.
+    const doc = JSON.parse(JSON.stringify(dynamicLegend)) as { classes: Record<string, unknown>[] };
+    delete doc.classes[0]['dynamic'];
+    const bandOnly = validateLandcoverLegend(doc);
+    const tint = new LandcoverTint(landcoverGrid, bandOnly, connect);
+    const material = new THREE.MeshStandardMaterial();
+    tint.attach(material);
+    const shader = compile(material);
+    // Band without sea: hydro is still on, but the sea branch is guarded off — and
+    // the band must not spill onto submerged ground (the `>` guard in the source).
+    expect(tint.hydroEnabled).toBe(true);
+    expect(shader.uniforms['uLandcoverSeaOn']).toEqual({ value: 0 });
+    expect(shader.fragmentShader).toContain('uLandcoverSeaOn > 0.5');
+    expect(hydroTintClass(1, 5, 0.6, 2, -1, 3)).toBe(2); // submerged, no sea class: raster wins
+    withSea.dispose();
+    tint.dispose();
+  });
+});
+
+describe('hydroTintClass — the executable spec of the GLSL (contract §9 v1.3)', () => {
+  const WATER = 0;
+  const BAND = 3;
+  const RASTER = 2;
+  const BAND_M = 0.6;
+  const at = (connectValue: number, level: number, bandM = BAND_M) =>
+    hydroTintClass(connectValue, level, bandM, RASTER, WATER, BAND);
+
+  it('gives the sea everything at or below the level (§7: connect <= h is wet)', () => {
+    expect(at(4.0, 8.6)).toBe(WATER);
+    expect(at(8.6, 8.6)).toBe(WATER); // the boundary is wet, exactly as §7 says
+    expect(at(8.600001, 8.6)).not.toBe(WATER);
+  });
+
+  it('gives the band the half-open strip just above it, and nothing else', () => {
+    expect(at(8.7, 8.6)).toBe(BAND);
+    expect(at(9.2, 8.6)).toBe(BAND); // level + bandM, inclusive
+    expect(at(9.3, 8.6)).toBe(RASTER);
+  });
+
+  it('never lets the band repaint the sea, at any level', () => {
+    for (const level of [2, 5, 8.6, 12]) {
+      for (const connectValue of [0, 1.5, 4, 8.6, 12]) {
+        const painted = at(connectValue, level);
+        if (connectValue <= level) expect(painted).toBe(WATER);
+      }
+    }
+  });
+
+  it('follows the slider: the same cell is sea, then band, then land', () => {
+    const cell = 9.0;
+    expect(at(cell, 9.5)).toBe(WATER); // early century, high water
+    expect(at(cell, 8.6)).toBe(BAND); // shoreline has just passed it
+    expect(at(cell, 6.0)).toBe(RASTER); // drained: the raster class shows through
+  });
+
+  it('disables the band entirely at bandM <= 0', () => {
+    expect(at(8.7, 8.6, 0)).toBe(RASTER);
+    expect(at(8.7, 8.6, -1)).toBe(RASTER);
+    expect(at(8.5, 8.6, 0)).toBe(WATER); // the sea branch is untouched
+  });
+
+  it('leaves the raster class alone when neither dynamic class exists', () => {
+    expect(hydroTintClass(1, 8.6, 0, RASTER, -1, -1)).toBe(RASTER);
+    expect(hydroTintClass(8.7, 8.6, BAND_M, RASTER, -1, -1)).toBe(RASTER);
   });
 });

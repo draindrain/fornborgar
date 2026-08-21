@@ -38,6 +38,16 @@
  *     levels, so an elevation-only rule would call it sea — the connectivity rule
  *     makes it woodland instead.
  *
+ * v1.3 (dynamic hydrology, §9/§10 amendment) additions:
+ *   • the two hydrological classes are no longer baked into the raster. `water`
+ *     carries `dynamic: {kind: "water"}` and the reed class becomes
+ *     `dynamic: {kind: "shore-band", bandM: <reedBandM>}`; both hold zero raster
+ *     cells here (the synthetic site has no modern mapped water), and the app
+ *     derives them from `water_connect.tif` at the century the slider shows. The
+ *     fixture therefore exercises the v1.3 legend schema, the app's dynamic tint
+ *     and the connect-grid-sampled reed belt end to end — while the false basin
+ *     still proves the *runtime* rule is connectivity, not elevation.
+ *
  * Run: npm run make-test-dem
  */
 
@@ -383,16 +393,21 @@ function buildRampartPath() {
 /**
  * The land-cover rule model (contract §9/§10), for ONE reference century.
  *
- * Every rule below reads only two things the fixture already has: the context DEM
- * and the §7 connectivity grid. That is deliberate — the classes are a *derivation*
+ * Every raster rule below reads only things the fixture already has: the context DEM
+ * and the reference water level. That is deliberate — the classes are a *derivation*
  * of the same closed-form terrain, so the raster can never disagree with the ground
  * it is painted on, and the rule strings shipped in the legend are literally the
  * rules the code applies (contract §10 requires them verbatim in the methods panel;
  * a paraphrase here would be a lie there).
+ *
+ * The two `dynamic` classes (§10 v1.3) are the exception in both directions: no cell
+ * is written for them here, and their rule text describes what the *app* does with
+ * the §7 connectivity grid at the current level — which is likewise exactly what the
+ * app implements.
  */
 export const LANDCOVER = {
   referenceYearCE: 500,
-  /** How far above the reference level the shore/reed band reaches, meters. */
+  /** Width of the runtime shore reed belt above the water line (`bandM`), meters. */
   reedBandM: 1.2,
   /** Ground below this height above the reference level counts as damp low ground. */
   lowGroundM: 4.0,
@@ -411,43 +426,59 @@ function slopeAt(dem, size, resolution, col, row) {
 }
 
 /**
- * Class index for one cell. Order matters: water and shore are decided by
- * connectivity before anything looks at elevation, which is exactly how the false
- * basin escapes being called sea.
+ * Class index for one cell.
+ *
+ * v1.3 (contract §9/§10 amendment): the two purely *hydrological* classes — the sea
+ * at the water level and the reed band just above it — are no longer written into
+ * the raster at all. They are exact functions of (water_connect, current level), so
+ * the app derives them at the century the slider shows; freezing them here would
+ * strand the reed belt and leave stale sea tint on drained ground. Cells that used
+ * to take those two branches simply fall through to the rules below, which classify
+ * them as the (dry-land) ground the raster is now responsible for.
  */
-function classifyCell({ x, z, demM, connectM, slope, levelM }) {
-  if (connectM <= levelM) return 0; // sea at the reference level
-  if (connectM <= levelM + LANDCOVER.reedBandM) return 1; // shore band
+function classifyCell({ x, z, demM, slope, levelM }) {
   if (Math.hypot(x, z) <= LANDCOVER.clearedRadiusM) return 4; // the fort's crown
-  if (demM - levelM < LANDCOVER.lowGroundM) return 2; // damp low ground
+  if (demM - levelM < LANDCOVER.lowGroundM) return 2; // low ground (incl. under the reference sea)
   if (slope >= LANDCOVER.forestSlope) return 3; // hill flanks
   return 4; // gentle high ground
 }
 
-/** The §10 class list, with the rules stated exactly as `classifyCell` applies them. */
+/**
+ * The §10 class list. Static classes state the rules exactly as `classifyCell`
+ * applies them; the two `dynamic` classes state what the app derives at the level
+ * shown (§9 v1.3), which is why their text quotes no reference-century threshold.
+ */
 function landcoverClasses(levelM) {
   const m = (v) => v.toFixed(1);
   return [
     {
       index: 0,
       id: 'water',
-      name: `Water (sea, ~${LANDCOVER.referenceYearCE} CE)`,
+      name: 'Open water',
       color: '#2d5a6b',
       rule:
-        `Sea-connectivity value at or below the ${m(levelM)} m reference water level ` +
+        'Open sea: sea-connectivity value at or below the water level the century slider shows ' +
         '(connect ≤ level, docs/data-formats.md §7) — wet AND connected to the open sea, so enclosed ' +
-        'basins below that level are excluded.',
+        'basins below that level stay dry. Derived by the app at the level shown, not read from the ' +
+        'raster (§9 v1.3); this synthetic site has no modern mapped water, so the class holds no ' +
+        'raster cells at all.',
       vegetation: null,
+      dynamic: { kind: 'water' },
     },
     {
       index: 1,
-      id: 'reeds',
-      name: 'Reed bed and shore fen',
+      id: 'shore_reeds',
+      name: 'Shore reed belt (follows the shoreline)',
       color: '#7f9455',
       rule:
-        `Dry at the reference level but flooded by a further ${LANDCOVER.reedBandM} m rise ` +
-        `(connect ≤ ${m(levelM + LANDCOVER.reedBandM)} m): the shallow, seasonally wet shore band.`,
+        `The reed belt at the water's edge: ground standing within ${LANDCOVER.reedBandM} m above the ` +
+        'water line (level < connect ≤ level + ' +
+        `${LANDCOVER.reedBandM} m, §7), i.e. dry at the level shown but flooded by that much more rise. ` +
+        'Derived by the app from the connectivity grid at the century shown rather than read from the ' +
+        'raster (§9 v1.3), so the belt follows the shoreline instead of standing stranded at the ' +
+        'reference century; it therefore holds no raster cells.',
       vegetation: { type: 'reeds', densityPerHa: 600 },
+      dynamic: { kind: 'shore-band', bandM: LANDCOVER.reedBandM },
     },
     {
       index: 2,
@@ -455,9 +486,10 @@ function landcoverClasses(levelM) {
       name: 'Damp broadleaf woodland',
       color: '#5c7f3c',
       rule:
-        `Dry ground less than ${LANDCOVER.lowGroundM} m above the reference level ` +
-        `(below ${m(levelM + LANDCOVER.lowGroundM)} m), outside the fort's cleared crown — the valley ` +
-        'floors and the enclosed basin.',
+        `Ground below ${m(levelM + LANDCOVER.lowGroundM)} m — less than ${LANDCOVER.lowGroundM} m above the ` +
+        `${m(levelM)} m reference level, including the ground under it — outside the fort's cleared ` +
+        'crown: the valley floors, the shore flats and the enclosed basin. Where the sea or the reed ' +
+        'belt stands at the century shown, the app paints those over this ground (§9 v1.3).',
       vegetation: { type: 'broadleaf', densityPerHa: 90 },
     },
     {
@@ -503,7 +535,6 @@ function buildLandcover({ spec, grid }, connect) {
         x,
         z,
         demM: grid.raw[i] * SCALE,
-        connectM: connect[i] * SCALE,
         slope: slopeAt(grid.raw, size, resolution, col, row),
         levelM,
       });
@@ -524,11 +555,46 @@ function buildLandcover({ spec, grid }, connect) {
     if (c.vegetation && !(c.vegetation.densityPerHa > 0)) {
       throw new Error(`landcover: class ${c.id} densityPerHa must be > 0 (§10)`);
     }
-    if (counts[i] === 0) {
-      throw new Error(`landcover: class ${c.id} has no cells — the fixture must exercise every class it declares`);
+    if (c.dynamic) {
+      // §10 v1.3: a dynamic class is derived from the connect grid at the current
+      // level, so its raster residue may legitimately be empty — the "every class
+      // occurs" rule below is about *static* classes the raster is responsible for.
+      const kinds = ['water', 'shore-band'];
+      if (!kinds.includes(c.dynamic.kind)) throw new Error(`landcover: class ${c.id} dynamic.kind is not a §10 kind`);
+      if (c.dynamic.kind === 'shore-band' && !(c.dynamic.bandM > 0)) {
+        throw new Error(`landcover: class ${c.id} dynamic.bandM must be > 0 for a shore band (§10 v1.3)`);
+      }
+      if (c.dynamic.kind === 'water' && c.dynamic.bandM !== undefined) {
+        throw new Error(`landcover: class ${c.id} dynamic.bandM is only allowed on a shore band (§10 v1.3)`);
+      }
+    } else if (counts[i] === 0) {
+      throw new Error(`landcover: class ${c.id} has no cells — the fixture must exercise every static class it declares`);
+    }
+  });
+
+  // A dynamic class has no cells to count, so its "the fixture really exercises
+  // this" guarantee is a runtime one: at the reference level the connectivity grid
+  // must actually contain a sea and a band, or the app path would never light up.
+  let seaCells = 0;
+  let bandCells = 0;
+  for (let i = 0; i < connect.length; i++) {
+    const connectM = connect[i] * SCALE;
+    if (connectM <= levelM) seaCells++;
+    else if (connectM <= levelM + LANDCOVER.reedBandM) bandCells++;
+  }
+  classes.forEach((c) => {
+    if (c.dynamic?.kind === 'water' && seaCells === 0) {
+      throw new Error(`landcover: class ${c.id} is dynamic but no cell is sea at the reference level`);
+    }
+    if (c.dynamic?.kind === 'shore-band' && bandCells === 0) {
+      throw new Error(`landcover: class ${c.id} is dynamic but the shore band is empty at the reference level`);
     }
   });
   if (new Set(classes.map((c) => c.id)).size !== classes.length) throw new Error('landcover: class ids must be unique (§10)');
+  const dynamicKinds = classes.filter((c) => c.dynamic).map((c) => c.dynamic.kind);
+  if (new Set(dynamicKinds).size !== dynamicKinds.length) {
+    throw new Error('landcover: at most one class per dynamic kind (§10 v1.3)');
+  }
   for (const value of raw) {
     if (value >= classes.length) throw new Error(`landcover: raw value ${value} is not a valid class index (§9)`);
   }
@@ -554,9 +620,12 @@ function buildLandcover({ spec, grid }, connect) {
       'SYNTHETIC TEST DATA — no soil map, pollen record or rule engine was consulted. Classes are derived ' +
       'by app/scripts/make-test-dem.mjs from the fixture\'s own closed-form terrain and its §7 ' +
       `connectivity grid, for the single reference century ${LANDCOVER.referenceYearCE} CE at the ` +
-      `${levelM.toFixed(2)} m level its synthetic shoreline table gives at that year. It exists so the app's Phase-7 ` +
-      'land-cover feature can be exercised end to end against app/public/data/testsite/ without the Python ' +
-      'pipeline. A real site derives its classes from SGU Jordarter plus the DEM.',
+      `${levelM.toFixed(2)} m level its synthetic shoreline table gives at that year. The two hydrological ` +
+      'classes (open water and the shore reed belt) are marked `dynamic` instead: the app derives them ' +
+      'from the same connectivity grid at whatever century the slider shows (§9/§10 v1.3), so they hold no ' +
+      'raster cells here. It exists so the app\'s Phase-7 land-cover feature can be exercised end to end ' +
+      'against app/public/data/testsite/ without the Python pipeline. A real site derives its classes from ' +
+      'SGU Jordarter plus the DEM.',
     caveat:
       'Synthetic test data — a rule model of one century, not a survey of past vegetation. ' +
       '(A real site states the rule engine\'s own caveat here.)',
@@ -571,7 +640,7 @@ function buildLandcover({ spec, grid }, connect) {
     classes,
   };
 
-  return { raw, legend, counts, levelM };
+  return { raw, legend, counts, levelM, seaCells, bandCells };
 }
 
 /** What the vegetation layer will instance, so a reviewer can sanity-check the load. */
@@ -775,7 +844,13 @@ function main() {
   );
 
   // --- §9 land-cover class raster + §10 legend -------------------------------
-  const { raw: landcoverRaw, legend: landcoverLegend, counts: landcoverCounts } = buildLandcover(context, connect);
+  const {
+    raw: landcoverRaw,
+    legend: landcoverLegend,
+    counts: landcoverCounts,
+    seaCells,
+    bandCells,
+  } = buildLandcover(context, connect);
   const landcoverBytes = writeTiff(
     join(OUT_DIR, LANDCOVER_PATH),
     landcoverRaw,
@@ -792,6 +867,12 @@ function main() {
   console.log(
     `${LANDCOVER_LEGEND_PATH}: ${LANDCOVER.referenceYearCE} CE at ${landcoverLegend.referenceLevelM.toFixed(1)} m — ` +
       `${vegetationReport.line}; ~${vegetationReport.total} vegetation instances at density x1`,
+  );
+  const cellHa = (context.spec.resolution * context.spec.resolution) / 10_000;
+  console.log(
+    `  dynamic classes (§10 v1.3): no raster cells; at the reference level the connect grid gives ` +
+      `${seaCells} sea cells (${(seaCells * cellHa).toFixed(1)} ha) and ${bandCells} cells in the ` +
+      `${LANDCOVER.reedBandM} m shore band (${(bandCells * cellHa).toFixed(1)} ha)`,
   );
 
   const gridManifest = (name) => {
@@ -867,8 +948,9 @@ function main() {
         'priority-flood sea connectivity over the context grid (4-connected, every edge cell a sea entry)',
         'synthetic century -> level table on SGU-shaped BP centuries',
         'rampart crest ring restated from the same closed form that drew it (no ridge extraction)',
-        'land-cover rule model over the context grid (connectivity + height above the reference level + DEM slope)',
+        'land-cover rule model over the context grid (height above the reference level + DEM slope)',
         'uint8 class raster on the grids.context geometry, one reference century',
+        'hydrological classes (open water, shore reed belt) left to the app as §10 v1.3 dynamic classes, derived from the connectivity grid at the century shown',
       ],
     },
   };
