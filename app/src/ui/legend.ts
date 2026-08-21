@@ -9,7 +9,9 @@
  */
 
 import type { LayerEntry } from '../state/manifest';
+import type { LandcoverLegend } from '../landcover/legend';
 import { siteStyle, type SiteRecord } from '../overlays/sites';
+import { formatYear } from '../water/shoreline';
 import { badgeEl } from './methodsPanel';
 
 function el<K extends keyof HTMLElementTagNameMap>(
@@ -27,6 +29,7 @@ const LAYER_SWATCH: Record<string, string> = {
   terrain: '#a29b83',
   sites: '#c75146',
   water: '#254c58',
+  landcover: '#6f8f52',
   palisade: '#9fd6de',
 };
 
@@ -50,7 +53,14 @@ export class Legend {
     parent.append(this.root);
   }
 
-  setContent(layers: LayerEntry[], sites: SiteRecord[] | null): void {
+  /**
+   * `layers` comes straight from `manifest.layers`, so the model/conjecture badges
+   * are the pipeline's declaration rather than the app's opinion. The optional
+   * `landcover` legend adds one row per modelled class — swatch, name and the
+   * informational area percentage the §10 legend carries — grouped like the site
+   * markers, and states the reference century it is valid for.
+   */
+  setContent(layers: LayerEntry[], sites: SiteRecord[] | null, landcover: LandcoverLegend | null = null): void {
     this.body.replaceChildren();
 
     for (const layer of layers) {
@@ -60,6 +70,25 @@ export class Legend {
       if (layer.provenance === 'conjecture') swatch.classList.add('legend-swatch-ghost');
       row.append(swatch, el('span', 'legend-name', layer.name), badgeEl(layer.provenance));
       this.body.append(row);
+    }
+
+    if (landcover) {
+      const group = el('div', 'legend-markers');
+      group.append(
+        el('div', 'legend-markers-title', `Modelled land cover (${formatYear(landcover.referenceYearCE)})`),
+      );
+      for (const cls of landcover.classes) {
+        const row = el('div', 'legend-row legend-model');
+        const swatch = el('span', 'legend-swatch');
+        swatch.style.background = cls.color;
+        const percent =
+          typeof cls.areaFraction === 'number'
+            ? ` · ${(cls.areaFraction * 100).toFixed(cls.areaFraction < 0.1 ? 1 : 0)} %`
+            : '';
+        row.append(swatch, el('span', 'legend-name', `${cls.name}${percent}`));
+        group.append(row);
+      }
+      this.body.append(group);
     }
 
     if (sites && sites.length > 0) {

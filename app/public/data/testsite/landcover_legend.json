@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 1,
+  "site": "testsite",
+  "referenceYearCE": 500,
+  "referenceLevelM": 4.35,
+  "method": "SYNTHETIC TEST DATA — no soil map, pollen record or rule engine was consulted. Classes are derived by app/scripts/make-test-dem.mjs from the fixture's own closed-form terrain and its §7 connectivity grid, for the single reference century 500 CE at the 4.35 m level its synthetic shoreline table gives at that year. It exists so the app's Phase-7 land-cover feature can be exercised end to end against app/public/data/testsite/ without the Python pipeline. A real site derives its classes from SGU Jordarter plus the DEM.",
+  "caveat": "Synthetic test data — a rule model of one century, not a survey of past vegetation. (A real site states the rule engine's own caveat here.)",
+  "calibration": "SYNTHETIC TEST DATA — not calibrated against anything. The forest/open split here is whatever the closed-form hill produces; a real site reports its forest/open ratio against the regional pollen literature (PLAN §2.5).",
+  "source": {
+    "product": "Synthetic — app/scripts/make-test-dem.mjs",
+    "fetched": "2026-08-21"
+  },
+  "classes": [
+    {
+      "index": 0,
+      "id": "water",
+      "name": "Water (sea, ~500 CE)",
+      "color": "#2d5a6b",
+      "rule": "Sea-connectivity value at or below the 4.3 m reference water level (connect ≤ level, docs/data-formats.md §7) — wet AND connected to the open sea, so enclosed basins below that level are excluded.",
+      "vegetation": null,
+      "areaFraction": 0.0252
+    },
+    {
+      "index": 1,
+      "id": "reeds",
+      "name": "Reed bed and shore fen",
+      "color": "#7f9455",
+      "rule": "Dry at the reference level but flooded by a further 1.2 m rise (connect ≤ 5.5 m): the shallow, seasonally wet shore band.",
+      "vegetation": {
+        "type": "reeds",
+        "densityPerHa": 600
+      },
+      "areaFraction": 0.0171
+    },
+    {
+      "index": 2,
+      "id": "broadleaf",
+      "name": "Damp broadleaf woodland",
+      "color": "#5c7f3c",
+      "rule": "Dry ground less than 4 m above the reference level (below 8.3 m), outside the fort's cleared crown — the valley floors and the enclosed basin.",
+      "vegetation": {
+        "type": "broadleaf",
+        "densityPerHa": 90
+      },
+      "areaFraction": 0.0731
+    },
+    {
+      "index": 3,
+      "id": "conifer",
+      "name": "Conifer forest",
+      "color": "#33512f",
+      "rule": "Ground at least 4 m above the reference level whose DEM slope is at least 5 % — the hill flanks, the rampart ring and the basin rim.",
+      "vegetation": {
+        "type": "conifer",
+        "densityPerHa": 120
+      },
+      "areaFraction": 0.5773
+    },
+    {
+      "index": 4,
+      "id": "open",
+      "name": "Open grazed ground",
+      "color": "#a9a267",
+      "rule": "Everything else: gentle high ground below 5 % slope, plus a 58 m cleared radius around the fort itself.",
+      "vegetation": null,
+      "areaFraction": 0.3073
+    }
+  ]
+}

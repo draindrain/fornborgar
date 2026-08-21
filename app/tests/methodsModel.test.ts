@@ -15,6 +15,7 @@ import { validateManifest } from '../src/state/manifest';
 import { validateShoreline } from '../src/water/shoreline';
 import { validateRampart } from '../src/overlays/palisade';
 import { validateSites } from '../src/overlays/sites';
+import { validateLandcoverLegend } from '../src/landcover/legend';
 
 const DATA = join(dirname(fileURLToPath(import.meta.url)), '..', 'public', 'data', 'broborg');
 
@@ -81,5 +82,78 @@ describe('buildMethodsModel (§6.2 disclosures)', () => {
     expect(ids).not.toContain('water');
     expect(ids).not.toContain('palisade');
     expect(ids).not.toContain('sites');
+  });
+});
+
+/**
+ * A stand-in legend rather than Broborg's own file: the land-cover pair is optional
+ * (contract v1.2 is additive), so this test must not require the pipeline to have
+ * shipped it yet. The texts are distinctive on purpose — the assertions below are
+ * about *verbatim passthrough*, so a paraphrase anywhere would show up as a miss.
+ */
+const LANDCOVER_LEGEND = validateLandcoverLegend({
+  schemaVersion: 1,
+  site: 'broborg',
+  referenceYearCE: 500,
+  referenceLevelM: 8.6,
+  method: 'RULE-ENGINE METHOD SENTENCE: soils crossed with height above the modelled shoreline.',
+  caveat: 'CAVEAT SENTENCE: a rule model of one century, not a survey of past vegetation.',
+  calibration: 'CALIBRATION SENTENCE: 62 % forest against the regional pollen record.',
+  source: { product: 'SGU Jordarter 1:25 000–1:100 000', fetched: '2026-08-21' },
+  classes: [
+    { index: 0, id: 'water', name: 'Water (sea, ~500 CE)', color: '#2d5a6b', rule: 'RULE ZERO: connect <= 8.6 m.', vegetation: null },
+    {
+      index: 1,
+      id: 'reeds',
+      name: 'Reed bed',
+      color: '#7f9455',
+      rule: 'RULE ONE: the shore band within 1.2 m of the level.',
+      vegetation: { type: 'reeds', densityPerHa: 600 },
+    },
+    {
+      index: 2,
+      id: 'forest',
+      name: 'Conifer forest',
+      color: '#33512f',
+      rule: 'RULE TWO: till on the flanks above the shore band.',
+      vegetation: { type: 'conifer', densityPerHa: 120 },
+    },
+  ],
+});
+
+describe('buildMethodsModel — the land-cover section (contract §9/§10)', () => {
+  it('reproduces the model\'s method, every class rule, calibration and caveat verbatim', async () => {
+    const { manifest, shoreline, rampart, sites } = await loadBroborg();
+    const model = buildMethodsModel(manifest, shoreline, rampart, sites, LANDCOVER_LEGEND);
+    const section = model.sections.find((s) => s.id === 'landcover');
+    expect(section).toBeDefined();
+
+    const text = section!.paragraphs.join('\n');
+    expect(text).toContain(LANDCOVER_LEGEND.method);
+    expect(text).toContain(LANDCOVER_LEGEND.calibration);
+    expect(text).toContain(LANDCOVER_LEGEND.caveat);
+    for (const cls of LANDCOVER_LEGEND.classes) {
+      // "Name — rule", both verbatim: the app never paraphrases a rule it did not run.
+      expect(text).toContain(`${cls.name} — ${cls.rule}`);
+    }
+    // The reference century is stated wherever the layer is described (§10).
+    expect(text).toContain('500 CE');
+    // ...as is the SGU attribution the v1.2 amendment widens.
+    expect(text).toContain('Sveriges geologiska undersökning');
+    expect(text).toContain('SGU Jordarter');
+  });
+
+  it('badges the section from manifest.layers, defaulting to model', async () => {
+    const { manifest } = await loadBroborg();
+    const model = buildMethodsModel(manifest, null, null, null, LANDCOVER_LEGEND);
+    expect(model.sections.find((s) => s.id === 'landcover')?.badge).toBe(
+      manifest.layers?.find((l) => l.id === 'landcover')?.provenance ?? 'model',
+    );
+  });
+
+  it('omits the section entirely for a site with no land-cover pair', async () => {
+    const { manifest, shoreline, rampart, sites } = await loadBroborg();
+    const model = buildMethodsModel(manifest, shoreline, rampart, sites);
+    expect(model.sections.map((s) => s.id)).not.toContain('landcover');
   });
 });

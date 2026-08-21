@@ -31,9 +31,20 @@ export function connectAtGrid(grid: ConnectGrid, col: number, row: number): numb
   return grid.values[r * grid.width + c];
 }
 
-/** Is local (x, z) wet and sea-connected at `levelM`? Nearest-sample test. */
-export function isWetAt(grid: ConnectGrid, x: number, z: number, levelM: number): boolean {
+/** Connect level (m) at local (x, z). Nearest-sample, clamped to the grid. */
+export function connectAtLocal(grid: ConnectGrid, x: number, z: number): number {
   const col = (x - grid.boundsLocal.minX) / grid.resolution - 0.5;
   const row = (z - grid.boundsLocal.minZ) / grid.resolution - 0.5;
-  return connectAtGrid(grid, col, row) <= levelM;
+  return connectAtGrid(grid, col, row);
+}
+
+/**
+ * Is local (x, z) wet and sea-connected at `levelM`? Nearest-sample test.
+ *
+ * This one comparison *is* the wet rule (§7). The Phase-7 vegetation caches
+ * `connectAtLocal` per instance and applies the same `connect ≤ level` test on every
+ * slider move, so both layers agree on where the water is by construction.
+ */
+export function isWetAt(grid: ConnectGrid, x: number, z: number, levelM: number): boolean {
+  return connectAtLocal(grid, x, z) <= levelM;
 }

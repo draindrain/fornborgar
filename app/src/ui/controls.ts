@@ -9,9 +9,13 @@
  * uncertainty next to the control.
  * Phase 5: the conjectural palisade's appearance parameters — added lazily by
  * `addPalisadeControls`, for sites that ship a rampart crest (contract §8).
+ * Phase 7: the modeled landscape — added lazily by `addLandcoverControls`, for
+ * sites that ship the §9/§10 land-cover pair. Its appearance parameters (seed,
+ * global density scale) are app-side UI state with defaults, not data (§9).
  */
 
 import GUI from 'lil-gui';
+import { DEFAULT_VEGETATION_PARAMS } from '../landcover/vegetation';
 import { DEFAULT_PALISADE_PARAMS } from '../overlays/palisade';
 import { DEFAULT_SUN_AZIMUTH, DEFAULT_SUN_ELEVATION } from '../terrain/lighting';
 import { formatLevel, formatYear } from '../water/shoreline';
@@ -43,6 +47,14 @@ export interface ControlState {
     heightM: number;
     spacingM: number;
     seed: number;
+  };
+  /** Phase 7 — appearance parameters of the modeled landscape (contract §9). */
+  landcover: {
+    show: boolean;
+    /** Placement/jitter seed. Same seed ⇒ same landscape. */
+    seed: number;
+    /** Global multiplier on the legend's `densityPerHa` — never per class (§10). */
+    density: number;
   };
 }
 
@@ -79,6 +91,11 @@ export function createControls(parent: HTMLElement, handlers: ControlHandlers): 
       heightM: DEFAULT_PALISADE_PARAMS.heightM,
       spacingM: DEFAULT_PALISADE_PARAMS.spacingM,
       seed: DEFAULT_PALISADE_PARAMS.seed,
+    },
+    landcover: {
+      show: false, // a model layer is opt-in too (PLAN §6.1)
+      seed: DEFAULT_VEGETATION_PARAMS.seed,
+      density: DEFAULT_VEGETATION_PARAMS.densityScale,
     },
   };
 
@@ -157,6 +174,15 @@ function note(folder: GUI, className: string, text: string): HTMLElement {
 }
 
 /**
+ * PLAN §6.1: a model layer's control has to say "model". The layer name from the
+ * manifest usually already does ("Paleo-shoreline (SGU model)", "Modeled landscape
+ * (rule-based)"), so the tag is only appended when the name does not say it itself.
+ */
+export function modelTitle(name: string): string {
+  return /model/i.test(name) ? name : `${name} — model`;
+}
+
+/**
  * Phase-4 paleo-shoreline folder (PLAN §3 Phase 4, §4.5, §6.1).
  *
  * Only created for sites that actually ship the water assets — a site without
@@ -168,10 +194,7 @@ export function addWaterControls(gui: GUI, state: ControlState, options: WaterCo
   const [oldest, newest] = options.years;
   state.water.yearCE = Math.min(newest, Math.max(oldest, options.initialYear));
 
-  // PLAN §6.1: the control itself has to say "model". The layer name usually
-  // already does ("Paleo-shoreline (SGU model)"), so only add the tag when it does not.
-  const title = /\bmodel\b/i.test(options.name) ? options.name : `${options.name} — model`;
-  const folder = gui.addFolder(title);
+  const folder = gui.addFolder(modelTitle(options.name));
   const show = folder.add(state.water, 'show').name('show water').onChange(() => options.onChange());
   const year = folder
     .add(state.water, 'yearCE', oldest, newest, 1)
@@ -253,6 +276,59 @@ export function addPalisadeControls(gui: GUI, state: ControlState, options: Pali
   const update = (): void => {
     for (const control of [show, height, spacing, seed]) control.updateDisplay();
     readout.textContent = `${options.postCount()} posts · ${state.palisade.spacingM.toFixed(2)} m apart`;
+  };
+  update();
+  folder.close();
+
+  return { update };
+}
+
+export interface LandcoverControlOptions {
+  /** Layer name from `manifest.layers` (falls back to a generic label). */
+  name: string;
+  /** The century the raster models (§10 `referenceYearCE`). */
+  referenceYearCE: number;
+  /** Number of classes in the legend. */
+  classCount: number;
+  /** `landcover_legend.json.caveat`, shown verbatim next to the control. */
+  caveat: string;
+  /** Vegetation instances currently placed, read after every change. */
+  instanceCount(): number;
+  onChange(): void;
+}
+
+/**
+ * Phase-7 modeled-landscape folder (PLAN §4.7, §6.1; contract §9).
+ *
+ * Only created for sites that ship the §9/§10 pair. The folder is labelled a model,
+ * the legend's own caveat sits permanently under the sliders, and the readout states
+ * the **reference century** — the raster answers "what might the landscape have
+ * looked like around then?" and nothing else, so the number belongs next to the
+ * control as much as in the methods panel (§10).
+ *
+ * Both sliders are *appearance* parameters: the density one scales every class
+ * together, never one class at a time (§10).
+ */
+export function addLandcoverControls(
+  gui: GUI,
+  state: ControlState,
+  options: LandcoverControlOptions,
+): { update(): void } {
+  const folder = gui.addFolder(modelTitle(options.name));
+  const changed = (): void => options.onChange();
+
+  const show = folder.add(state.landcover, 'show').name('show landscape').onChange(changed);
+  const density = folder.add(state.landcover, 'density', 0.25, 1.5, 0.05).name('density ×').onChange(changed);
+  const seed = folder.add(state.landcover, 'seed', 1, 999, 1).name('layout seed').onChange(changed);
+
+  const readout = note(folder, 'control-readout', '');
+  note(folder, 'control-note', `${options.caveat} Modelled for ${formatYear(options.referenceYearCE)} only.`);
+
+  const update = (): void => {
+    for (const control of [show, density, seed]) control.updateDisplay();
+    readout.textContent =
+      `${formatYear(options.referenceYearCE)} · ${options.classCount} classes · ` +
+      `${options.instanceCount().toLocaleString('en-US')} plants`;
   };
   update();
   folder.close();

@@ -24,13 +24,13 @@ import {
   LEAN_JITTER_RAD,
   PalisadeLayer,
   RampartError,
-  mulberry32,
   polylineLength,
   postJitter,
   postPlacements,
   validateRampart,
   type RampartFile,
 } from '../src/overlays/palisade';
+import { mulberry32 } from '../src/lib/random';
 
 const DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'public', 'data', 'testsite');
 const testsiteRampart: unknown = JSON.parse(await readFile(join(DIR, 'rampart.json'), 'utf8'));

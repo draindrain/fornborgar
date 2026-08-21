@@ -4,7 +4,7 @@
   "derivation": {
     "method": "dem-ridge",
     "description": "SYNTHETIC TEST DATA — no ridge extraction was run. The ring is the closed form used by app/scripts/make-test-dem.mjs to draw the fixture's rampart into the DEM (radius 45 m about the site origin), densified to 0.5 m. It exists so the app's Phase-5 palisade can be exercised end to end against app/public/data/testsite/ without the Python pipeline. A real site derives this line from its LiDAR DEM.",
-    "generated": "2026-08-20",
+    "generated": "2026-08-21",
     "params": {
       "radiusM": 45,
       "densifyM": 0.5,

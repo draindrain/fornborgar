@@ -14,14 +14,24 @@ import './style.css';
 import { CameraModes, type EnterOptions } from './camera/modes';
 import { createOrbitRig } from './camera/orbitCamera';
 import * as coords from './lib/coords';
+import { LandcoverTint } from './landcover/tint';
+import { VegetationLayer } from './landcover/vegetation';
 import { PalisadeLayer } from './overlays/palisade';
-import { loadGrid, loadManifest, loadRampart, loadSites, loadWaterAssets, siteIdFromLocation } from './state/loader';
+import {
+  loadGrid,
+  loadLandcoverAssets,
+  loadManifest,
+  loadRampart,
+  loadSites,
+  loadWaterAssets,
+  siteIdFromLocation,
+} from './state/loader';
 import type { SiteManifest } from './state/manifest';
 import type { HeightGrid } from './terrain/heightGrid';
 import { Lighting } from './terrain/lighting';
 import { Terrain } from './terrain/terrain';
 import { SitesLayer } from './overlays/sites';
-import { addPalisadeControls, addSitesControls, addWaterControls, createControls } from './ui/controls';
+import { addLandcoverControls, addPalisadeControls, addSitesControls, addWaterControls, createControls } from './ui/controls';
 import { Hud } from './ui/hud';
 import { Legend } from './ui/legend';
 import { buildMethodsModel } from './ui/methodsModel';
@@ -30,6 +40,7 @@ import { SitePanel } from './ui/sitePanel';
 import { ViewshedController } from './viewshed/controller';
 import { ObserverMarker } from './viewshed/observer';
 import { ViewshedOverlay } from './viewshed/overlay';
+import { connectAtLocal } from './water/connectGrid';
 import { WaterLayer } from './water/water';
 
 declare global {
@@ -116,6 +127,11 @@ function applyWaterSettings(): void {
   if (!water) return;
   water.setYear(controlState.water.yearCE);
   water.setEnabled(controlState.water.show);
+  // Contract §9: vegetation standing in water at the *current* slider level is
+  // suppressed, so scrubbing the slider never shows trees wading. The level tracks
+  // the slider, not the water toggle — the modelled landscape must stay consistent
+  // with the century the viewer has chosen even with the water plane hidden.
+  vegetation?.setWaterLevel(water.levelM);
   waterReadout?.update();
   if (controlState.water.show && waterCaveat) {
     hud.showCaveatOnce('water', waterCaveat.badge, waterCaveat.text);
@@ -152,6 +168,33 @@ function applyPalisadeSettings(): void {
 }
 // -----------------------------------------------------------------------------
 
+// --- Phase 7: modeled landscape (optional §9/§10 pair; absent = feature off) --
+/**
+ * Two halves, built at different points in start() for a shader-ordering reason
+ * spelled out there: the ground tint has to be injected into the terrain materials
+ * between the viewshed and the water, while the vegetation needs the water assets
+ * that load after it.
+ */
+let landcoverTint: LandcoverTint | null = null;
+let vegetation: VegetationLayer | null = null;
+let landcoverReadout: { update(): void } | null = null;
+/** The legend's own one-line caveat, surfaced on first enable (PLAN §6.1). */
+let landcoverCaveat: { badge: string; text: string } | null = null;
+
+/** Single funnel for the landscape UI and the `window.__app.landcover` dev hooks. */
+function applyLandcoverSettings(): void {
+  if (!landcoverTint && !vegetation) return;
+  const s = controlState.landcover;
+  vegetation?.setParams({ seed: Math.round(s.seed), densityScale: s.density });
+  vegetation?.setEnabled(s.show);
+  landcoverTint?.setEnabled(s.show);
+  landcoverReadout?.update();
+  if (s.show && landcoverCaveat) {
+    hud.showCaveatOnce('landcover', landcoverCaveat.badge, landcoverCaveat.text);
+  }
+}
+// -----------------------------------------------------------------------------
+
 /** Ask the worker for a mask at the marker's position (latest-wins throttled). */
 function requestViewshed(): void {
   if (!viewshed || !terrain.contextGrid) return;
@@ -169,6 +212,7 @@ const { gui, state: controlState } = createControls(document.body, {
     viewshed?.marker.refreshHeight();
     sitesLayer?.refreshHeights();
     palisade?.refreshHeights(); // posts sit on the exaggerated ground, at true height
+    vegetation?.refreshHeights(); // ...and so do the plants (contract §0/§9)
     refit();
   },
   onToggleFirstPerson: () => modes.toggle(groundAt, terrain.getExaggeration()),
@@ -301,6 +345,22 @@ async function start(): Promise<void> {
     window.__viewshedStamp = (window.__viewshedStamp ?? 0) + 1;
   };
 
+  // --- Phase 7 (first half): the land-cover ground tint ---------------------
+  // The assets load *here*, before the water, purely because of the shader chain.
+  // All three ground overlays inject into the same two terrain materials, each
+  // chaining the handler it found, so **attach order is shading order**; contract
+  // §9 fixes that order as viewshed -> landcover -> water, because submerged ground
+  // must still read as submerged whatever the land cover says. The rest of the
+  // layer (the vegetation, which needs the water assets loaded below, and the UI)
+  // is wired after the palisade block.
+  const landcover = await loadLandcoverAssets(siteId, manifest, (f) =>
+    hud.setProgress('Loading modeled landscape…', 0.94 + f * 0.03),
+  );
+  if (landcover) {
+    landcoverTint = new LandcoverTint(landcover.grid, landcover.legend);
+    for (const material of terrain.overlayMaterials) landcoverTint.attach(material);
+  }
+
   // --- Phase 4: paleo-shoreline (optional assets; absent = feature off) -----
   // Both §6/§7 assets or nothing. The water plane is parented under the terrain
   // group so it inherits vertical exaggeration (contract §0 / PLAN §4.5), and
@@ -377,15 +437,45 @@ async function start(): Promise<void> {
   }
   // -------------------------------------------------------------------------
 
+  // --- Phase 7 (second half): vegetation + the landscape controls -----------
+  // Instanced cones and reed billboards sampled from the §9 raster. Like the
+  // palisade this goes in the SCENE, not in `terrain.group`: plants stand on the
+  // exaggerated ground while keeping their true metric size (contract §0/§9). The
+  // §7 connect grid, if this site ships one, decides which instances are under
+  // water at the current slider level.
+  if (landcover) {
+    const connect = assets?.connect ?? null;
+    vegetation = new VegetationLayer(landcover.grid, landcover.legend, {
+      groundAt,
+      getExaggeration: () => terrain.getExaggeration(),
+      connectAt: connect ? (x, z) => connectAtLocal(connect, x, z) : null,
+    });
+    scene.add(vegetation.group);
+    if (water) vegetation.setWaterLevel(water.levelM);
+
+    const layerName = manifest.layers?.find((l) => l.id === 'landcover')?.name ?? 'Modeled landscape (rule-based)';
+    landcoverCaveat = { badge: 'model', text: `${layerName}. ${landcover.legend.caveat}` };
+    landcoverReadout = addLandcoverControls(gui, controlState, {
+      name: layerName,
+      referenceYearCE: landcover.legend.referenceYearCE,
+      classCount: landcover.legend.classes.length,
+      caveat: landcover.legend.caveat,
+      instanceCount: () => vegetation?.count ?? 0,
+      onChange: () => applyLandcoverSettings(),
+    });
+    applyLandcoverSettings();
+  }
+  // -------------------------------------------------------------------------
+
   // --- Phase 6: methods panel + legend (PLAN §6.1/§6.2) ---------------------
   // Built after every optional asset has resolved, so the panel describes only
   // the layers this site actually ships, in the data's own words.
   const methods = new MethodsPanel(document.body);
-  methods.setContent(buildMethodsModel(manifest, assets?.table ?? null, rampart, sitesFile));
+  methods.setContent(buildMethodsModel(manifest, assets?.table ?? null, rampart, sitesFile, landcover?.legend ?? null));
   hud.mountAction(methods.button);
 
   const legend = new Legend(document.body);
-  legend.setContent(manifest.layers ?? [], sitesFile?.sites ?? null);
+  legend.setContent(manifest.layers ?? [], sitesFile?.sites ?? null, landcover?.legend ?? null);
   // -------------------------------------------------------------------------
 
   // The sites overlay is cartographic (flat map symbols): standing on the
@@ -488,6 +578,29 @@ async function start(): Promise<void> {
       setParams(next: { heightM?: number; spacingM?: number; seed?: number }) {
         Object.assign(controlState.palisade, next);
         applyPalisadeSettings();
+      },
+    },
+    // Phase 7. Present (with `layer: null`) even when the site ships no land-cover
+    // pair, so a headless check can tell "feature off" from "not wired up".
+    landcover: {
+      layer: vegetation,
+      tint: landcoverTint,
+      state: controlState.landcover,
+      legend: landcover?.legend ?? null,
+      grid: landcover?.grid ?? null,
+      get count() {
+        return vegetation?.count ?? 0;
+      },
+      get visibleCount() {
+        return vegetation?.visibleCount ?? 0;
+      },
+      setEnabled(on: boolean) {
+        controlState.landcover.show = on;
+        applyLandcoverSettings();
+      },
+      setParams(next: { seed?: number; density?: number }) {
+        Object.assign(controlState.landcover, next);
+        applyLandcoverSettings();
       },
     },
     // Phase 6.
