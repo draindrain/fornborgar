@@ -36,6 +36,9 @@ class GridSpec:
     half_extent: float  # meters from the site center to each edge
     resolution: float  # meters per pixel
     path: str  # file name, relative to the site's data directory
+    # Vertical quantization step (m): height_m = raw_int16 * quant_scale
+    # (docs/data-formats.md §1 and §11 — 0.1 m core/context, coarser far rings).
+    quant_scale: float = 0.1
 
     @property
     def size(self) -> int:
@@ -93,6 +96,12 @@ class SiteConfig:
     def cache_meta_path(self) -> Path:
         return CACHE_DIR / f"{self.id}_dem_source.json"
 
+    def ring_cache_path(self, spec: GridSpec) -> Path:
+        return CACHE_DIR / f"{self.id}_dem_{spec.name}.tif"
+
+    def ring_cache_meta_path(self, spec: GridSpec) -> Path:
+        return CACHE_DIR / f"{self.id}_dem_{spec.name}.json"
+
     @property
     def out_dir(self) -> Path:
         return APP_DATA_DIR / self.id
@@ -103,6 +112,22 @@ def _standard_grids() -> dict:
         "core": GridSpec("core", half_extent=1000.0, resolution=1.0, path="dem_core.tif"),
         "context": GridSpec("context", half_extent=2000.0, resolution=2.0, path="dem_context.tif"),
     }
+
+
+# The far-field ring ladder (docs/data-formats.md §11, docs/national-scaleout.md
+# §2b): concentric 2000x2000 grids that extend a site until the skyline closes at
+# the true refracted horizon. Every ring is fetched at its own resolution from the
+# source COGs' overview levels — rings never go through the 1 m source mosaic.
+# How deep a site's ladder goes is decided per site by `horizon.ladder` (a site
+# always ships ring3+ring4; the ladder extends while half_extent < the horizon
+# distance, capped at ring7).
+RING_LADDER: tuple[GridSpec, ...] = (
+    GridSpec("ring3", half_extent=4000.0, resolution=4.0, path="dem_ring3.tif", quant_scale=0.5),
+    GridSpec("ring4", half_extent=8000.0, resolution=8.0, path="dem_ring4.tif", quant_scale=0.5),
+    GridSpec("ring5", half_extent=16000.0, resolution=16.0, path="dem_ring5.tif", quant_scale=0.5),
+    GridSpec("ring6", half_extent=32000.0, resolution=32.0, path="dem_ring6.tif", quant_scale=1.0),
+    GridSpec("ring7", half_extent=64000.0, resolution=64.0, path="dem_ring7.tif", quant_scale=1.0),
+)
 
 
 BROBORG = SiteConfig(

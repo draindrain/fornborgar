@@ -2,7 +2,7 @@
 
 **Status: FROZEN v1 (2026-08-20), amended v1.1 (2026-08-20, additive — §6–§8),
 v1.2 (2026-08-21, additive — §9–§10), v1.3 (2026-08-21, additive — dynamic
-hydrology in §9–§10).** This
+hydrology in §9–§10), v1.4 (2026-08-21, additive — far-field rings, §11).** This
 file and the `manifest.json` schema below are the single source of truth for what the
 Python pipeline writes under `app/public/data/<siteId>/` and what the TypeScript app
 reads. Derived from PLAN.md §1, §4.1–§4.6 (incl. the [phase-0 verified] corrections).
@@ -240,6 +240,12 @@ century table and a connectivity grid over terrain that includes a deliberate **
 basin** — an enclosed depression whose floor is below several table levels but whose
 rim is above them) so the Phase-4 water feature is exercised end-to-end without real
 data, including the basin-exclusion behavior.
+
+v1.4 note: the generator's `--rings` mode emits a SECOND fixture,
+`app/public/data/testsite-rings/` (`?site=testsite-rings`), carrying two §11
+far-field rings (one with a far-water `waterConnect`) plus a `horizon` block, so
+the ring rendering path is exercised end-to-end without credentials. `testsite`
+itself deliberately stays ringless — it is the proof that rings are optional.
 
 ---
 
@@ -569,3 +575,125 @@ the reference century.
 amendment) renders exactly as before; a site without water assets renders `dynamic`
 classes as static (their raster residue), which for the shore band means "absent" —
 feature off, never an error.
+
+---
+
+# v1.4 amendment (2026-08-21) — far-field rings & the horizon guarantee (§11)
+
+Additive per the versioning policy above; `schemaVersion` stays 1. One new optional
+manifest key (`grids.rings`), one optional per-ring asset reference (`waterConnect`),
+and one optional informational block (`horizon`). A manifest without them (the
+testsite, every pre-v1.4 bundle) keeps working in every later app build; an app that
+predates this amendment ignores the keys entirely. Strategy and owner decisions:
+`docs/national-scaleout.md` §2b.
+
+## 11. `grids.rings` — far-field elevation rings (`dem_ring<N>.tif`)
+
+Concentric lower-resolution DEM grids that extend a site's terrain beyond the 4×4 km
+context until the skyline closes at the true refracted horizon
+(`d ≈ 3.83·√h` km) from the first-person viewpoint on the fort. Each ring reuses the
+§1 grid machinery unchanged except where stated.
+
+**The ring ladder.** Every ring is a full square grid (not an annulus on disk),
+concentric on `origin`, axis-aligned in EPSG:3006, 2000×2000 px:
+
+| Ring | Coverage | Resolution | Quantization (`encoding.scale`) | File |
+|---|---|---|---|---|
+| ring3 | 8×8 km | 4 m/px | 0.5 m | `dem_ring3.tif` |
+| ring4 | 16×16 km | 8 m/px | 0.5 m | `dem_ring4.tif` |
+| ring5 | 32×32 km | 16 m/px | 0.5 m | `dem_ring5.tif` |
+| ring6 | 64×64 km | 32 m/px | 1.0 m | `dem_ring6.tif` |
+| ring7 (rare) | 128×128 km | 64 m/px | 1.0 m | `dem_ring7.tif` |
+
+**Ladder depth is adaptive per site** (pipeline-computed, pytest-covered):
+`h = (crown + 2 m) − floor`, where `crown` = max DEM inside the site's KMR extent
+polygon (fallback: max of the core grid) and `floor` = `max(0, p5)` — the 5th
+percentile elevation of the 16×16 km (ring4) box, which a sea or large lake drives to
+~0 by itself. Horizon distance `d = 3.83·√h` km (refraction k = 0.13 folded into the
+coefficient). A site always ships ring3 and ring4; the ladder extends while the last
+ring's half-extent < d, capped at ring7. Rings ship in `grids.rings` **ordered
+inside-out**; the count varies per site and the app derives everything from the
+manifest, never from the ladder table above.
+
+**Manifest entry.** `grids` gains an optional `rings` array; each element is exactly
+the §2 grid shape (path, resolution, width/height, bounds3006, boundsLocal, encoding,
+min/maxElevation) with two ring-specific rules:
+
+```jsonc
+"grids": {
+  "core":    { … },                         // unchanged
+  "context": { … },                         // unchanged
+  "rings": [                                // v1.4, optional, ordered inside-out
+    { "path": "dem_ring3.tif", "resolution": 4.0, "width": 2000, "height": 2000,
+      "bounds3006": { … }, "boundsLocal": { "minX": -4000.0, … },
+      "encoding": { "dtype": "int16", "scale": 0.5, "unit": "m" },
+      "minElevation": …, "maxElevation": … },
+    { "path": "dem_ring4.tif", "resolution": 8.0, …,
+      "encoding": { "dtype": "int16", "scale": 0.5, "unit": "m" },
+      "waterConnect": "water_connect_ring4.tif" },   // optional, see below
+    …
+  ]
+},
+"horizon": {                                // v1.4, optional, informational
+  "crownM": 57.3,                           // max DEM inside the extent polygon
+  "floorM": 5.1,                            // p5 of the 16×16 km box, floored at 0
+  "eyeM": 2.0,                              // the +2 m in h = (crown + 2) − floor
+  "distanceKm": 27.9                        // 3.83 · sqrt(h)
+}
+```
+
+Rules and invariants (pipeline-guaranteed and tested):
+
+- Encoding identical to §1 (int16, no nodata, DEFLATE predictor 2, tiled COG,
+  EPSG:3006 horizontal only, north-up) **except** `encoding.scale`, which is per-grid:
+  0.5 m for rings 3–5, 1.0 m for rings 6–7 (`height_m = raw * scale`). The
+  manifest's `encoding.scale` is authoritative per grid; nothing may assume 0.1
+  globally. Valid scales are `{0.1, 0.5, 1.0}`.
+- All rings 2000×2000, concentric on `origin`, and a **strict containment chain**:
+  context ⊂ rings[0] ⊂ rings[1] ⊂ …; each ring's resolution strictly greater than the
+  previous grid's.
+- The §2 geometry invariants (`width == (maxE−minE)/resolution`, boundsLocal vs
+  bounds3006 vs origin) hold per ring. Ring elevations inherit the site's sanity band
+  (Broborg: [−10, 200] m); widening the band nationally is Phase 9.
+- **Coverage seam (GLO-30 deferred to Phase 9):** ring cells outside the DEM source's
+  tile coverage (open Baltic beyond the Lantmäteriet tile set, non-Swedish land) are
+  filled with 0.0 m and counted in `provenance.processing` (e.g.
+  `"ring6: 12345 cells outside tile coverage sea-filled at 0 m"`). Outer rings are
+  produced by average-resampled reads served from the source COGs' overview levels;
+  that too is disclosed in `provenance.processing`.
+- `horizon` is informational (methods panel); the app must not recompute the ladder.
+
+**`waterConnect` on a ring (optional, at most one ring entry).** A §7-semantics
+priority-flood connectivity grid on **that ring's exact geometry** (same width,
+height, resolution, bounds; int16 at that ring's `encoding.scale`; edge-entry,
+4-connected). In practice it ships on ring4 (16×16 km) as
+`water_connect_ring4.tif`. It exists **only for far-water rendering**; all analysis
+(viewshed, dynamic land-cover classes, water logic) stays on the context
+`assets.waterConnect` grid. Present only when the site also ships the §6/§7 water
+pair.
+
+**Rendering contract (app side):**
+
+- **Lazy, inside-out.** The app loads core+context and starts exactly as today, then
+  loads rings one at a time in manifest order, extending the terrain as each arrives.
+  A missing, failed or skipped ring (e.g. a low-end device stopping early) means the
+  fog line stays nearer — never an error. The horizon guarantee is a *data*
+  guarantee.
+- **Annulus meshes.** Each ring renders only the band not covered by the next-finer
+  grid (context for rings[0]), at reduced vertex density on far rings; normals are
+  sampled from the ring's full-resolution grid. Ring meshes take the elevation tint
+  but none of the overlay layers (viewshed, land-cover wash, submerged-ground tint) —
+  those remain core/context features.
+- **Earth curvature, baked.** Ring mesh vertices are lowered by
+  `Δy = (1 − k) · d² / (2·R)` with k = 0.13 and R = 6 371 000 m (the §4 viewshed
+  constants), d = horizontal distance from the scene origin (the guarantee
+  viewpoint). Applied to ring render meshes only; core/context meshes and every
+  analysis grid stay flat-earth (the viewshed applies the same drop internally, §4).
+- **Log depth buffer.** With geometry to ±64 km, the renderer uses a logarithmic
+  depth buffer; custom shaders must include the standard logdepth chunks.
+- **Paleo-water to the 16 km ring, then faded.** When a ring `waterConnect` is
+  present, the water plane extends to that ring's bounds, masked by
+  `connect ≤ h` on the ring grid outside the context rect, with opacity fading
+  radially from the context edge to the ring edge — the SGU level is a single
+  per-century value that is only locally valid across an uplift gradient (disclosed
+  in the methods panel). Rings beyond it render terrain only.

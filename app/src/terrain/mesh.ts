@@ -93,6 +93,97 @@ export function buildGridPatch(grid: HeightGrid, range: PatchRange, tint: Elevat
   return geom;
 }
 
+/**
+ * Like `buildGridPatch`, but sampling every `step`-th grid cell — the §11 ring
+ * annuli render at ¼–⅛ vertex density while their normals still come from the
+ * full-resolution grid (`normalAt` reads the heights array directly), so
+ * far-terrain legibility lives in shading, not silhouette. The range's last
+ * sample is always included exactly (the final interval may be shorter), so
+ * decimated bands still tile the grid edge-to-edge with no gaps.
+ */
+export function buildDecimatedPatch(
+  grid: HeightGrid,
+  range: PatchRange,
+  step: number,
+  tint: ElevationTint,
+): THREE.BufferGeometry {
+  if (!Number.isInteger(step) || step < 1) throw new Error(`buildDecimatedPatch: bad step ${step}`);
+  if (step === 1) return buildGridPatch(grid, range, tint);
+  const { col0, col1, row0, row1 } = range;
+  if (col1 - col0 < 1 || row1 - row0 < 1) {
+    throw new Error(`buildDecimatedPatch: degenerate range ${JSON.stringify(range)}`);
+  }
+
+  const samplesAlong = (a: number, b: number): number[] => {
+    const out: number[] = [];
+    for (let v = a; v < b; v += step) out.push(v);
+    out.push(b);
+    return out;
+  };
+  const cols = samplesAlong(col0, col1);
+  const rows = samplesAlong(row0, row1);
+  const nx = cols.length;
+  const nz = rows.length;
+
+  const vertexCount = nx * nz;
+  const positions = new Float32Array(vertexCount * 3);
+  const normals = new Float32Array(vertexCount * 3);
+  const colors = new Uint8Array(vertexCount * 3);
+
+  const { minX, minZ } = grid.boundsLocal;
+  const res = grid.resolution;
+  const w = grid.width;
+  const n3 = new Float32Array(3);
+
+  let v = 0;
+  for (const r of rows) {
+    const z = minZ + (r + 0.5) * res;
+    for (const c of cols) {
+      const y = grid.heights[r * w + c];
+      const o = v * 3;
+      positions[o] = minX + (c + 0.5) * res;
+      positions[o + 1] = y;
+      positions[o + 2] = z;
+
+      normalAt(grid.heights, grid.width, grid.height, res, c, r, n3);
+      normals[o] = n3[0];
+      normals[o + 1] = n3[1];
+      normals[o + 2] = n3[2];
+
+      tint.write(y, colors, o);
+      v++;
+    }
+  }
+
+  const quads = (nx - 1) * (nz - 1);
+  const IndexArray = vertexCount > 65535 ? Uint32Array : Uint16Array;
+  const indices = new IndexArray(quads * 6);
+  let i = 0;
+  for (let r = 0; r < nz - 1; r++) {
+    for (let c = 0; c < nx - 1; c++) {
+      const a = r * nx + c;
+      const b = a + 1;
+      const d = a + nx;
+      const e = d + 1;
+      indices[i++] = a;
+      indices[i++] = d;
+      indices[i++] = b;
+      indices[i++] = b;
+      indices[i++] = d;
+      indices[i++] = e;
+    }
+  }
+
+  const geom = new THREE.BufferGeometry();
+  geom.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geom.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
+  geom.setAttribute('color', new THREE.BufferAttribute(colors, 3, true));
+  geom.setIndex(new THREE.BufferAttribute(indices, 1));
+  geom.computeBoundingSphere();
+  geom.computeBoundingBox();
+  return geom;
+}
+
 /** Split a grid's sample rectangle into `n x n` patches that share edge vertices. */
 export function chunkRanges(grid: HeightGrid, n: number = CORE_CHUNKS_PER_SIDE): PatchRange[] {
   const cellsX = grid.width - 1;

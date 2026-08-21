@@ -445,3 +445,125 @@ def test_data_licenses_gains_a_jordarter_section_when_landcover_ships(tmp_path, 
     # Re-running the land-cover step must not drop the section the water step owns.
     assert "Strandförskjutningsmodell" in text and "`bp1000-1900`" in text
     assert "Nothing SGU-related is outstanding" in text
+
+
+# --------------------------------------------------------------------------- #
+# v1.4 §11 — far-field rings
+# --------------------------------------------------------------------------- #
+
+import numpy as np
+from affine import Affine
+
+from fornborg_pipeline.clip_dem import build_grid
+from fornborg_pipeline.horizon import horizon_info
+from fornborg_pipeline.manifest import add_rings, set_ring_water_connect
+from fornborg_pipeline.sites import GridSpec
+
+
+def _ring_grid(cfg, name, half_extent, resolution, scale, path):
+    spec = GridSpec(name, half_extent=half_extent, resolution=resolution, path=path,
+                    quant_scale=scale)
+    west, _s, _e, north = cfg.bounds3006(half_extent)
+    transform = Affine(resolution, 0.0, west, 0.0, -resolution, north)
+    source = np.full((spec.size, spec.size), 20.0, dtype=np.float32)
+    return build_grid(source, transform, spec, cfg, source_resolution=resolution)
+
+
+@pytest.fixture
+def ringed_manifest(manifest, fake_site):
+    rings = [
+        _ring_grid(fake_site, "ring3", 400.0, 4.0, 0.5, "dem_ring3.tif"),
+        _ring_grid(fake_site, "ring4", 800.0, 8.0, 0.5, "dem_ring4.tif"),
+    ]
+    return add_rings(manifest, rings, fake_site, horizon_info(50.0, 5.0),
+                     processing=("far-field rings: decimated overview reads",))
+
+
+def test_ringed_manifest_passes_the_validator(ringed_manifest):
+    validate_manifest(ringed_manifest)
+
+
+def test_ring_entries_carry_their_own_scale(ringed_manifest):
+    rings = ringed_manifest["grids"]["rings"]
+    assert [r["path"] for r in rings] == ["dem_ring3.tif", "dem_ring4.tif"]
+    assert all(r["encoding"] == {"dtype": "int16", "scale": 0.5, "unit": "m"} for r in rings)
+    assert ringed_manifest["horizon"]["eyeM"] == 2.0
+    steps = ringed_manifest["provenance"]["processing"]
+    assert "far-field rings: decimated overview reads" in steps
+
+
+def test_core_and_context_still_require_decimeters(ringed_manifest):
+    broken = copy.deepcopy(ringed_manifest)
+    broken["grids"]["context"]["encoding"]["scale"] = 0.5
+    with pytest.raises(ValueError, match="scale"):
+        validate_manifest(broken)
+
+
+def test_rings_reject_an_uncontracted_scale(ringed_manifest):
+    broken = copy.deepcopy(ringed_manifest)
+    broken["grids"]["rings"][0]["encoding"]["scale"] = 0.25
+    with pytest.raises(ValueError, match="scale"):
+        validate_manifest(broken)
+
+
+def test_rings_must_be_ordered_inside_out(ringed_manifest):
+    broken = copy.deepcopy(ringed_manifest)
+    broken["grids"]["rings"].reverse()
+    with pytest.raises(ValueError, match="inside-out|containment"):
+        validate_manifest(broken)
+
+
+def test_rings_must_coarsen_outward(ringed_manifest, fake_site):
+    broken = copy.deepcopy(ringed_manifest)
+    # Same containment, but the outer ring is as fine as the inner one.
+    fine_outer = _ring_grid(fake_site, "ring4", 800.0, 4.0, 0.5, "dem_ring4.tif")
+    from fornborg_pipeline.manifest import grid_entry
+    broken["grids"]["rings"][1] = grid_entry(fine_outer, fake_site)
+    broken["grids"]["rings"][0] = grid_entry(
+        _ring_grid(fake_site, "ring3", 400.0, 4.0, 0.5, "dem_ring3.tif"), fake_site
+    )
+    with pytest.raises(ValueError, match="coarser"):
+        validate_manifest(broken)
+
+
+def test_ring_water_connect_requires_the_water_pair(ringed_manifest):
+    broken = copy.deepcopy(ringed_manifest)
+    set_ring_water_connect(broken, "dem_ring4.tif", "water_connect_ring4.tif")
+    with pytest.raises(ValueError, match="water pair"):
+        validate_manifest(broken)
+
+
+def test_ring_water_connect_with_the_water_pair_validates(ringed_manifest):
+    with_water = copy.deepcopy(ringed_manifest)
+    add_water_assets(with_water, "shoreline.json", "water_connect.tif")
+    set_ring_water_connect(with_water, "dem_ring4.tif", "water_connect_ring4.tif")
+    validate_manifest(with_water)
+    assert with_water["grids"]["rings"][1]["waterConnect"] == "water_connect_ring4.tif"
+    assert "waterConnect" not in with_water["grids"]["rings"][0]
+
+
+def test_at_most_one_ring_water_connect(ringed_manifest):
+    broken = copy.deepcopy(ringed_manifest)
+    add_water_assets(broken, "shoreline.json", "water_connect.tif")
+    for ring in broken["grids"]["rings"]:
+        ring["waterConnect"] = "water_connect_ring4.tif"
+    with pytest.raises(ValueError, match="at most one"):
+        validate_manifest(broken)
+
+
+def test_set_ring_water_connect_requires_the_ring(ringed_manifest):
+    with pytest.raises(ValueError, match="no ring entry"):
+        set_ring_water_connect(copy.deepcopy(ringed_manifest), "dem_ring7.tif", "x.tif")
+
+
+def test_horizon_block_must_be_numeric(ringed_manifest):
+    broken = copy.deepcopy(ringed_manifest)
+    broken["horizon"]["distanceKm"] = "far"
+    with pytest.raises(ValueError, match="horizon.distanceKm"):
+        validate_manifest(broken)
+
+
+def test_ringless_manifest_still_validates(manifest):
+    # v1 manifests carry no rings and no horizon — feature off, never an error.
+    assert "rings" not in manifest["grids"]
+    validate_manifest(manifest)

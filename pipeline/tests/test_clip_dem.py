@@ -271,3 +271,58 @@ def test_written_row0_is_the_northernmost_row(written_grids):
 def test_output_file_sizes_are_small(written_grids):
     total = sum(path.stat().st_size for path, _ in written_grids.values())
     assert total < 1_000_000  # 200x200 int16 deflate; the real 2000x2000 pair is ~4-10 MB
+
+
+# --------------------------------------------------------------------------- #
+# per-grid quantization scales (contract §11)
+# --------------------------------------------------------------------------- #
+
+from fornborg_pipeline.clip_dem import ALLOWED_SCALES, dequantize, quantize
+
+
+def test_allowed_scales_match_the_contract():
+    assert ALLOWED_SCALES == (0.1, 0.5, 1.0)
+
+
+@pytest.mark.parametrize("scale", [0.5, 1.0])
+def test_ring_scale_roundtrip_within_half_a_step(scale):
+    rng = np.random.default_rng(11)
+    values = (200.0 * rng.random(10_000) - 20.0).astype(np.float32)
+    raw = quantize(values, scale)
+    assert raw.dtype == np.int16
+    back = dequantize(raw, scale)
+    assert float(np.abs(back - values).max()) <= scale / 2 + 1e-3
+
+
+def test_decimeter_wrappers_are_scale_0_1():
+    values = np.array([12.34, -3.21], dtype=np.float32)
+    assert np.array_equal(quantize(values, 0.1), quantize_decimeters(values))
+    raw = quantize_decimeters(values)
+    assert np.allclose(dequantize(raw, 0.1), dequantize_decimeters(raw))
+
+
+def test_quantize_rejects_overflow_at_each_scale():
+    # 20 km is fine in 1.0 m steps but overflows int16 at 0.5 m steps.
+    tall = np.array([20000.0])
+    quantize(tall, 1.0)
+    with pytest.raises(ValueError, match="overflow"):
+        quantize(tall, 0.5)
+    with pytest.raises(ValueError, match="positive"):
+        quantize(tall, 0.0)
+
+
+def test_written_ring_grid_carries_its_scale_tag(fake_site, tmp_path):
+    from affine import Affine as _Affine
+
+    from fornborg_pipeline.sites import GridSpec
+
+    spec = GridSpec("ring3", half_extent=400.0, resolution=4.0, path="dem_ring3.tif",
+                    quant_scale=0.5)
+    west, _s, _e, north = fake_site.bounds3006(spec.half_extent)
+    transform = _Affine(spec.resolution, 0.0, west, 0.0, -spec.resolution, north)
+    source = np.full((spec.size, spec.size), 20.0, dtype=np.float32)
+    grid = build_grid(source, transform, spec, fake_site, source_resolution=spec.resolution)
+    path = write_grid(tmp_path / spec.path, grid)
+    with rasterio.open(path) as src:
+        assert src.tags(1)["SCALE"] == "0.5"
+        assert src.dtypes[0] == "int16"

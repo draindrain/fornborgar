@@ -276,7 +276,30 @@ corrections to this plan where the schema assumptions were wrong.
   with the §2.5 "strongly grazing-opened Iron Age landscape" picture (no quantified
   Uppland benchmark exists; disclosed in the legend's calibration paragraph).
 
-### Phase 8 — National scope ("view any Swedish fornborg")
+### Phase 8 — Far-field rings & the horizon guarantee ("see the horizon")
+*(Split 2026-08-21, owner decision: the horizon work is Phase 8; everything about
+multiple locations moved to Phase 9 below.)*
+- **Far-field rings & horizon guarantee (owner decisions 2026-08-21, doc §2b):** every
+  site ships concentric 2000² rings (8×8 km @ 4 m → up to 128×128 km @ 64 m, coarser
+  vertical quantization on far rings) sized **adaptively per site** so the skyline
+  closes at the true refracted horizon (`d ≈ 3.83·√h` km, `h = (crown + 2 m) − floor`)
+  **from the first-person viewpoint on the fort** — lowland forts stop at 64×64 km,
+  high sea/lake-facing forts get 128×128 km. Additive **contract v1.4**
+  (`docs/data-formats.md` §11): optional `grids.rings` array with per-ring
+  `encoding.scale`, an optional ring4 `waterConnect` grid for far-water rendering,
+  and an informational `horizon` block. Render side: curvature-displaced annulus
+  meshes (the horizon is ~280 m below flat-earth at 64 km), log depth buffer, lazy
+  inside-out ring loading (a missing ring = nearer fog line, never an error);
+  paleo-water rendered out to the 16 km ring then faded (uplift-gradient honesty
+  caveat in the doc). Pipeline side: adaptive ladder from crown/floor heights,
+  per-ring decimated overview reads with STAC pagination, uncovered cells (open
+  Baltic) sea-filled at 0 m and disclosed in provenance (Copernicus GLO-30 fill
+  deferred to Phase 9 — Broborg's ladder stays inside Lantmäteriet coverage).
+  Broborg rebuilt with its ladder (expected rings 3–6, ~+7 MB).
+- Exit criterion: standing on Broborg's rampart, the skyline closes at the true
+  horizon, not a fog wall; near scene byte-equivalent to v1; testsite unchanged.
+
+### Phase 9 — National scope ("view any Swedish fornborg")
 - **Strategy researched and documented 2026-08-21 → `docs/national-scaleout.md`.**
   Key measured facts: **1,304 registered fornborgar** nationally (1,227 bedömda som
   fornlämning; Södermanland 242, Stockholm 240, Västra Götaland 223, …); 99.7 % fit the
@@ -284,20 +307,12 @@ corrections to this plan where the schema assumptions were wrong.
   centroids touch just 504 Lantmäteriet DEM tiles. Whole country ≈ **~4 GB of static
   bundles (~3 MB/site)** after two encoding wins (water-connect as delta vs. DEM: 10×;
   dropping COG overviews from web grids: −35 %) — the per-site static-bundle
-  architecture scales as-is. Hosting: app stays on GH Pages; bundles move to
+  architecture scales as-is; **~12 GB** (~9 MB/site) with the Phase-8 horizon ladder
+  (≈ $0.03/mo on R2). Hosting: app stays on GH Pages; bundles move to
   Cloudflare R2 (free egress, fits the free tier). No tiled/LOD terrain needed.
-- **Far-field rings & horizon guarantee (owner decisions 2026-08-21, doc §2b):** every
-  site ships concentric 2000² rings (8×8 km @ 4 m → up to 128×128 km @ 64 m, coarser
-  vertical quantization on far rings) sized **adaptively per site** so the skyline
-  closes at the true refracted horizon (`d ≈ 3.83·√h` km) **from the first-person
-  viewpoint on the fort** — lowland forts stop at 64×64 km, high sea/lake-facing forts
-  get 128×128 km. Non-Swedish terrain in far rings (Norway, Finland, Åland) is filled
-  from **Copernicus GLO-30**, provenance-tagged. ~9 MB/site → **~12 GB national**
-  (≈ $0.03/mo on R2). Additive `grids.rings` manifest entry; render side needs
-  curvature-displaced annulus meshes (the horizon is ~280 m below flat-earth at 64 km),
-  log depth buffer, lazy ring loading; paleo-water rendered out to the 16 km ring
-  (uplift-gradient honesty caveat in the doc).
-- Sequenced 8a–8e: encoding + contract v1.2 → batch pipeline (registry, tile cache,
+  Non-Swedish terrain in far rings (Norway, Finland, Åland) filled from **Copernicus
+  GLO-30**, provenance-tagged (deferred from Phase 8).
+- Sequenced 9a–9d (doc §7): encoding wins + batch pipeline (registry, tile cache,
   QA contact sheet) → ~25-site curated pilot on R2 → county-by-county fill to 1,304 →
   intervisibility stretch (76 % of forts have a neighbor within their context extent).
 
@@ -319,7 +334,7 @@ deflate + predictor ≈ **4–10 MB total**.
 A 16-bit PNG heightmap adds min/max packing metadata and a 16-bit-PNG decode path (canvas
 APIs are 8-bit; you'd need fast-png/UPNG anyway — a dependency just like geotiff.js).
 Quantized mesh (Cesium-style) optimizes a streaming-LOD problem v1 doesn't have and would
-*separate* the render mesh from the analysis grid. Revisit tiled formats only at Phase 8.
+*separate* the render mesh from the analysis grid. Revisit tiled formats only at Phase 9.
 Load UX: progress bar; context grid can load first for instant overview, core swapped in
 when ready.
 
@@ -446,7 +461,7 @@ Plan:
 | **Viewshed performance** at 4 M cells | Centerpiece feels sluggish | Worker + XDraw (est. 50–200 ms); throttled drag updates; radius cap; GPU path as a later upgrade, never a v1 dependency |
 | **Initial download size** (DEM 4–10 MB + assets) | Slow first load, GH Pages bandwidth | int16-dm quantization, deflate, progress UX, context-grid-first loading; per-site lazy loading from day one |
 | **Shoreline model uncertainty** (±500 yr per SGU; datum subtleties; Mälaren regulation +0.86 m) | Overclaiming exactness would undermine the app's honesty premise | Slider is coarse (century steps), labeled as a model, uncertainty stated in-panel; fort's era predates Mälaren isolation so lake-regulation nuances don't bite v1 |
-| **Data hosting in repo** grows with more sites | Repo bloat | Fine for 1–3 sites; move to Releases/LFS or an object host at Phase 8 |
+| **Data hosting in repo** grows with more sites | Repo bloat | Fine for 1–3 sites; move to Releases/LFS or an object host at Phase 9 |
 | **Agency URL churn** (Lantmäteriet moved tiling schemes mid-2026; RAÄ restructured 2025) | Pipeline rot | Pipeline pins endpoints in one config module; PLAN and README record the "as of" date of every endpoint |
 
 ## Open questions (marked [open] above, consolidated)
@@ -544,6 +559,9 @@ bake the active caveats into the image margin.
 
 *Phase 0 complete and the hillshade gate passed (2026-08-20). Phases 1–6 (v1) shipped
 2026-08-20/21. Phase 7 (modeled Iron Age landscape) shipped 2026-08-21 as contract
-v1.2. Phase-8 national scale-out strategy documented 2026-08-21
-(`docs/national-scaleout.md`); next step: owner confirmation, then 8a (bundle encoding
-+ contract v1.3).*
+v1.2. National scale-out strategy documented 2026-08-21
+(`docs/national-scaleout.md`) and split 2026-08-21: Phase 8 = far-field rings &
+horizon guarantee (contract v1.4 — implemented: ring pipeline + curvature/log-depth/
+lazy-ring rendering; Broborg ring rebuild is owner-run, needs Geotorget credentials);
+Phase 9 = national scope. Next step: rebuild Broborg with its ring ladder, then 9a
+(encoding wins + batch machinery).*

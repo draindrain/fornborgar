@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from . import PIPELINE_NAME
-from .clip_dem import DECIMETER_SCALE, Grid
+from .clip_dem import ALLOWED_SCALES, DECIMETER_SCALE, Grid
 from .sites import EPSG_HORIZONTAL, VERTICAL_DATUM, SiteConfig
 
 SCHEMA_VERSION = 1
@@ -100,7 +100,7 @@ def grid_entry(grid: Grid, cfg: SiteConfig) -> dict:
             "maxN": float(max_n),
         },
         "boundsLocal": local_bounds(grid.bounds3006, cfg.center_e, cfg.center_n),
-        "encoding": {"dtype": "int16", "scale": DECIMETER_SCALE, "unit": "m"},
+        "encoding": {"dtype": "int16", "scale": grid.spec.quant_scale, "unit": "m"},
         "minElevation": grid.min_elevation,
         "maxElevation": grid.max_elevation,
     }
@@ -248,6 +248,39 @@ def add_landcover_asset(
     return manifest
 
 
+def add_rings(
+    manifest: dict,
+    ring_grids: list[Grid],
+    cfg: SiteConfig,
+    horizon: dict,
+    processing: Iterable[str] = (),
+) -> dict:
+    """Patch the v1.4 §11 far-field rings into an existing manifest, in place.
+
+    Additive per the contract's versioning policy — `schemaVersion` stays 1. The
+    entries land ordered inside-out under `grids.rings`, plus the informational
+    `horizon` block. No new attribution: rings are the same Lantmäteriet DEM,
+    already credited.
+    """
+    manifest["grids"]["rings"] = [grid_entry(grid, cfg) for grid in ring_grids]
+    manifest["horizon"] = dict(horizon)
+    _merge_provenance(manifest, None, processing)
+    return manifest
+
+
+def set_ring_water_connect(manifest: dict, ring_path: str, connect_path: str) -> dict:
+    """Reference a §11 far-water connect grid from the ring entry with `ring_path`."""
+    rings = manifest.get("grids", {}).get("rings", [])
+    entry = next((ring for ring in rings if ring.get("path") == ring_path), None)
+    if entry is None:
+        raise ValueError(
+            f"no ring entry with path {ring_path!r} — add_rings must run before the "
+            f"far-water step"
+        )
+    entry["waterConnect"] = connect_path
+    return manifest
+
+
 def add_rampart_asset(
     manifest: dict,
     rampart_path: str,
@@ -297,45 +330,15 @@ def validate_manifest(manifest: dict) -> None:
             raise ValueError(f"manifest is missing the {required!r} grid")
 
     for name, grid in grids.items():
-        res = float(grid["resolution"])
-        b = grid["bounds3006"]
-        expected_w = (b["maxE"] - b["minE"]) / res
-        expected_h = (b["maxN"] - b["minN"]) / res
-        if not _close(grid["width"], expected_w):
-            raise ValueError(f"{name}: width {grid['width']} != (maxE-minE)/res {expected_w}")
-        if not _close(grid["height"], expected_h):
-            raise ValueError(f"{name}: height {grid['height']} != (maxN-minN)/res {expected_h}")
-
-        expected_local = local_bounds((b["minE"], b["minN"], b["maxE"], b["maxN"]), oe, on)
-        for key, value in expected_local.items():
-            if not _close(float(grid["boundsLocal"][key]), value):
-                raise ValueError(
-                    f"{name}: boundsLocal.{key} = {grid['boundsLocal'][key]}, "
-                    f"expected {value} from bounds3006 + origin"
-                )
-
-        enc = grid["encoding"]
-        if enc["dtype"] != "int16" or not _close(float(enc["scale"]), DECIMETER_SCALE):
-            raise ValueError(f"{name}: encoding must be int16 with scale {DECIMETER_SCALE}")
-
-        lo, hi = float(grid["minElevation"]), float(grid["maxElevation"])
-        if lo > hi:
-            raise ValueError(f"{name}: minElevation {lo} > maxElevation {hi}")
-        # Datum sanity: catches the +23..36 m EPSG:5845 geoid-shift bug.
-        if lo < -10.0 or hi > 200.0:
-            raise ValueError(
-                f"{name}: elevation range {lo}..{hi} m is outside [-10, 200] for a Swedish "
-                f"lowland site — suspect a vertical-datum shift (PLAN.md §2.1)"
-            )
+        if name == "rings":
+            continue  # validated below (v1.4 §11 — a list, not a grid entry)
+        _validate_grid_entry(name, grid, oe, on, allowed_scales=(DECIMETER_SCALE,))
 
     core, context = grids["core"]["bounds3006"], grids["context"]["bounds3006"]
-    if not (
-        context["minE"] < core["minE"]
-        and context["minN"] < core["minN"]
-        and core["maxE"] < context["maxE"]
-        and core["maxN"] < context["maxN"]
-    ):
+    if not _strictly_inside(core, context):
         raise ValueError("core extent must lie strictly inside the context extent")
+
+    _validate_rings(manifest, grids, oe, on)
 
     for layer in manifest["layers"]:
         if layer["provenance"] not in ("measured", "model", "conjecture"):
@@ -349,6 +352,102 @@ def validate_manifest(manifest: dict) -> None:
     _validate_water(manifest, assets)
     _validate_landcover(manifest, assets)
     _validate_palisade(manifest, assets)
+
+
+def _validate_grid_entry(
+    name: str, grid: dict, oe: float, on: float, allowed_scales: tuple[float, ...]
+) -> None:
+    """The §2 per-grid invariants, shared by core/context and the §11 rings."""
+    res = float(grid["resolution"])
+    b = grid["bounds3006"]
+    expected_w = (b["maxE"] - b["minE"]) / res
+    expected_h = (b["maxN"] - b["minN"]) / res
+    if not _close(grid["width"], expected_w):
+        raise ValueError(f"{name}: width {grid['width']} != (maxE-minE)/res {expected_w}")
+    if not _close(grid["height"], expected_h):
+        raise ValueError(f"{name}: height {grid['height']} != (maxN-minN)/res {expected_h}")
+
+    expected_local = local_bounds((b["minE"], b["minN"], b["maxE"], b["maxN"]), oe, on)
+    for key, value in expected_local.items():
+        if not _close(float(grid["boundsLocal"][key]), value):
+            raise ValueError(
+                f"{name}: boundsLocal.{key} = {grid['boundsLocal'][key]}, "
+                f"expected {value} from bounds3006 + origin"
+            )
+
+    enc = grid["encoding"]
+    if enc["dtype"] != "int16" or not any(
+        _close(float(enc["scale"]), scale) for scale in allowed_scales
+    ):
+        raise ValueError(
+            f"{name}: encoding must be int16 with scale in {allowed_scales}, "
+            f"got {enc.get('dtype')!r} scale {enc.get('scale')!r}"
+        )
+
+    lo, hi = float(grid["minElevation"]), float(grid["maxElevation"])
+    if lo > hi:
+        raise ValueError(f"{name}: minElevation {lo} > maxElevation {hi}")
+    # Datum sanity: catches the +23..36 m EPSG:5845 geoid-shift bug.
+    if lo < -10.0 or hi > 200.0:
+        raise ValueError(
+            f"{name}: elevation range {lo}..{hi} m is outside [-10, 200] for a Swedish "
+            f"lowland site — suspect a vertical-datum shift (PLAN.md §2.1)"
+        )
+
+
+def _strictly_inside(inner: dict, outer: dict) -> bool:
+    return (
+        outer["minE"] < inner["minE"]
+        and outer["minN"] < inner["minN"]
+        and inner["maxE"] < outer["maxE"]
+        and inner["maxN"] < outer["maxN"]
+    )
+
+
+def _validate_rings(manifest: dict, grids: dict, oe: float, on: float) -> None:
+    """v1.4 §11 rules: per-ring §2 invariants, the containment chain, one far-water grid."""
+    rings = grids.get("rings")
+    if rings is None:
+        return
+    if not isinstance(rings, list) or not rings:
+        raise ValueError("grids.rings must be a non-empty array when present (contract §11)")
+
+    water_connects = 0
+    previous_name, previous = "context", grids["context"]
+    for index, ring in enumerate(rings):
+        name = f"rings[{index}]"
+        _validate_grid_entry(name, ring, oe, on, allowed_scales=ALLOWED_SCALES)
+        if not _strictly_inside(previous["bounds3006"], ring["bounds3006"]):
+            raise ValueError(
+                f"{name}: rings must be ordered inside-out — {previous_name} extent must lie "
+                f"strictly inside it (contract §11 containment chain)"
+            )
+        if float(ring["resolution"]) <= float(previous["resolution"]):
+            raise ValueError(
+                f"{name}: resolution {ring['resolution']} must be coarser than "
+                f"{previous_name}'s {previous['resolution']} (contract §11)"
+            )
+        connect = ring.get("waterConnect")
+        if connect is not None:
+            if not isinstance(connect, str) or connect.startswith("/") or ".." in connect:
+                raise ValueError(
+                    f"{name}: waterConnect path {connect!r} must be relative with no '..'"
+                )
+            if "shoreline" not in manifest.get("assets", {}):
+                raise ValueError(
+                    f"{name}: waterConnect requires the §6/§7 water pair to be present "
+                    f"(contract §11 — far water renders the same shoreline table)"
+                )
+            water_connects += 1
+        previous_name, previous = name, ring
+    if water_connects > 1:
+        raise ValueError("at most one ring entry may carry waterConnect (contract §11)")
+
+    horizon = manifest.get("horizon")
+    if horizon is not None:
+        for key in ("crownM", "floorM", "eyeM", "distanceKm"):
+            if not isinstance(horizon.get(key), (int, float)):
+                raise ValueError(f"horizon.{key} must be a number (contract §11)")
 
 
 def _has_sgu_attribution(manifest: dict) -> bool:
