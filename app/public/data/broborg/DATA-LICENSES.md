@@ -56,7 +56,7 @@ renders the short attribution strings from `manifest.json` → `attribution`.
   the `ytlager` surface layer the thin peat/till veneer `jy1`/`jy1_tx`).
 - **Endpoint:** OGC API — Features, `https://api.sgu.se/oppnadata/jordarter25k-100k/ogc/features/v1`
 - **Collections read:** `grundlager`, `ytlager`
-- **Fetched:** 2026-08-21T16:46:25+00:00
+- **Fetched:** 2026-08-21T18:01:28+00:00
 - **License:** **CC0** — attribution not required, given voluntarily.
 - **Voluntary attribution:** *"Jordarts- och strandförskjutningsdata från Sveriges geologiska
   undersökning (CC0)"*.

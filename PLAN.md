@@ -250,8 +250,14 @@ corrections to this plan where the schema assumptions were wrong.
   dependency, finer than planned; the palette lives in the legend JSON. Reference
   century fixed at **500 CE** (fort era, level 8.6 m from the §2.4 table); the app
   masks vegetation below the *current* slider level via the §7 connect grid, so the
-  raster is never re-derived for other centuries. Broborg result: 39.4 % forest,
-  53.3 % open, 4.9 % reed marsh, 2.5 % water — dry-land forest:open 42:58, consistent
+  raster is never re-derived for other centuries. Amended 2026-08-21: an eighth class,
+  **"Settled ground (kept clear)"**, claims the registered footprints of the era's
+  occupied remains (the fornborg extent plus the grave/settlement records) plus a
+  disclosed 20 m margin, applied after water/wetland and before farmland — without it
+  the soil rules reforested the fort interior and the grave fields (Broborg's own
+  footprint classified 100 % forest, i.e. trees inside the hillfort). Broborg result:
+  37.4 % forest, 55.3 % open (2.8 % settled ground), 4.9 % reed marsh, 2.5 % water —
+  dry-land forest:open 40:60, consistent
   with the §2.5 "strongly grazing-opened Iron Age landscape" picture (no quantified
   Uppland benchmark exists; disclosed in the legend's calibration paragraph).
 

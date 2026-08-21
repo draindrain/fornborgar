@@ -24,12 +24,17 @@ What the engine actually knows, per 2 m cell of the 4x4 km context extent:
   3. **slope** — from the dequantized context DEM, `np.gradient` in degrees;
   4. **settlement proximity** — Euclidean distance to the nearest registered
      grave/settlement record in `sites.json` (§3), the only cultivation proxy
-     used.
+     used;
+  5. **monument footprints** — Euclidean distance to the registered footprint
+     of the era's occupied remains (the fornborg extent plus the grave and
+     settlement records above): ground that *was* the settlement is kept clear
+     of trees rather than reforested by the soil rules.
 
-The rules run in a fixed precedence — water, then wetland, then farmland, then
-everything else — and each class's `rule` string in the legend is a verbatim
-statement of the branch that produced it, because the app renders those strings
-in the methods panel and must never paraphrase a method it did not run.
+The rules run in a fixed precedence — water, then wetland, then the occupied
+footprints, then farmland, then everything else — and each class's `rule`
+string in the legend is a verbatim statement of the branch that produced it,
+because the app renders those strings in the methods panel and must never
+paraphrase a method it did not run.
 
 **This is a model.** SGU maps the *present-day* soil surface; the vegetation is
 inferred from soil, slope and distance to burial grounds, not observed. The
@@ -159,6 +164,12 @@ SETTLEMENT_TYPES = frozenset(
     }
 )
 
+#: The remains whose *footprint* was occupied, built-on or tended ground in the
+#: reference era and is therefore modelled as kept clear of trees: the fort
+#: itself on top of the settlement proxies above. Runristningar and färdvägar
+#: are deliberately absent — a runestone or a road does not clear a wood.
+MONUMENT_TYPES = SETTLEMENT_TYPES | {"Fornborg"}
+
 
 # --------------------------------------------------------------------------- #
 # parameters and the class taxonomy (contract §10)
@@ -187,6 +198,9 @@ class LandcoverParams:
     till_margin_m: float = 40.0
     #: How far cultivation is assumed to reach from a grave field or settlement.
     farmland_radius_m: float = 700.0
+    #: How far beyond a registered monument footprint (fornborg extent, grave
+    #: field, settlement remain) the ground is modelled as kept clear of trees.
+    monument_clear_m: float = 20.0
     #: Ground steeper than this is not ploughed.
     farmland_max_slope_deg: float = 5.0
     #: Till steeper than this reads as rocky hillside rather than broadleaf wood.
@@ -250,7 +264,8 @@ _RULES = (
         "Open farmland",
         "#d1b96e",
         None,
-        "Not water or marsh, and all four of: SGU maps a postglacial fine sediment "
+        "Not water, marsh or settled ground, and all four of: SGU maps a postglacial "
+        "fine sediment "
         "(Postglacial lera, Gyttjelera (eller lergyttja), Svämsediment, ler--silt, "
         "Postglacial sand) or the margin of a till unit within {margin:.0f} m of one; "
         "the ground stands more than {fresh:.1f} m above the {year} CE water line "
@@ -299,6 +314,21 @@ _RULES = (
         "steeper than {forest_slope:.0f}°, and any SGU class this rule table does "
         "not name.",
     ),
+    (
+        "settlement_cleared",
+        "Settled ground (kept clear)",
+        "#b08d6e",
+        None,
+        "Within {clear:.0f} m of the registered footprint of an occupied remain in "
+        "sites.json — the fornborg extent itself and the grave and settlement "
+        "records (Fornborg, Gravfält, Grav- och boplatsområde, Boplats, "
+        "Boplatsområde, Boplatslämning övrig) — and not already water or marsh. "
+        "Applied before the farmland rule, so occupied ground is neither ploughed "
+        "nor reforested: a fort interior or grave field in use is modelled as "
+        "trampled, grazed and deliberately kept open. The KMR extent is a "
+        "registration boundary, not an excavated plan, and the {clear:.0f} m "
+        "margin is a modelling choice, not a mapped feature.",
+    ),
 )
 
 
@@ -315,6 +345,7 @@ def landcover_classes(
         "fresh": params.fresh_land_m,
         "margin": params.till_margin_m,
         "radius": params.farmland_radius_m,
+        "clear": params.monument_clear_m,
         "farm_slope": params.farmland_max_slope_deg,
         "forest_slope": params.forest_max_slope_deg,
     }
@@ -338,6 +369,9 @@ CLASS_MEADOW = 3
 CLASS_DRY_CORRIDOR = 4
 CLASS_BROADLEAF = 5
 CLASS_CONIFER = 6
+#: Appended in v1.2.1 so the six original raster values kept their meaning;
+#: `classify()` applies it third (after water and marsh), not last.
+CLASS_CLEARED = 7
 
 
 # --------------------------------------------------------------------------- #
@@ -517,6 +551,7 @@ def classify(
     peat_surface: np.ndarray,
     slope_deg: np.ndarray,
     settlement_distance_m: np.ndarray,
+    monument_distance_m: np.ndarray,
     reference_level_m: float,
     cell_size_m: float,
     params: LandcoverParams = DEFAULT_PARAMS,
@@ -524,9 +559,10 @@ def classify(
     """Land-cover class index per cell. Pure array function — the whole rule engine.
 
     Precedence is explicit and one-directional: each rule writes only where no
-    earlier rule has claimed the cell, in the order water -> wetland -> farmland ->
-    the rest. The rule strings in `_RULES` state the same order in prose, and the
-    app renders them verbatim, so a change here is a change there.
+    earlier rule has claimed the cell, in the order water -> wetland -> occupied
+    footprints -> farmland -> the rest. The rule strings in `_RULES` state the
+    same order in prose, and the app renders them verbatim, so a change here is a
+    change there.
     """
     shapes = {a.shape for a in (connect_m, soil_group, peat_surface, slope_deg)}
     if len(shapes) != 1:
@@ -534,6 +570,11 @@ def classify(
     if settlement_distance_m.shape != connect_m.shape:
         raise LandcoverError(
             f"settlement distance grid is {settlement_distance_m.shape}, "
+            f"expected {connect_m.shape}"
+        )
+    if monument_distance_m.shape != connect_m.shape:
+        raise LandcoverError(
+            f"monument distance grid is {monument_distance_m.shape}, "
             f"expected {connect_m.shape}"
         )
 
@@ -550,7 +591,15 @@ def classify(
     classes[marsh] = CLASS_MARSH
     taken |= marsh
 
-    # 3. farmland — cultivable soil, long enough out of the sea, gentle ground,
+    # 3. settled ground — the registered footprint of the era's occupied remains
+    #    (fornborg extent, grave fields, settlement remains) plus a small margin.
+    #    Occupied ground is kept clear of trees, and — coming before the farmland
+    #    rule — it is not ploughed either: a grave field is not a field.
+    cleared = ~taken & (monument_distance_m <= params.monument_clear_m)
+    classes[cleared] = CLASS_CLEARED
+    taken |= cleared
+
+    # 4. farmland — cultivable soil, long enough out of the sea, gentle ground,
     #    close to a settlement proxy. "Till margins" is taken literally: only the
     #    fringe of a till unit that abuts a fine sediment counts, not the whole
     #    moraine, which would put half the uplands under the plough.
@@ -567,21 +616,21 @@ def classify(
     classes[farmland] = CLASS_FARMLAND
     taken |= farmland
 
-    # 4. wet meadow / open pasture — the remaining fine-grained ground.
+    # 5. wet meadow / open pasture — the remaining fine-grained ground.
     meadow = ~taken & ((soil_group == GROUP_FINE) | (soil_group == GROUP_CLAY))
     classes[meadow] = CLASS_MEADOW
     taken |= meadow
 
-    # 5. dry open corridor — esker and beach gravels.
+    # 6. dry open corridor — esker and beach gravels.
     corridor = ~taken & (soil_group == GROUP_GRAVEL)
     classes[corridor] = CLASS_DRY_CORRIDOR
     taken |= corridor
 
-    # 6. broadleaf forest — remaining till on gentle to moderate ground.
+    # 7. broadleaf forest — remaining till on gentle to moderate ground.
     broadleaf = ~taken & (soil_group == GROUP_TILL) & (slope_deg <= params.forest_max_slope_deg)
     classes[broadleaf] = CLASS_BROADLEAF
 
-    # 7. conifer forest / rocky ground — the initial fill; everything still unclaimed.
+    # 8. conifer forest / rocky ground — the initial fill; everything still unclaimed.
     return classes
 
 
@@ -608,16 +657,19 @@ CAVEAT = (
 
 METHOD = (
     "Every 2 m cell of the {extent:.0f}×{extent:.0f} km context extent was classified once, "
-    "for {year} CE, by a rule engine reading four inputs: the sea-connectivity grid "
+    "for {year} CE, by a rule engine reading five inputs: the sea-connectivity grid "
     "(water_connect.tif) against the {year} CE water level of {level:.1f} m RH 2000 "
     "interpolated from shoreline.json; the SGU Jordarter polygons ({collections}) rasterized "
     "onto the same grid, with any cell no polygon covered ({coverage:.1f} % of the extent "
     "here) taking its nearest neighbour's class and the surface layer's peat veneer carried "
-    "as a separate flag; slope in degrees from the committed LiDAR DEM (np.gradient); and "
+    "as a separate flag; slope in degrees from the committed LiDAR DEM (np.gradient); "
     "the Euclidean distance to the nearest of the {proxies} registered grave or settlement "
-    "records in sites.json, used as the cultivation proxy. The rules are applied in a fixed "
-    "precedence — water first, then wetland, then farmland, then the drier classes — and "
-    "each class's rule text below states its own branch verbatim. SGU maps the present-day "
+    "records in sites.json, used as the cultivation proxy; and the distance to the "
+    "registered footprints of the era's occupied remains (the fornborg extent plus those "
+    "same grave and settlement records), whose ground is modelled as kept clear of trees. "
+    "The rules are applied in a fixed precedence — water first, then wetland, then the "
+    "occupied footprints, then farmland, then the drier classes — and each class's rule "
+    "text below states its own branch verbatim. SGU maps the present-day "
     "soil surface; treating it as the ground of {year} CE is the model's central assumption. "
     "The raster answers only 'what might this landscape have looked like around {year} CE?'."
 )
@@ -625,7 +677,8 @@ METHOD = (
 CALIBRATION = (
     "Measured on this raster: {forest:.1f} % forest ({broadleaf:.1f} % broadleaf, "
     "{conifer:.1f} % conifer), {open_land:.1f} % open ground ({farmland:.1f} % farmland, "
-    "{meadow:.1f} % wet meadow/pasture, {corridor:.1f} % dry gravel corridor), "
+    "{meadow:.1f} % wet meadow/pasture, {corridor:.1f} % dry gravel corridor, "
+    "{cleared:.1f} % settled ground kept clear), "
     "{marsh:.1f} % reed marsh and {water:.1f} % open water at the {year} CE level. Counting "
     "only dry land, the forest-to-open ratio is {forest_land:.0f}:{open_land_dry:.0f}. No "
     "quantified (REVEALS-type) openness figure for Iron Age Uppland has been found (PLAN.md "
@@ -667,7 +720,12 @@ def calibration_text(
     """The forest/open comparison against the PLAN.md §2.5 anchors (contract §10)."""
     percent = [100.0 * f for f in fractions]
     forest = percent[CLASS_BROADLEAF] + percent[CLASS_CONIFER]
-    open_land = percent[CLASS_FARMLAND] + percent[CLASS_MEADOW] + percent[CLASS_DRY_CORRIDOR]
+    open_land = (
+        percent[CLASS_FARMLAND]
+        + percent[CLASS_MEADOW]
+        + percent[CLASS_DRY_CORRIDOR]
+        + percent[CLASS_CLEARED]
+    )
     dry = forest + open_land
     return CALIBRATION.format(
         year=reference_year_ce,
@@ -678,6 +736,7 @@ def calibration_text(
         farmland=percent[CLASS_FARMLAND],
         meadow=percent[CLASS_MEADOW],
         corridor=percent[CLASS_DRY_CORRIDOR],
+        cleared=percent[CLASS_CLEARED],
         marsh=percent[CLASS_MARSH],
         water=percent[CLASS_WATER],
         forest_land=round(100.0 * forest / dry) if dry else 0,
@@ -984,6 +1043,18 @@ def run(
         f"{100.0 * within:.1f} % of the extent within {params.farmland_radius_m:.0f} m"
     )
 
+    print("-- occupied footprints (fornborg extent + the proxies above)")
+    monuments, monument_records = settlement_mask(
+        sites_document, shape, transform, cfg, types=MONUMENT_TYPES
+    )
+    monument_distance = distance_meters(monuments, float(cfg.context.resolution))
+    cleared_extent = float((monument_distance <= params.monument_clear_m).mean())
+    print(
+        f"  {monument_records} records, {int(monuments.sum())} cells occupied; "
+        f"{100.0 * cleared_extent:.2f} % of the extent kept clear "
+        f"(footprint + {params.monument_clear_m:.0f} m margin)"
+    )
+
     print("-- classification")
     slope = slope_degrees(heights_m, float(cfg.context.resolution))
     classes = classify(
@@ -992,6 +1063,7 @@ def run(
         peat_surface,
         slope,
         distance,
+        monument_distance,
         level,
         float(cfg.context.resolution),
         params,
@@ -1003,7 +1075,12 @@ def run(
     for entry, fraction in zip(taxonomy, fractions):
         print(f"  {entry.name:<28} {int(round(fraction * classes.size)):>10,} {100.0 * fraction:>6.2f}")
     forest = fractions[CLASS_BROADLEAF] + fractions[CLASS_CONIFER]
-    open_land = fractions[CLASS_FARMLAND] + fractions[CLASS_MEADOW] + fractions[CLASS_DRY_CORRIDOR]
+    open_land = (
+        fractions[CLASS_FARMLAND]
+        + fractions[CLASS_MEADOW]
+        + fractions[CLASS_DRY_CORRIDOR]
+        + fractions[CLASS_CLEARED]
+    )
     dry = forest + open_land
     print(
         f"  forest {100.0 * forest:.1f} % vs open {100.0 * open_land:.1f} % "
@@ -1055,12 +1132,25 @@ def run(
     show_default=True,
     help="Above this slope, till reads as rocky conifer ground rather than broadleaf (deg).",
 )
-def cli(site_id: str, force_download: bool, farmland_radius: float, forest_slope: float) -> None:
+@click.option(
+    "--monument-clear",
+    default=DEFAULT_PARAMS.monument_clear_m,
+    show_default=True,
+    help="Margin around a registered monument footprint kept clear of trees (m).",
+)
+def cli(
+    site_id: str,
+    force_download: bool,
+    farmland_radius: float,
+    forest_slope: float,
+    monument_clear: float,
+) -> None:
     """Derive landcover.tif + landcover_legend.json and patch the site manifest."""
     params = replace(
         DEFAULT_PARAMS,
         farmland_radius_m=float(farmland_radius),
         forest_max_slope_deg=float(forest_slope),
+        monument_clear_m=float(monument_clear),
     )
     try:
         run(site_id, force_download=force_download, params=params)

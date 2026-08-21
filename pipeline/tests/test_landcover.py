@@ -32,6 +32,7 @@ from fornborg_pipeline.fetch_soils import (
 )
 from fornborg_pipeline.landcover import (
     CLASS_BROADLEAF,
+    CLASS_CLEARED,
     CLASS_CONIFER,
     CLASS_DRY_CORRIDOR,
     CLASS_FARMLAND,
@@ -47,6 +48,7 @@ from fornborg_pipeline.landcover import (
     GROUP_PEAT,
     GROUP_TILL,
     GROUP_WATER,
+    MONUMENT_TYPES,
     REFERENCE_YEAR_CE,
     SCHEMA_VERSION,
     DEFAULT_PARAMS,
@@ -299,6 +301,40 @@ def test_settlement_mask_uses_positions_and_outlines(fake_site):
     assert not mask[SIZE // 2 - 15, SIZE // 2 + 15]
 
 
+def test_monument_types_add_the_fornborg_footprint(fake_site):
+    """The fort's own extent clears trees but is never a cultivation proxy."""
+    grid_transform = Affine(
+        RESOLUTION,
+        0.0,
+        fake_site.center_e - SIZE * RESOLUTION / 2,
+        0.0,
+        -RESOLUTION,
+        fake_site.center_n + SIZE * RESOLUTION / 2,
+    )
+    document = {
+        "sites": [
+            {
+                "id": "fort",
+                "lamningstyp": "Fornborg",
+                "position": {"x": 0.0, "z": 0.0},
+                "geometryLocal": {
+                    "type": "Polygon",
+                    "coordinates": [
+                        [[-10.0, -10.0], [10.0, -10.0], [10.0, 10.0], [-10.0, 10.0], [-10.0, -10.0]]
+                    ],
+                },
+            },
+        ]
+    }
+    proxy_mask, proxy_records = settlement_mask(document, SHAPE, grid_transform, fake_site)
+    assert proxy_records == 0 and not proxy_mask.any()
+    monument_mask, monument_records = settlement_mask(
+        document, SHAPE, grid_transform, fake_site, types=MONUMENT_TYPES
+    )
+    assert monument_records == 1
+    assert monument_mask.sum() >= 10 * 10  # the 20x20 m footprint at 2 m cells
+
+
 def test_distance_is_metric_and_infinite_with_no_proxy():
     mask = np.zeros(SHAPE, dtype=bool)
     assert np.isinf(distance_meters(mask, RESOLUTION)).all()
@@ -338,7 +374,9 @@ def rule_inputs(soil_grids):
     """Analytic inputs laid out so each rule owns a band of rows.
 
     Slope is flat everywhere except rows 12-15, a 30° scarp inside the till band;
-    a settlement proxy is 100 m from rows 8-31 and 5 km from everything else.
+    a settlement proxy is 100 m from rows 8-31 and 5 km from everything else. No
+    monument footprint is in frame by default — the cleared-ground tests place
+    their own so the band assertions here stay exact.
     """
     group, peat_surface, _unmatched, _coverage = soil_grids
     connect = np.zeros(SHAPE, dtype=np.float64)
@@ -348,17 +386,19 @@ def rule_inputs(soil_grids):
     slope[12:16] = 30.0  # a rocky scarp inside the till band
     distance = np.full(SHAPE, 5000.0, dtype=np.float64)
     distance[8:32] = 100.0  # near a settlement, from the till band down to the clay
-    return connect, group, peat_surface, slope, distance
+    monument = np.full(SHAPE, np.inf, dtype=np.float64)
+    return connect, group, peat_surface, slope, distance, monument
 
 
 def run_rules(rule_inputs, **overrides):
-    connect, group, peat_surface, slope, distance = rule_inputs
+    connect, group, peat_surface, slope, distance, monument = rule_inputs
     params = DEFAULT_PARAMS if not overrides else DEFAULT_PARAMS.__class__(**{
         **{f: getattr(DEFAULT_PARAMS, f) for f in DEFAULT_PARAMS.__dataclass_fields__},
         **overrides,
     })
     return classify(
-        connect, group, peat_surface, slope, distance, REFERENCE_LEVEL, RESOLUTION, params
+        connect, group, peat_surface, slope, distance, monument,
+        REFERENCE_LEVEL, RESOLUTION, params,
     )
 
 
@@ -418,6 +458,45 @@ def test_bedrock_and_steep_ground_are_conifer(rule_inputs):
     assert (gentle[12:16] == CLASS_BROADLEAF).all()
 
 
+def test_registered_monument_footprints_are_kept_clear_of_trees(rule_inputs):
+    """A fort or grave field's footprint is settled ground, not forest or farmland."""
+    connect, group, peat_surface, slope, distance, _ = rule_inputs
+    monument = np.full(SHAPE, np.inf, dtype=np.float64)
+    monument[4:8, 20:30] = 0.0  # a fort on the bedrock band — was conifer
+    monument[8:12, 0:10] = 0.0  # a grave field on flat till — was farmland
+    monument[0:4, 0:10] = 0.0  # over the peat veneer — marsh must still win
+    monument[36:40, 0:10] = 0.0  # in the sea — water must still win
+    classes = classify(
+        connect, group, peat_surface, slope, distance, monument, REFERENCE_LEVEL, RESOLUTION
+    )
+    assert (classes[4:8, 20:30] == CLASS_CLEARED).all()
+    assert (classes[8:12, 0:10] == CLASS_CLEARED).all()
+    assert (classes[0:4, 0:10] == CLASS_MARSH).all()
+    assert (classes[36:40, 0:10] == CLASS_WATER).all()
+    # Untouched ground keeps its earlier classification.
+    assert (classes[8:12, 20:] == CLASS_FARMLAND).all()
+
+
+def test_the_clear_margin_is_metric_and_tunable(rule_inputs):
+    connect, group, peat_surface, slope, distance, _ = rule_inputs
+    monument = np.full(SHAPE, np.inf, dtype=np.float64)
+    monument[4:8, 20:30] = 15.0  # inside the default 20 m margin
+    monument[4:8, 30:40] = 25.0  # just beyond it
+    classes = classify(
+        connect, group, peat_surface, slope, distance, monument, REFERENCE_LEVEL, RESOLUTION
+    )
+    assert (classes[4:8, 20:30] == CLASS_CLEARED).all()
+    assert (classes[4:8, 30:40] == CLASS_CONIFER).all()
+    wide = classify(
+        connect, group, peat_surface, slope, distance, monument, REFERENCE_LEVEL, RESOLUTION,
+        DEFAULT_PARAMS.__class__(**{
+            **{f: getattr(DEFAULT_PARAMS, f) for f in DEFAULT_PARAMS.__dataclass_fields__},
+            "monument_clear_m": 30.0,
+        }),
+    )
+    assert (wide[4:8, 30:40] == CLASS_CLEARED).all()
+
+
 def test_every_cell_is_classified_and_indices_stay_in_range(rule_inputs):
     classes = run_rules(rule_inputs)
     assert classes.dtype == np.uint8
@@ -425,21 +504,28 @@ def test_every_cell_is_classified_and_indices_stay_in_range(rule_inputs):
 
 
 def test_classify_rejects_inputs_that_disagree_on_shape(rule_inputs):
-    connect, group, peat_surface, slope, distance = rule_inputs
+    connect, group, peat_surface, slope, distance, monument = rule_inputs
     with pytest.raises(LandcoverError, match="disagree on shape"):
         classify(
-            connect[:-1], group, peat_surface, slope, distance, REFERENCE_LEVEL, RESOLUTION
+            connect[:-1], group, peat_surface, slope, distance, monument,
+            REFERENCE_LEVEL, RESOLUTION,
         )
     with pytest.raises(LandcoverError, match="settlement distance grid"):
         classify(
-            connect, group, peat_surface, slope, distance[:-1], REFERENCE_LEVEL, RESOLUTION
+            connect, group, peat_surface, slope, distance[:-1], monument,
+            REFERENCE_LEVEL, RESOLUTION,
+        )
+    with pytest.raises(LandcoverError, match="monument distance grid"):
+        classify(
+            connect, group, peat_surface, slope, distance, monument[:-1],
+            REFERENCE_LEVEL, RESOLUTION,
         )
 
 
 def test_area_fractions_sum_to_one(rule_inputs):
     classes = run_rules(rule_inputs)
     fractions = area_fractions(classes, len(landcover_classes(REFERENCE_LEVEL)))
-    assert len(fractions) == 7
+    assert len(fractions) == 8
     assert sum(fractions) == pytest.approx(1.0)
     assert fractions[CLASS_WATER] == pytest.approx(4.0 / SIZE)
 
@@ -447,7 +533,7 @@ def test_area_fractions_sum_to_one(rule_inputs):
 def test_area_fractions_refuse_a_class_the_legend_does_not_declare():
     classes = np.array([[0, 9]], dtype=np.uint8)
     with pytest.raises(LandcoverError, match="class index 9"):
-        area_fractions(classes, 7)
+        area_fractions(classes, 8)
 
 
 # --------------------------------------------------------------------------- #
@@ -469,8 +555,8 @@ def test_legend_matches_the_contract_shape(legend, fake_site):
     assert legend["referenceYearCE"] == REFERENCE_YEAR_CE == 500
     assert legend["referenceLevelM"] == REFERENCE_LEVEL
     assert legend["source"]["api"] == SOILS_META["api"]
-    assert [entry["index"] for entry in legend["classes"]] == list(range(7))
-    assert len({entry["id"] for entry in legend["classes"]}) == 7
+    assert [entry["index"] for entry in legend["classes"]] == list(range(8))
+    assert len({entry["id"] for entry in legend["classes"]}) == 8
     assert all(entry["color"].startswith("#") for entry in legend["classes"])
     assert sum(entry["areaFraction"] for entry in legend["classes"]) == pytest.approx(1.0, abs=1e-3)
 
@@ -483,12 +569,14 @@ def test_every_class_rule_quotes_the_thresholds_the_code_used(legend):
     assert f"{DEFAULT_PARAMS.farmland_radius_m:.0f} m" in rules["farmland"]
     assert f"{DEFAULT_PARAMS.till_margin_m:.0f} m" in rules["farmland"]
     assert f"{DEFAULT_PARAMS.forest_max_slope_deg:.0f}°" in rules["broadleaf_forest"]
+    assert f"{DEFAULT_PARAMS.monument_clear_m:.0f} m" in rules["settlement_cleared"]
     assert str(REFERENCE_YEAR_CE) in legend["classes"][0]["name"]
 
 
 def test_vegetation_is_declared_only_where_the_app_should_instance_it(legend):
     vegetation = {entry["id"]: entry["vegetation"] for entry in legend["classes"]}
     assert vegetation["water"] is None and vegetation["farmland"] is None
+    assert vegetation["settlement_cleared"] is None  # the whole point of the class
     assert vegetation["reed_marsh"]["type"] == "reeds"
     assert vegetation["broadleaf_forest"]["type"] == "broadleaf"
     assert vegetation["conifer_forest"]["type"] == "conifer"
@@ -511,7 +599,7 @@ def test_calibration_reports_measured_numbers_and_refuses_to_invent_an_anchor(le
 
 def test_calibration_survives_an_all_water_raster():
     """Degenerate input must not divide by a zero dry-land area."""
-    fractions = [1.0] + [0.0] * 6
+    fractions = [1.0] + [0.0] * 7
     assert "0:0" in calibration_text(fractions)
 
 
