@@ -261,6 +261,12 @@ class LandcoverParams:
     till_margin_m: float = 40.0
     #: How far cultivation is assumed to reach from a grave field or settlement.
     farmland_radius_m: float = 700.0
+    #: How far everyday grazing keeps the tree cover half-open around the same
+    #: evidence. Deliberately tighter than `farmland_radius_m`: the infield's
+    #: grazed fringe, while closed forest persists on the outland till — at the
+    #: farmland radius the rule swallowed most of the broadleaf forest wherever
+    #: grave evidence is dense (measured at Broborg: 19.8 % of the extent).
+    pasture_radius_m: float = 300.0
     #: How far beyond a registered monument footprint (fornborg extent, grave
     #: field, settlement remain) the ground is modelled as kept clear of trees.
     monument_clear_m: float = 20.0
@@ -458,14 +464,15 @@ _RULES = (
         "#8aa562",
         {"type": "broadleaf", "densityPerHa": 20},
         None,
-        "Till on ground no steeper than {forest_slope:.0f}° within {radius:.0f} m of "
+        "Till on ground no steeper than {forest_slope:.0f}° within {pasture:.0f} m of "
         "the era's registered grave and settlement evidence — {proxy_types} — that no "
         "earlier rule claimed: grazed, half-open woodland rather than closed forest. "
         "This is the strongly grazing-opened landscape around Iron Age settlement that "
         "the pollen literature describes (PLAN.md §2.5), and it carries sparse "
         "broadleaf at 20 stems per hectare against the closed wood's 90. The "
-        "{radius:.0f} m radius is the same modelling choice the farmland rule makes, "
-        "not a mapped boundary.",
+        "{pasture:.0f} m radius is a modelling choice, not a mapped boundary, and is "
+        "deliberately tighter than the farmland rule's {radius:.0f} m: the infield's "
+        "grazed fringe, while closed forest persists on the outland till.",
     ),
 )
 
@@ -491,6 +498,7 @@ def landcover_classes(
         "fresh": params.fresh_land_m,
         "margin": params.till_margin_m,
         "radius": params.farmland_radius_m,
+        "pasture": params.pasture_radius_m,
         "clear": params.monument_clear_m,
         "cult": params.cultivation_margin_m,
         "road": params.road_corridor_m,
@@ -821,14 +829,15 @@ def classify(
     classes[corridor] = CLASS_DRY_CORRIDOR
     taken |= corridor
 
-    # 9. wooded pasture — till within the settlement radius: grazed half-open
-    #    woodland, not closed wood. Same radius as the farmland rule, so the
-    #    grazed ring and the ploughed ring are the same modelling choice.
+    # 9. wooded pasture — till within the grazing radius: half-open woodland,
+    #    not closed wood. Tighter than the farmland radius on purpose — with the
+    #    widened grave evidence, the farmland radius covers ~90 % of a typical
+    #    extent and would swallow the broadleaf forest whole (infield/outland).
     pasture = (
         ~taken
         & (soil_group == GROUP_TILL)
         & (slope_deg <= params.forest_max_slope_deg)
-        & (settlement_distance_m <= params.farmland_radius_m)
+        & (settlement_distance_m <= params.pasture_radius_m)
     )
     classes[pasture] = CLASS_WOOD_PASTURE
     taken |= pasture
@@ -1481,6 +1490,12 @@ def run(
     help="How far cultivation is assumed to reach from a settlement proxy (m).",
 )
 @click.option(
+    "--pasture-radius",
+    default=DEFAULT_PARAMS.pasture_radius_m,
+    show_default=True,
+    help="How far grazing keeps the till half-open around the same evidence (m).",
+)
+@click.option(
     "--forest-slope",
     default=DEFAULT_PARAMS.forest_max_slope_deg,
     show_default=True,
@@ -1508,6 +1523,7 @@ def cli(
     site_id: str,
     force_download: bool,
     farmland_radius: float,
+    pasture_radius: float,
     forest_slope: float,
     monument_clear: float,
     cultivation_margin: float,
@@ -1517,6 +1533,7 @@ def cli(
     params = replace(
         DEFAULT_PARAMS,
         farmland_radius_m=float(farmland_radius),
+        pasture_radius_m=float(pasture_radius),
         forest_max_slope_deg=float(forest_slope),
         monument_clear_m=float(monument_clear),
         cultivation_margin_m=float(cultivation_margin),

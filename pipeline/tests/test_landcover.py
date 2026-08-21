@@ -539,7 +539,7 @@ def test_till_becomes_farmland_only_at_the_margin_of_a_fine_sediment(rule_inputs
     # is 100 m from the settlement proxy.
     narrow = run_rules(rule_inputs, till_margin_m=0.0)
     assert (narrow[8:12] == CLASS_WOOD_PASTURE).all()
-    beyond = run_rules(rule_inputs, till_margin_m=0.0, farmland_radius_m=10.0)
+    beyond = run_rules(rule_inputs, till_margin_m=0.0, pasture_radius_m=10.0)
     assert (beyond[8:12] == CLASS_BROADLEAF).all()
 
 
@@ -557,7 +557,7 @@ def test_bedrock_and_steep_ground_are_conifer(rule_inputs):
     # the proxy), closed wood once the grazing radius no longer reaches it.
     gentle = run_rules(rule_inputs, forest_max_slope_deg=45.0)
     assert (gentle[12:16] == CLASS_WOOD_PASTURE).all()
-    far = run_rules(rule_inputs, forest_max_slope_deg=45.0, farmland_radius_m=10.0)
+    far = run_rules(rule_inputs, forest_max_slope_deg=45.0, pasture_radius_m=10.0)
     assert (far[12:16] == CLASS_BROADLEAF).all()
 
 
@@ -567,7 +567,7 @@ def test_wooded_pasture_takes_the_till_inside_the_grazing_radius(rule_inputs):
     # The shore shelf's till (rows 34-35) sits 5 km from the proxy: closed wood.
     assert (run_rules(rule_inputs)[34:36] == CLASS_BROADLEAF).all()
     near = distance.copy()
-    near[34:36] = 100.0  # bring it inside the 700 m grazing radius
+    near[34:36] = 100.0  # bring it inside the 300 m grazing radius
     classes = classify(
         connect, group, peat_surface, slope, near, monument, cultivation, road,
         REFERENCE_LEVEL, RESOLUTION,
@@ -831,6 +831,7 @@ def test_every_class_rule_quotes_the_thresholds_the_code_used(legend):
     assert "Färdväg, Färdvägssystem" in rules["dry_corridor"]
     assert f"{DEFAULT_PARAMS.forest_max_slope_deg:.0f}°" in rules["broadleaf_forest"]
     assert f"{DEFAULT_PARAMS.monument_clear_m:.0f} m" in rules["settlement_cleared"]
+    assert f"{DEFAULT_PARAMS.pasture_radius_m:.0f} m" in rules["wooded_pasture"]
     assert f"{DEFAULT_PARAMS.farmland_radius_m:.0f} m" in rules["wooded_pasture"]
     assert "PLAN.md §2.5" in rules["wooded_pasture"]
     # The widened evidence set is enumerated where it is used, not summarized away.

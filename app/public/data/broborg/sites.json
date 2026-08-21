@@ -3,6 +3,66 @@
   "fetched": "2026-08-20",
   "sites": [
     {
+      "id": "L1940:6792",
+      "name": "L1940:6792",
+      "lamningstyp": "Stensättning",
+      "provenance": "measured",
+      "position": {
+        "x": 117.7,
+        "z": 876.3
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/bc94e3bd-ba21-4e28-86db-af4a45854061",
+      "description": "Stensättning, 8 m diameter, 1,2 m h, plan övertorvad ovansida. Kantkedja 1,2 m h av 0,7-1,4 m st stenar. Omedelbart NV och NÖ om lämningen är 2 stenblock, 2,5 x 2,5 (NÖ-SV) 1,5 m h, respektive 2 x 2 m (N-S), 1,5 m h."
+    },
+    {
+      "id": "L1940:6793",
+      "name": "L1940:6793",
+      "lamningstyp": "Stensättning",
+      "provenance": "measured",
+      "position": {
+        "x": 97.6,
+        "z": 939.5
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/6ac3590c-c922-4ac4-9662-a77b84bb80c8",
+      "description": "Stensättning, närmast kvadratisk, 4 x 4 m (NÖ-SV), 0,6 m h, övertorvad. Kantkedja I S, 0,5 m h, av 0,3-0,8 m st stenar. omedelbart V om lämningen är ett stenblock, 2 x 2 m, 1,1 m h."
+    },
+    {
+      "id": "L1940:6933",
+      "name": "L1940:6933",
+      "lamningstyp": "Stensättning",
+      "provenance": "measured",
+      "position": {
+        "x": 274.6,
+        "z": 821.8
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/d2f9bae8-83f3-42ab-9cd7-775336184144",
+      "description": "Stensättning, högliknande, närmast rund, 6 mdiameter, 1 m h, övertorvad med uppstickande 0,3-0,5 m st övermossade stenar. I mitten en sten, 0,7 m st, 0,3 m h. Ställvis kantkedja 0,7 m hav 0,8-1,0 m st stenar.\nNågot oklar avgränsning i N."
+    },
+    {
+      "id": "L1940:6934",
+      "name": "L1940:6934",
+      "lamningstyp": "Stensättning",
+      "provenance": "measured",
+      "position": {
+        "x": 102.1,
+        "z": 940.2
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/983a7405-f3fb-4f9b-ae0d-99ed3d231560",
+      "description": "Stensättning, rund, 7 m diameter, 0,8 m h, övertorvad med enstaka uppstickande 0,5-0,7 m st övermossade stenar. Kantkedja, 0,3-0,5 m h av 0,6-1,1 m st stenar, delvis utfallna."
+    },
+    {
+      "id": "L1941:4635",
+      "name": "L1941:4635",
+      "lamningstyp": "Stensättning",
+      "provenance": "measured",
+      "position": {
+        "x": -1145.7,
+        "z": -164.3
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/94c15f1a-aa5d-45ec-b307-fe7cd21256fe",
+      "description": "1) Stensättning, rund, ca 8 m diam fylld, ca 0,5 m h, delvis övertorvad gropig och ojämn yta med talrika stenar 0,2-0,5 m st. Endel sten påförd i sen tid. Ca 5 m S 20cg Ö om nr 1 är 2) Hög, ca7 m diam, 0,8 m h, överrtorvad något grynig ovanpå. Ca 25 m S 30cg Ö om nr 2 är 3) Hög ca 7 m diam, 0,8 m h, övertorvad. Ca 30 m Ö10cg N om nr 3 är 4) Stensättning, (?) rund ca 4,0 m diam fylld0,2-0,3 m h, övertorvad med i ytan talrika 0,2-0,3 m st stenar. IÖ kantställd (?) ca 0,4 m st sten. I närheten av nr 4 ligger några förhöjningar varav ett par med 0,2-0,4 m st stenar i ytan. Möjligen rester av sönderodlade fornlämningar. Utmed vägen med ån (vid x på fotokartan) ligger en sten 2,5 m l, 1,0 m br och 0,35 m tj. Avsmalnande åt ändarna skrovliga ytor. Den har blivit funnen liggande uti åkern (vid x på kartan). Möjligen har den varit rest.Flera dylika ehuru mindre, har bortförts ut åkern. 10 m NNÖ om 1är: 5) Runstensfragment, 1,4 m l, 0,8 m br och 0,3 m tj. Nyligenimålad. Ligger med den ristade sidan uppåt. Anläggning nr 4 är helt täckt med ris och halm. Nr 1 är mycket tätt beväxt med hallonbuskar samt påförd odlingssten. Unders och fynd Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
       "id": "L1941:4705",
       "name": "L1941:4705",
       "lamningstyp": "Gravfält",
@@ -104,6 +164,126 @@
       },
       "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/59430be1-9e4b-47eb-b535-7a54863088fe",
       "description": "1) Stensättning, rund, ca 8 m diam fylld, ca 0,5 m h, delvis övertorvad gropig och ojämn yta med talrika stenar 0,2-0,5 m st. Endel sten påförd i sen tid. Ca 5 m S 20cg Ö om nr 1 är 2) Hög, ca7 m diam, 0,8 m h, överrtorvad något grynig ovanpå. Ca 25 m S 30cg Ö om nr 2 är 3) Hög ca 7 m diam, 0,8 m h, övertorvad. Ca 30 m Ö10cg N om nr 3 är 4) Stensättning, (?) rund ca 4,0 m diam fylld0,2-0,3 m h, övertorvad med i ytan talrika 0,2-0,3 m st stenar. IÖ kantställd (?) ca 0,4 m st sten. I närheten av nr 4 ligger några förhöjningar varav ett par med 0,2-0,4 m st stenar i ytan. Möjligen rester av sönderodlade fornlämningar. Utmed vägen med ån (vid x på fotokartan) ligger en sten 2,5 m l, 1,0 m br och 0,35 m tj. Avsmalnande åt ändarna skrovliga ytor. Den har blivit funnen liggande uti åkern (vid x på kartan). Möjligen har den varit rest.Flera dylika ehuru mindre, har bortförts ut åkern. 10 m NNÖ om 1är: 5) Runstensfragment, 1,4 m l, 0,8 m br och 0,3 m tj. Nyligenimålad. Ligger med den ristade sidan uppåt. Anläggning nr 4 är helt täckt med ris och halm. Nr 1 är mycket tätt beväxt med hallonbuskar samt påförd odlingssten. Unders och fynd Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1941:4891",
+      "name": "L1941:4891",
+      "lamningstyp": "Hög",
+      "provenance": "measured",
+      "position": {
+        "x": -1131.6,
+        "z": -120.9
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/1c10b721-a053-46f9-9e87-fb373aabb568",
+      "description": "1) Stensättning, rund, ca 8 m diam fylld, ca 0,5 m h, delvis övertorvad gropig och ojämn yta med talrika stenar 0,2-0,5 m st. Endel sten påförd i sen tid. Ca 5 m S 20cg Ö om nr 1 är 2) Hög, ca7 m diam, 0,8 m h, överrtorvad något grynig ovanpå. Ca 25 m S 30cg Ö om nr 2 är 3) Hög ca 7 m diam, 0,8 m h, övertorvad. Ca 30 m Ö10cg N om nr 3 är 4) Stensättning, (?) rund ca 4,0 m diam fylld0,2-0,3 m h, övertorvad med i ytan talrika 0,2-0,3 m st stenar. IÖ kantställd (?) ca 0,4 m st sten. I närheten av nr 4 ligger några förhöjningar varav ett par med 0,2-0,4 m st stenar i ytan. Möjligen rester av sönderodlade fornlämningar. Utmed vägen med ån (vid x på fotokartan) ligger en sten 2,5 m l, 1,0 m br och 0,35 m tj. Avsmalnande åt ändarna skrovliga ytor. Den har blivit funnen liggande uti åkern (vid x på kartan). Möjligen har den varit rest.Flera dylika ehuru mindre, har bortförts ut åkern. 10 m NNÖ om 1är: 5) Runstensfragment, 1,4 m l, 0,8 m br och 0,3 m tj. Nyligenimålad. Ligger med den ristade sidan uppåt. Anläggning nr 4 är helt täckt med ris och halm. Nr 1 är mycket tätt beväxt med hallonbuskar samt påförd odlingssten. Unders och fynd Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1941:4945",
+      "name": "L1941:4945",
+      "lamningstyp": "Grav markerad av sten/block",
+      "provenance": "measured",
+      "position": {
+        "x": -1662.3,
+        "z": 1838.4
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/edc593fe-b5f6-420d-b5be-96065c335047",
+      "description": "1) Rest sten, ca 0,6 m h toppig, ca 0,3 m tj. Ca 0,5 m br vid basen. (N-S). Ca 8 m S 15cg Ö om nr 1 är nr 2) Stensättning, rund,ca 8 m i diam, fylld, ca 0,3 m h. Övertorvad. I mitten är i sentid en grop uppbruten, ca 2x1,5 m ca 0,5 m djup. Talrika, 0,3-0,5m st. stenar äro synliga där. Bevuxna med några enbuskar. Ca 1 mSSÖ om nr 2 är nr 3) Rest sten, ca 1,6 m h, ca 1 m br vid basen,(Ö-V) 0,5-0,6 m tj, avsmalnande upptill. Revidering 1979. Granskad av Gerhard Winberg 1952. Utförd av Åke Rydelius under tiden 11/6 1952. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1941:4946",
+      "name": "L1941:4946",
+      "lamningstyp": "Stensättning",
+      "provenance": "measured",
+      "position": {
+        "x": -1666.7,
+        "z": 1830.4
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/62581d00-540e-4a3f-8747-c8964c35dcdb",
+      "description": "1) Rest sten, ca 0,6 m h toppig, ca 0,3 m tj. Ca 0,5 m br vid basen. (N-S). Ca 8 m S 15cg Ö om nr 1 är nr 2) Stensättning, rund,ca 8 m i diam, fylld, ca 0,3 m h. Övertorvad. I mitten är i sentid en grop uppbruten, ca 2x1,5 m ca 0,5 m djup. Talrika, 0,3-0,5m st. stenar äro synliga där. Bevuxna med några enbuskar. Ca 1 mSSÖ om nr 2 är nr 3) Rest sten, ca 1,6 m h, ca 1 m br vid basen,(Ö-V) 0,5-0,6 m tj, avsmalnande upptill. Revidering 1979. Granskad av Gerhard Winberg 1952. Utförd av Åke Rydelius under tiden 11/6 1952. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1941:4947",
+      "name": "L1941:4947",
+      "lamningstyp": "Röse",
+      "provenance": "measured",
+      "position": {
+        "x": -1593.4,
+        "z": 1758.1
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/c8d786ab-d85d-49f5-bb4c-a59dceee6388",
+      "description": "Röse, närmast runt, ca 10 m i diam ca 1,5 m h. Delvis övertorvadojämn yta, fyllning av 0,2-0,5 m stora stenar. Ytan omplockad och gropig. Bevuxet med en medelstor gran jämte några smärre lövträd. Bergklackens krön där röset ligger är jämn och bildar en nästan stenfri platå av ca 30 m:s diam, på slänterna runt om ligger enstor mängd större och mindre stenblock. Ca 3 m V 36 S om röset ligger en rund stenkrets av ca 3 m:s diam, stenarna är 0,3-0,4 m stora. Stenarna är 0,3-0,4 m i storlek. Stenarna ligga ganska välfast i torvlagret men inom kretsen, som ej är fylld går berget idagen. Recent. Revidering 1979. Granskad av Gerhard Winberg 1952.Utförd av Åke Rydelius under tiden 11/6 1952. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1941:4952",
+      "name": "L1941:4952",
+      "lamningstyp": "Hög",
+      "provenance": "measured",
+      "position": {
+        "x": -1141.7,
+        "z": -151.4
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/0310ec8e-fa04-4cce-9f32-4dfbcbf1e565",
+      "description": "1) Stensättning, rund, ca 8 m diam fylld, ca 0,5 m h, delvis övertorvad gropig och ojämn yta med talrika stenar 0,2-0,5 m st. Endel sten påförd i sen tid. Ca 5 m S 20cg Ö om nr 1 är 2) Hög, ca7 m diam, 0,8 m h, överrtorvad något grynig ovanpå. Ca 25 m S 30cg Ö om nr 2 är 3) Hög ca 7 m diam, 0,8 m h, övertorvad. Ca 30 m Ö10cg N om nr 3 är 4) Stensättning, (?) rund ca 4,0 m diam fylld0,2-0,3 m h, övertorvad med i ytan talrika 0,2-0,3 m st stenar. IÖ kantställd (?) ca 0,4 m st sten. I närheten av nr 4 ligger några förhöjningar varav ett par med 0,2-0,4 m st stenar i ytan. Möjligen rester av sönderodlade fornlämningar. Utmed vägen med ån (vid x på fotokartan) ligger en sten 2,5 m l, 1,0 m br och 0,35 m tj. Avsmalnande åt ändarna skrovliga ytor. Den har blivit funnen liggande uti åkern (vid x på kartan). Möjligen har den varit rest.Flera dylika ehuru mindre, har bortförts ut åkern. 10 m NNÖ om 1är: 5) Runstensfragment, 1,4 m l, 0,8 m br och 0,3 m tj. Nyligenimålad. Ligger med den ristade sidan uppåt. Anläggning nr 4 är helt täckt med ris och halm. Nr 1 är mycket tätt beväxt med hallonbuskar samt påförd odlingssten. Unders och fynd Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1941:4953",
+      "name": "L1941:4953",
+      "lamningstyp": "Stensättning",
+      "provenance": "measured",
+      "position": {
+        "x": -1096.9,
+        "z": -126.3
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/eb7325d6-d60e-4d56-ad61-af5e44487f54",
+      "description": "1) Stensättning, rund, ca 8 m diam fylld, ca 0,5 m h, delvis övertorvad gropig och ojämn yta med talrika stenar 0,2-0,5 m st. Endel sten påförd i sen tid. Ca 5 m S 20cg Ö om nr 1 är 2) Hög, ca7 m diam, 0,8 m h, överrtorvad något grynig ovanpå. Ca 25 m S 30cg Ö om nr 2 är 3) Hög ca 7 m diam, 0,8 m h, övertorvad. Ca 30 m Ö10cg N om nr 3 är 4) Stensättning, (?) rund ca 4,0 m diam fylld0,2-0,3 m h, övertorvad med i ytan talrika 0,2-0,3 m st stenar. IÖ kantställd (?) ca 0,4 m st sten. I närheten av nr 4 ligger några förhöjningar varav ett par med 0,2-0,4 m st stenar i ytan. Möjligen rester av sönderodlade fornlämningar. Utmed vägen med ån (vid x på fotokartan) ligger en sten 2,5 m l, 1,0 m br och 0,35 m tj. Avsmalnande åt ändarna skrovliga ytor. Den har blivit funnen liggande uti åkern (vid x på kartan). Möjligen har den varit rest.Flera dylika ehuru mindre, har bortförts ut åkern. 10 m NNÖ om 1är: 5) Runstensfragment, 1,4 m l, 0,8 m br och 0,3 m tj. Nyligenimålad. Ligger med den ristade sidan uppåt. Anläggning nr 4 är helt täckt med ris och halm. Nr 1 är mycket tätt beväxt med hallonbuskar samt påförd odlingssten. Unders och fynd Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1941:4954",
+      "name": "L1941:4954",
+      "lamningstyp": "Röjningsröse",
+      "provenance": "measured",
+      "position": {
+        "x": -1187.2,
+        "z": -123.0
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/c07fe391-05a1-4970-b195-bf9bba46e051",
+      "description": "Odlingsröse, rund, ca 10 m diam 0,6 m h. Sten 0,1-0,6 m st. Röset är högst i periferien av påplockad oclingssten. Möjligen utgöres det undre lagret sten av en stensättning. Närheten av fornlämningen nr 8 talar för fornlämningens (teorreri) även rösets perfektcirkelrunda forn. Nu ligger i röset en mängd kol och aska ävensåär stenarna brända. Röset användes som underlag vid valborgsmässoeldar (enl baron Gordon Stiernstedt). Revidering 1979. Numera bortodlat: Unders och fynd Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1941:5017",
+      "name": "L1941:5017",
+      "lamningstyp": "Stensättning",
+      "provenance": "measured",
+      "position": {
+        "x": -1690.0,
+        "z": 1746.6
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/90724336-1927-4065-b45d-fe20e6d1912d",
+      "description": "Revidering 1979. Stensättning, rund, 12 m diam och 1,0 m h. Fyllning av 0,4-1,0 m st stenar samt enstaka större intill 2 m st block. Kantkedja 0,3-0,6 m h av 0,4-1,0 m l stenar. Smärre yt- ochkantskador. Beväxt med ett flertal aspar samt någon ask. Granskadav Gerhard Winberg 1952. Utförd av Åke Rydelius under tiden 11/61952. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1941:5116",
+      "name": "L1941:5116",
+      "lamningstyp": "Stensättning",
+      "provenance": "measured",
+      "position": {
+        "x": -741.6,
+        "z": 1129.5
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/2d037087-ecb9-489b-b795-12f778e70f5e",
+      "description": "Revidering 1979. 1) Stensättning, rund, 4 m diam och 0,3 m h. Övertorvad med i ytan talrika 0,2-0,4 m st stenar. Delvis bevarad kantkedja 0,1-0,2 m h av 0,2-0,8 m l stenar. 3 m NV om nr 1 är 2)Stensättning ? rund, 3 m diam och 0,1 m h. Övertorvad.Ändring. Dnr. 4810/61"
+    },
+    {
+      "id": "L1941:5182",
+      "name": "L1941:5182",
+      "lamningstyp": "Grav markerad av sten/block",
+      "provenance": "measured",
+      "position": {
+        "x": -1149.6,
+        "z": 16.4
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/4877639a-9280-4842-b622-ea65fe00a5c3",
+      "description": "Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
     },
     {
       "id": "L1941:5480",
@@ -507,6 +687,150 @@
       "description": "Gravfält, ca 110x50 m (NÖ-SV) bestående av ca 20 runda fyllda stensättningar. Dessa är 3-9 m i diam 0,2-0,8 m h övertorvade medi ytan enstaka eller talrika stenar 0,3-0,6 m st. Flera har kantkedjor av ca 0,5-0,7 m st stenar. De två största stensättningarna ,som ligger på krönet av moränryggen är klart röseliknande, stenstorlek 0,5-0,7 m, delvis övertorvade med gropig ojämn yta. Den norra har i centrum ett större flyttblock, ca 3x2 m, 1,5 m h. Den södra har två liknande block i S kanten."
     },
     {
+      "id": "L1941:5580",
+      "name": "L1941:5580",
+      "lamningstyp": "Grav markerad av sten/block",
+      "provenance": "measured",
+      "position": {
+        "x": -1671.5,
+        "z": 1816.1
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/064135be-71eb-408a-88fb-afe24b40e7b3",
+      "description": "1) Rest sten, ca 0,6 m h toppig, ca 0,3 m tj. Ca 0,5 m br vid basen. (N-S). Ca 8 m S 15cg Ö om nr 1 är nr 2) Stensättning, rund,ca 8 m i diam, fylld, ca 0,3 m h. Övertorvad. I mitten är i sentid en grop uppbruten, ca 2x1,5 m ca 0,5 m djup. Talrika, 0,3-0,5m st. stenar äro synliga där. Bevuxna med några enbuskar. Ca 1 mSSÖ om nr 2 är nr 3) Rest sten, ca 1,6 m h, ca 1 m br vid basen,(Ö-V) 0,5-0,6 m tj, avsmalnande upptill. Revidering 1979. Granskad av Gerhard Winberg 1952. Utförd av Åke Rydelius under tiden 11/6 1952. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1941:5685",
+      "name": "L1941:5685",
+      "lamningstyp": "Stensättning",
+      "provenance": "measured",
+      "position": {
+        "x": -1716.1,
+        "z": 1951.5
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/67d3bf92-0c92-4f15-abe1-af7e19d4ff66",
+      "description": "Stensättning rektangulär 9x6 m (Ö-V) 0,2-0,3 m h. Övertorvad medtalrika 0,2-1,0 m st stenar i ytan. I centrum möjligen berg i dagen 2x1 m. Kantkedja 0,2-0,3 m h av 0,3-0,6 m l stenar. Något oregelbunden i ytan. 1 m NV om stensättningen går en gammal \"kärrväg\" (streckmarkerad på fotokonceptkartan) Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1941:5697",
+      "name": "L1941:5697",
+      "lamningstyp": "Grav markerad av sten/block",
+      "provenance": "measured",
+      "position": {
+        "x": -1657.7,
+        "z": 1908.8
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/2beba1da-88e5-4955-9aed-71c6da87b994",
+      "description": "Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1941:5698",
+      "name": "L1941:5698",
+      "lamningstyp": "Stensättning",
+      "provenance": "measured",
+      "position": {
+        "x": -745.8,
+        "z": 1121.7
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/098f2f02-996e-477e-971e-bac9ee6ecd2c",
+      "description": "Revidering 1979. 1) Stensättning, rund, 4 m diam och 0,3 m h. Övertorvad med i ytan talrika 0,2-0,4 m st stenar. Delvis bevarad kantkedja 0,1-0,2 m h av 0,2-0,8 m l stenar. 3 m NV om nr 1 är 2)Stensättning ? rund, 3 m diam och 0,1 m h. Övertorvad.Ändring. Dnr. 4810/61"
+    },
+    {
+      "id": "L1941:5699",
+      "name": "L1941:5699",
+      "lamningstyp": "Stensättning",
+      "provenance": "measured",
+      "position": {
+        "x": -1949.7,
+        "z": 1964.3
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/af39b592-1862-4644-909e-b0a8c5e58129",
+      "description": "Stensättning, rund 7 m diam och 0,5 m h. Övertorvad med i ytan mycket talrika 0,2-0,6 m st stenar. I mitten en grop 2 m diam och0,4 m dj och intill denna ett 1,5 m st block. Beväxt med några enbuskar. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1941:9013",
+      "name": "L1941:9013",
+      "lamningstyp": "Stensättning",
+      "provenance": "measured",
+      "position": {
+        "x": -1625.4,
+        "z": -666.1
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/ad3f3bd2-c2e4-487a-b327-eb449751e934",
+      "description": "Stensättning, rund, 6 m diam och 0,4 m h. Övertorvad med i ytantalrika 0,2-0,6 m st stenar. Ställvis antydan till kantkedja. Beväxt med en tall. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1941:9092",
+      "name": "L1941:9092",
+      "lamningstyp": "Hög",
+      "provenance": "measured",
+      "position": {
+        "x": -905.4,
+        "z": 1453.4
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/a645b308-057b-4442-888f-04b321f781be",
+      "description": "Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1941:9134",
+      "name": "L1941:9134",
+      "lamningstyp": "Stensättning",
+      "provenance": "measured",
+      "position": {
+        "x": -1981.9,
+        "z": -1670.6
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/4c2e6392-b80a-4ced-af15-019d6b8e726e",
+      "description": "Stensättning? 5 m diam (något oklar begränsning) 0,3 m h. Mittblock c:a 1,5 m st och 0,6 m h. Plan översida. Övertorvad med i ytan 0,1-0,4 m st stenar. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1941:9232",
+      "name": "L1941:9232",
+      "lamningstyp": "Hög",
+      "provenance": "measured",
+      "position": {
+        "x": -1371.3,
+        "z": -1878.3
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/28627226-0b1a-4044-b321-6e8793b29e5e",
+      "description": "1) Hög, 12 m diam och 1,2 m h. I ytan enstaka 0,2-0,4 m st stenar. I centrum en grop 2x1 m och 0,3 m dj. Beväxt med en ek samt några löv- och enbuskar. 11 m S 40cg V om 1 är: 2) Hög, 7 m diam och 0,7 m h. Beväxt med fyra mindre ekar. Ö härom är en sentida terrassering av röjningssten. 17 m S 20cg Ö om 2 är: 3) Hög(?) 6 mdiam och 0,6 m h. I ytan enstaka 0,2-0,3 m st stenar, påförd röjningssten. I mitten en grop 1 m diam och 0,1 m dj. Beväxt med en björk och några lövbuskar. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1941:9245",
+      "name": "L1941:9245",
+      "lamningstyp": "Stensättning",
+      "provenance": "measured",
+      "position": {
+        "x": -1114.7,
+        "z": 1960.7
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/bafc0e7d-1d36-4213-abcd-519b2d74d07e",
+      "description": "Nr 1) Stensättning, rektangulär, ca 11x5 m i sida (V 36cg N-Ö 36cg Ö) fylld, 0,1-0,2 m h. Övertorvad. I ytan några 0,3-0,5 m stora stenar. Kantkedja av 0,4-1,2 m l och 0,15-0,6 m h stenar. Ca 1m S 32cg V om nr 1 är nr 2) Stensättning, rektangulär, ca 6x4 m isida (V 40cg N-Ö 40cg S), fylld, ca 0,2 m h. Övertorvad. Kantkedja av 0,4-1 m l och 0,1-0,4 m h stenar. I V hörnet en toppig sten. Intill och SÖ om nr 1 är nr 3) Stensättning, rektangulär, ca 7x4 m i sida. (N 40cg Ö-S 40cg V), fylld, ca 0,3 m h. Övertorvad med i ytan enstaka, 0,3-0,4 m stora stenar. Kantkedja av 0,5-1 m loch 0,15-0,4 m h stenar. Revidering 1979. Granskad av Gerhard Winberg 1952. Utförd av Åke Rydelius den 11/6 1952. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1941:9259",
+      "name": "L1941:9259",
+      "lamningstyp": "Stensättning",
+      "provenance": "measured",
+      "position": {
+        "x": -1116.2,
+        "z": 1948.1
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/812444ff-b64e-41af-bcf6-c1dcf51e4886",
+      "description": "Nr 1) Stensättning, rektangulär, ca 11x5 m i sida (V 36cg N-Ö 36cg Ö) fylld, 0,1-0,2 m h. Övertorvad. I ytan några 0,3-0,5 m stora stenar. Kantkedja av 0,4-1,2 m l och 0,15-0,6 m h stenar. Ca 1m S 32cg V om nr 1 är nr 2) Stensättning, rektangulär, ca 6x4 m isida (V 40cg N-Ö 40cg S), fylld, ca 0,2 m h. Övertorvad. Kantkedja av 0,4-1 m l och 0,1-0,4 m h stenar. I V hörnet en toppig sten. Intill och SÖ om nr 1 är nr 3) Stensättning, rektangulär, ca 7x4 m i sida. (N 40cg Ö-S 40cg V), fylld, ca 0,3 m h. Övertorvad med i ytan enstaka, 0,3-0,4 m stora stenar. Kantkedja av 0,5-1 m loch 0,15-0,4 m h stenar. Revidering 1979. Granskad av Gerhard Winberg 1952. Utförd av Åke Rydelius den 11/6 1952. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1941:9260",
+      "name": "L1941:9260",
+      "lamningstyp": "Stensättning",
+      "provenance": "measured",
+      "position": {
+        "x": -1125.6,
+        "z": 1951.6
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/495580fa-0cf6-4de4-99da-d20220f58e81",
+      "description": "Nr 1) Stensättning, rektangulär, ca 11x5 m i sida (V 36cg N-Ö 36cg Ö) fylld, 0,1-0,2 m h. Övertorvad. I ytan några 0,3-0,5 m stora stenar. Kantkedja av 0,4-1,2 m l och 0,15-0,6 m h stenar. Ca 1m S 32cg V om nr 1 är nr 2) Stensättning, rektangulär, ca 6x4 m isida (V 40cg N-Ö 40cg S), fylld, ca 0,2 m h. Övertorvad. Kantkedja av 0,4-1 m l och 0,1-0,4 m h stenar. I V hörnet en toppig sten. Intill och SÖ om nr 1 är nr 3) Stensättning, rektangulär, ca 7x4 m i sida. (N 40cg Ö-S 40cg V), fylld, ca 0,3 m h. Övertorvad med i ytan enstaka, 0,3-0,4 m stora stenar. Kantkedja av 0,5-1 m loch 0,15-0,4 m h stenar. Revidering 1979. Granskad av Gerhard Winberg 1952. Utförd av Åke Rydelius den 11/6 1952. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
       "id": "L1941:9321",
       "name": "L1941:9321",
       "lamningstyp": "Gravfält",
@@ -673,6 +997,141 @@
       "description": "Gravfält, ca 90x70 m. (NV-SÖ) bestående av ca 20 fornlämningar.Dessa utgöres av 2 högar ca 15 runda stensättningar, 1 kvadratiskfylld stensättning, 1 rektangulär fylld stensättning. 1 trekantig fylld stensättning. En av högarna är närmast rektangulär ca 13x10 m (VNV-ÖSÖ) ca 1,6 m h. Övertorvad flat yta med enstaka 0,3-0,5 m st stenar. Oredig kantkedja av 0,5-1,0 m stora stenar. Uppe ihögen ligger omkull i ytan en toppig sten ca 1x0,6 m stor, möjligen har den varit rest. Den andra högen är ca 10 m i diam 1,5 m h, delvis övertorvad ojämn yta med 0,3-0,6 m stora stenar. Närmaströseliknande. De runda stensättningarna är 3-6 m i diam 0,2-0,4m h. Övertorvad med i ytan enstaka eller talrika 0,3-0,4 m st stenar. Den rektangulära stensättningen är ca 8x6 m (VNV-ÖSÖ) ca 0,3m h. Övertorvad. Kantkedja av intill 1 m stora stenar. Den trekantiga stensättningen som ligger i fältets SV del har 4 m S sida (N-S, SÖ-NV, SV-NÖ) 0,3 m hög. Övertorvad med i ytan talrika 0,2-0,4 m stora stenar. Kantkedja av 0,3-0,6 m stora stenar. I S och Nhörnen klumpstenar 0,6-0,8 m stora och intill 0,6 m h. Den kvadratiska stensättningen är 4x4 m. (NV-SÖ) ca 0,2 m h. Övertorvad. Otydlig kantkedja av 0,3-0,4 m stora stenar. Inom fältet finns enäldre oredig husgrund ca 10-8 m (V-Ö). Även är fältet delvis förstört genom äldre nu övervältrad grustäkt. S om fältet spår efterhusgrunder. Granskad av Gerhard Winberg 1952. Utförd av Åke Rydelius den 11/6 1952. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
     },
     {
+      "id": "L1941:9534",
+      "name": "L1941:9534",
+      "lamningstyp": "Hög",
+      "provenance": "measured",
+      "position": {
+        "x": -1361.2,
+        "z": -1910.0
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/a51c0089-e940-444d-ab82-8cd40b3c7a74",
+      "description": "1) Hög, 12 m diam och 1,2 m h. I ytan enstaka 0,2-0,4 m st stenar. I centrum en grop 2x1 m och 0,3 m dj. Beväxt med en ek samt några löv- och enbuskar. 11 m S 40cg V om 1 är: 2) Hög, 7 m diam och 0,7 m h. Beväxt med fyra mindre ekar. Ö härom är en sentida terrassering av röjningssten. 17 m S 20cg Ö om 2 är: 3) Hög(?) 6 mdiam och 0,6 m h. I ytan enstaka 0,2-0,3 m st stenar, påförd röjningssten. I mitten en grop 1 m diam och 0,1 m dj. Beväxt med en björk och några lövbuskar. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1941:9535",
+      "name": "L1941:9535",
+      "lamningstyp": "Hög",
+      "provenance": "measured",
+      "position": {
+        "x": -1371.6,
+        "z": -1898.3
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/13d69c06-6656-40e9-b5a8-2caacdd147c9",
+      "description": "1) Hög, 12 m diam och 1,2 m h. I ytan enstaka 0,2-0,4 m st stenar. I centrum en grop 2x1 m och 0,3 m dj. Beväxt med en ek samt några löv- och enbuskar. 11 m S 40cg V om 1 är: 2) Hög, 7 m diam och 0,7 m h. Beväxt med fyra mindre ekar. Ö härom är en sentida terrassering av röjningssten. 17 m S 20cg Ö om 2 är: 3) Hög(?) 6 mdiam och 0,6 m h. I ytan enstaka 0,2-0,3 m st stenar, påförd röjningssten. I mitten en grop 1 m diam och 0,1 m dj. Beväxt med en björk och några lövbuskar. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1941:9611",
+      "name": "L1941:9611",
+      "lamningstyp": "Stensättning",
+      "provenance": "measured",
+      "position": {
+        "x": -1702.0,
+        "z": 1673.8
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/0e433909-62c2-4004-9422-efc9f7486c56",
+      "description": "Nr 1) Stensättning, rund, ca 6 m i diam fylld, ca 0,2 m hög. Övertorvad. I mitten en svacka, ca 1,5 m i diam ca 0,2 m dj. Bevuxenmed en ask. Intill och S om nr 1 är nr 2) Stensättning, rund, ca5 m diam, fylld ca 0,2 m h. Övertorvad. Bevuxen med en enbuske.Revidering 1979. Granskad av Gerhard Winberg 1952. Utförd av ÅkeRydelius den 11/6 1952. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1941:9612",
+      "name": "L1941:9612",
+      "lamningstyp": "Stensättning",
+      "provenance": "measured",
+      "position": {
+        "x": -1705.1,
+        "z": 1684.4
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/b0c52b95-0864-4acd-8b3c-6b1e212fbeed",
+      "description": "Nr 1) Stensättning, rund, ca 6 m i diam fylld, ca 0,2 m hög. Övertorvad. I mitten en svacka, ca 1,5 m i diam ca 0,2 m dj. Bevuxenmed en ask. Intill och S om nr 1 är nr 2) Stensättning, rund, ca5 m diam, fylld ca 0,2 m h. Övertorvad. Bevuxen med en enbuske.Revidering 1979. Granskad av Gerhard Winberg 1952. Utförd av ÅkeRydelius den 11/6 1952. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1941:9634",
+      "name": "L1941:9634",
+      "lamningstyp": "Stensättning",
+      "provenance": "measured",
+      "position": {
+        "x": -1478.14,
+        "z": -1377.54
+      },
+      "geometryLocal": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -1486.0,
+              -1359.9
+            ],
+            [
+              -1483.2,
+              -1360.1
+            ],
+            [
+              -1480.8,
+              -1360.2
+            ],
+            [
+              -1477.6,
+              -1361.3
+            ],
+            [
+              -1473.8,
+              -1362.5
+            ],
+            [
+              -1469.4,
+              -1368.9
+            ],
+            [
+              -1466.1,
+              -1375.3
+            ],
+            [
+              -1463.7,
+              -1383.2
+            ],
+            [
+              -1464.4,
+              -1390.8
+            ],
+            [
+              -1468.2,
+              -1400.3
+            ],
+            [
+              -1477.8,
+              -1407.1
+            ],
+            [
+              -1485.1,
+              -1404.7
+            ],
+            [
+              -1485.8,
+              -1395.9
+            ],
+            [
+              -1485.7,
+              -1385.3
+            ],
+            [
+              -1487.3,
+              -1376.3
+            ],
+            [
+              -1487.5,
+              -1366.5
+            ],
+            [
+              -1486.0,
+              -1359.9
+            ]
+          ]
+        ]
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/30e22535-fb66-4221-9927-a54c004af1bb",
+      "description": "Gravfält? 20x20 m bestående av 5 fornlämningar. Dessa utgöres avrunda stensättningar 3-5 m i diam, 0,1-0,2 m h. Övertorvade. Denstörsta som ligger i N delen har grop ca 2 m i diam, 0,4 m dj. De övriga har flacka fördjupningar. Gravfältet beväxt med 3 st ekar och lövbuskar. Samtliga osäkra. Troligen täktgropar. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
       "id": "L1941:9635",
       "name": "L1941:9635",
       "lamningstyp": "Gravfält",
@@ -726,6 +1185,92 @@
       },
       "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/9145df89-c261-4da6-82ee-534968b5c9a5",
       "description": "Gravfält 40x35 m (N-S) bestående av 6 fornlämningar. Dessa utgöres av runda stensättningar. De runda stensättningarna är 2,5-5 mdiam och 0,1-0,3 m h. Övertorvade, flertalet med i ytan tämligentalrika 0,2-0,5 m st stenar, samt enstaka intill 1 m st stenar idet centrala partiet. Fyra har kantkedja 0,1-0,2 m h av 0,2-0,6 ml stenar. Två har en grop i mitten, 1 m diam och 0,1-0,2 m dj. Gravfältet är tämligen tätt beväxt med asp och björksly samt enstaka större björkar och ekar. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1941:9771",
+      "name": "L1941:9771",
+      "lamningstyp": "Hägnad",
+      "provenance": "measured",
+      "position": {
+        "x": -1662.15,
+        "z": 1946.6
+      },
+      "geometryLocal": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -1662.2,
+            1926.4
+          ],
+          [
+            -1662.1,
+            1966.8
+          ]
+        ]
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/4a933ee8-2545-4ba5-90c9-e48ffe507c6c",
+      "description": "1) Skålgropsförekomst, i block som är 2,4x1,5 m stort med orientering VNV-ÖSÖ är spräckt så att det NÖ hörnet ca 1,2x0,6 m stortligger avflisat in situ. Blocket har en höjd av ca 0,6-0,8 m. I blockets större del är fästat ett stag till teleledning. Blocket har på översidan ett 70-tal skålgropar med ca 2-6 cm diam, varav några få på den NÖ flisan. 2) Mot blocket löper från NNÖ en stensträng ca 40 m lång av huvudsakligen enkel stenrad med mestadels ca0,5-0,6 m st stenar. 7-8 m Ö därom är. 3) En parallell stensträng vilken fortsätter till åtminstone 12 m S om blocket. Denna sträng som är bredare, ca 1,5 m består av medelstora samt 1-2 m st stenar, kan tänkas utgöra rester av en stengärdesgård. Revidering 1979. Skålgroparna är 0,3-1,5 cm dj. På den avspjälkade delen av blocket är 4 skålgropar. 3) Stensträng 70 m l (N-S)."
+    },
+    {
+      "id": "L1941:9772",
+      "name": "L1941:9772",
+      "lamningstyp": "Hägnad",
+      "provenance": "measured",
+      "position": {
+        "x": -1651.75,
+        "z": 1960.5
+      },
+      "geometryLocal": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -1649.4,
+            1926.3
+          ],
+          [
+            -1654.1,
+            1994.7
+          ]
+        ]
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/a47c9a16-3600-4874-bbd1-42990ac03c65",
+      "description": "1) Skålgropsförekomst, i block som är 2,4x1,5 m stort med orientering VNV-ÖSÖ är spräckt så att det NÖ hörnet ca 1,2x0,6 m stortligger avflisat in situ. Blocket har en höjd av ca 0,6-0,8 m. I blockets större del är fästat ett stag till teleledning. Blocket har på översidan ett 70-tal skålgropar med ca 2-6 cm diam, varav några få på den NÖ flisan. 2) Mot blocket löper från NNÖ en stensträng ca 40 m lång av huvudsakligen enkel stenrad med mestadels ca0,5-0,6 m st stenar. 7-8 m Ö därom är. 3) En parallell stensträng vilken fortsätter till åtminstone 12 m S om blocket. Denna sträng som är bredare, ca 1,5 m består av medelstora samt 1-2 m st stenar, kan tänkas utgöra rester av en stengärdesgård. Revidering 1979. Skålgroparna är 0,3-1,5 cm dj. På den avspjälkade delen av blocket är 4 skålgropar. 3) Stensträng 70 m l (N-S)."
+    },
+    {
+      "id": "L1943:6864",
+      "name": "L1943:6864",
+      "lamningstyp": "Stensättning",
+      "provenance": "measured",
+      "position": {
+        "x": -239.7,
+        "z": 625.0
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/e36d05ac-ab9b-43e3-bc5d-4fa5e6b25d6e",
+      "description": "1) Stensättning, närmast oval, 10x5 m (Ö-V) och 0,4 m h. Över torvad med i ytan enstaka stenar, 0,2-0,3 m dj. I mitten grop, 4 mdiam och 0,4 m dj. Beväxt med 3 enar. Osäker fornlämning. 20 m V10cg S om nr 1 är: 2) Stensättning, rund, 5 m diam och 0,3 m h. Övertorvad med i ytan talrika synliga stenar, 0,2-0,4 m st. Kantkedja, 0,2-0,3 m h, av 0,4-0,8 m l stenar. Beväxt med sälg. Röjningssten har påförts i Ö-S del. 8 m ÖNÖ om nr 1 är: 3) Grop, 3x2 m (NNV-SSÖ) och 0,3 m dj. Vall kring kanten, 1-2 m br och 0,05-0,10m h. Nr 1 är sannolkt ursprungligen en stensättning som sekundärtutnyttjats för annat ändamål. I omgivningen finns ställvis markröjda ytor. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1943:6865",
+      "name": "L1943:6865",
+      "lamningstyp": "Stensättning",
+      "provenance": "measured",
+      "position": {
+        "x": -312.9,
+        "z": 620.3
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/56f5ef7d-63c6-4641-afd0-acf270562e66",
+      "description": "1) Hög, 7 m diam och 0,7 m h. I ytan enstaka synliga stenar, 0,2-0,3 m st. Högen har flera gropar, 0,5-2,5 m i diam och 0,2-0,3 mdj. Beväxt med 2 enbuskar. 15 m N 30cg Ö om nr 1 är: 2) Stensättning, rund, 7 m diam och 0,4 m h. Övertorvad med i ytan enstaka stenar, 0,2-0,3 m st. En sten i Ö är 0,7 m st och 0,4 m h. I mitten grop, 1,5 m diam och 0,5 m dj. Beväxt med enbuskar. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1943:6866",
+      "name": "L1943:6866",
+      "lamningstyp": "Hög",
+      "provenance": "measured",
+      "position": {
+        "x": -322.3,
+        "z": 637.4
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/a01f969f-0222-46cd-8002-77eecc0bef5b",
+      "description": "1) Hög, 7 m diam och 0,7 m h. I ytan enstaka synliga stenar, 0,2-0,3 m st. Högen har flera gropar, 0,5-2,5 m i diam och 0,2-0,3 mdj. Beväxt med 2 enbuskar. 15 m N 30cg Ö om nr 1 är: 2) Stensättning, rund, 7 m diam och 0,4 m h. Övertorvad med i ytan enstaka stenar, 0,2-0,3 m st. En sten i Ö är 0,7 m st och 0,4 m h. I mitten grop, 1,5 m diam och 0,5 m dj. Beväxt med enbuskar. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
     },
     {
       "id": "L1943:6881",
@@ -813,6 +1358,54 @@
       },
       "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/da6ba98d-08ff-42cc-8b50-6a3b6dc50bcc",
       "description": "Gravfält, 55x40 m (N-S), bestående av 1 hög, 4 runda stensättningar och 3 rektangulära stensättningar. Högen är 10 m i diam och 0,8 m h. I ytan enstaka synliga stenar, 0,2-0,3 m st. Kantkedja, 0,2-0,3 m h, av 0,2-0,6 m l stenar. I mitten en grop, 3 m diam och0,4 m dj. De runda stensättningarna är 4-7 m diam och 0,2-0,5 mh. Övertorvade med i ytan enstaka synliga stenar, 0,2-0,4 m st. Några har i mitten grop, 0,5-1,5 m diam och 0,2-0,3 m dj. De rektangulära stensättningarna, en är 7x6 m (N 15cg Ö-S 15cg V) och 0,3m h. Övertorvad med i ytan enstaka synliga stenar, 0,2-0,3 m st.Kantkedja, 0,2-0,3 m h, av 0,2-0,4 m l stenar. I hörnen resta krumstenar, 0,5-0,7 m st. I mitten är 2 stenar, 1x0,4-0,5 m st och0,3-0,5 m h. (Har troligen varit resta). De andra rektangulära stensättningarna är 5-6x3-4 m (N-S) och 0,2-0,3 m h. Övertorvade med i ytan enstaka synliga stenar, 0,2-0,3 m st. Kantkedja, 0,2 m h, av 0,2-0,5 m l stenar. Beväxt med några björkar samt en- och nyponbuskar. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1943:6886",
+      "name": "L1943:6886",
+      "lamningstyp": "Skärvstenshög",
+      "provenance": "measured",
+      "position": {
+        "x": 1659.8,
+        "z": 37.9
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/1f032037-dbbd-4e84-a44c-ddea689ae706",
+      "description": "1) Skärvstenshög, rund, 5 m diam och 0,3 m h. övertorvad emd i ytan 0,2-0,4 m st. stenar. Delvis kantskoning 0,2 m h av 0,2-0,6 ml stenar. 3 m Ö 20cg N om 1 är: 2) Stensättning, närmast rund, ca 3 m diam och 0,2 m h övertorvad med i ytan talrika 0,2-0,4 m ststenar. Kantkedja 0,3 m h av 0,4-0,8 m l stenar. 41 m Ö 15cg N om 2 är: 3) Skärvstenshög, rund, 4 m diam och 0,6 m h. övertorvad.I S kanten två block 0,9 resp, 1,1 m st. Beväxt med hassel och slånbärsbuskar. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1943:6887",
+      "name": "L1943:6887",
+      "lamningstyp": "Stensättning",
+      "provenance": "measured",
+      "position": {
+        "x": 1672.0,
+        "z": 35.4
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/5dfe4e63-e9ab-4bcf-9741-a77a1e0f8a10",
+      "description": "1) Skärvstenshög, rund, 5 m diam och 0,3 m h. övertorvad emd i ytan 0,2-0,4 m st. stenar. Delvis kantskoning 0,2 m h av 0,2-0,6 ml stenar. 3 m Ö 20cg N om 1 är: 2) Stensättning, närmast rund, ca 3 m diam och 0,2 m h övertorvad med i ytan talrika 0,2-0,4 m ststenar. Kantkedja 0,3 m h av 0,4-0,8 m l stenar. 41 m Ö 15cg N om 2 är: 3) Skärvstenshög, rund, 4 m diam och 0,6 m h. övertorvad.I S kanten två block 0,9 resp, 1,1 m st. Beväxt med hassel och slånbärsbuskar. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1943:6888",
+      "name": "L1943:6888",
+      "lamningstyp": "Skärvstenshög",
+      "provenance": "measured",
+      "position": {
+        "x": 1665.3,
+        "z": 98.1
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/91b46df8-7cff-4b9f-a0ad-7b2d278d6e14",
+      "description": "Skärvstenshög, rund, 9 m diam och 0,5 m h. övertorvad med i ytanenstak 0,2-0,3 m st stenar. I mitten en grop 2,5 m diam och 0,4m dj. Påförd odlingssten 0,4-0,8 m st. Belamrad med skrot. Vid provstick framkommer 0,05 m st skörbrända stenar. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1943:6889",
+      "name": "L1943:6889",
+      "lamningstyp": "Hög",
+      "provenance": "measured",
+      "position": {
+        "x": 1502.1,
+        "z": -12.0
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/da0d5941-0ea5-4c69-b773-5a2d6cc84e56",
+      "description": "Hög, 7 m diam och 0,7 m h. I ytan enstaka synliga stenar 0,2-0,3m st. I N är en jordfast sten 0,7 m st. Anläggningen ger ett   ?intryck av skärvstenshög men vid flera mindre provstick framkommer ingen skörbränd sten vilken dock kan ligga något djupare i anläggningen. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
     },
     {
       "id": "L1943:6937",
@@ -1252,6 +1845,18 @@
       "description": "Gravfält, 240x90 m (N-S), bestående av ca 100 fornlämningar. Dessa utgöres av 1 hög, 65 runda stensättningar och 34 resta stenar.Högen är 9 m i diam och 0,9 m h. I ytan enstaka synliga stenar,0,2-0,4 m st. I mitten grop, 2 m diam och 0,5 m dj. En rund stensättning är 10 m i diam och 0,6 m h. Övertorvad. Kantkedja, 0,2-0,4 m h, av 0,4-0,8 m l stenar. De övriga runda stensättningarna är4-8 m i diam och 0,2-0,4 m h. Övertorvade med i ytan enstaka talrika synliga stenar, 0,2-0,3 m st. Flera har mittgrop, 0,5-2,0 mdiam och 0,2-0,4 m dj. De resta stenarna är 0,3-2,0 m h, 0,5-1,3m br och 0,2-0,8 m tj. Några är resta i anslutning till stensättningarna. Några är omkullfallna. Resta i grupper. Gravfältet är skadat genom grustäkt. Beväxt med gran, enbuskar och lövskog. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
     },
     {
+      "id": "L1943:6961",
+      "name": "L1943:6961",
+      "lamningstyp": "Stensättning",
+      "provenance": "measured",
+      "position": {
+        "x": 858.4,
+        "z": 1034.5
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/fb9155f5-7398-4606-a231-68ca822ecca7",
+      "description": "Stensättning, rund, 6 m diam och 0,3 m h. Övertorvad med i ytantalrika 0,2-0,4 m st stenar. I mitten en sten, 2,5x1,5 m st och 0,9 m h. Delvis synlig kantkedja, 0,2-0,3 m h, av 0,2-0,6 m l stenar. Beväxt med rönnar och envbuskar. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
       "id": "L1943:6962",
       "name": "L1943:6962",
       "lamningstyp": "Gravfält",
@@ -1385,6 +1990,30 @@
       },
       "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/ba316564-d9dd-47cd-9075-e4f10bb9ec28",
       "description": "Gravfält, 160x75 m (Ö-V), bestående av 110 fornlämningar. Dessa utgörs av 6 högar och 104 runda stensättningar. Högarna är 7-11 m diam och 0,6-1,2 m h. I ytan enstaka synliga stenar, 0,2-0,3 m st. Flertalet har i mitten grop, 1,5-2,5 m diam och 0,4-0,8 m dj. De runda stensättningarna är 3-10 m diam och 0,2-0,5 m h. Övertorvade med i ytan enstaka synliga stenar, 0,2-0,4 m st. Några har mittsten, 0,6-0,8 m st. Några har delvis synlig kantkedja, 0,1-0,3 m h, av 0,6-0,8 m l stenar. I gravfältets NNÖ kant finns en tjärdal. "
+    },
+    {
+      "id": "L1943:7016",
+      "name": "L1943:7016",
+      "lamningstyp": "Stensättning",
+      "provenance": "measured",
+      "position": {
+        "x": 1177.8,
+        "z": 1131.6
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/fd743826-3dc3-47ad-99cc-cd575f13a500",
+      "description": "Stensättning?, närmast rund, 6 m diam och 0,5 m h. Övertorvad med i ytan talrika synliga 0,2-1,3 m st stenar, vanligen 0,2-0,5. Imitten med dragning åt SV är en grop, 1,5 m diam och 0,4 m dj. Beväxt med en gran. Risbelamrad. Sannolikt gammalt odlingsröse. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1943:7017",
+      "name": "L1943:7017",
+      "lamningstyp": "Stensättning",
+      "provenance": "measured",
+      "position": {
+        "x": 181.4,
+        "z": 1739.8
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/d76fffa8-78a2-4f73-bd4a-c29ff507b3a9",
+      "description": "Stensättning, rund, 10 m diam och 0,3 m h. Övertorvad med i ytanenstaka synliga stenar, 0,2-0,3 m st. I mitten en jordfast sten,1,5x1,3 m st och 0,7 m h. Kantkedja, 0,2 m h, av 0,2-0,4 m l stenar. Beväxt med björk och enar. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
     },
     {
       "id": "L1943:7035",
@@ -1697,6 +2326,66 @@
       "description": "Gravfält 60x30 m (N-S) bestående av 5 fornlämningar. Dessa utgöres av 6 runda stensättningar. Dessa är 3,5-9 m diam och 0,2-0,6 mh. Samtliga har fyllning av 0,3-0,8 m st stenar. Fem har delvissekundär övertorvning. Tre har en 1,0-1,4 m st sten i kanten. Enhar delvis kantkedja 0,1-0,2 m h av 0,6-0,7 m l stenar. En har engrop i mitten 2 m diam och 0,3 m dj. I områdets V kant finns enstensträng 8 m l (Ö-V) 0,2 m h av 0,4-0,8 m st stenar. Gravfältetär beväxt med ett fåtal lövträd. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
     },
     {
+      "id": "L1943:7090",
+      "name": "L1943:7090",
+      "lamningstyp": "Röse",
+      "provenance": "measured",
+      "position": {
+        "x": 1528.2,
+        "z": 908.9
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/9b56a46d-2449-4db6-9a56-8e2e81a5cb63",
+      "description": "Röse, 16 m diam och 1,7 m h. Fyllning av 0,2-0,7 m st stenar, vanligen 0,2-0,4 m. Delvis synlig kantkedja, 0,2-0,3 m h, av 0,2-0,6 m l stenar. I mitten 2 gropar, 2 resp 3 m diam och 0,5 m dj. Omplockat. Risbelamrat. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1943:7091",
+      "name": "L1943:7091",
+      "lamningstyp": "Stensättning",
+      "provenance": "measured",
+      "position": {
+        "x": 683.1,
+        "z": 1129.3
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/befa6331-9875-497b-a6f2-47de7f9b2ab9",
+      "description": "1) Stensättning, kvadratisk, 5x5 m Ö 10cg S-V 10cg N och 0,2 m h. Övertorvad med i ytan enstaka synliga stenar, 0,2-0,3 m st. Kantkedja, 0,2-0,3 m h, av 0,2-0,5 m l stenar. Skadad i SV genom odling och påförd odlingssten, 0,4-0,7 m st. 21 m V 15cg N om nr 1 är: 2) Stensättning, kvadratisk, 12x12 m (Ö 10cg S-V 10cg N) och 0,5 m h. Övertorvad med iytan enstaka synliga stenar, 0,2-0,3 nm st. Kantkedja, 0,2-0,3 m h, av 0,2-0,6 m l stenar. Hörnstenar i NVoch NÖ, 0,4-0,6 m h, 0,3 m br och 0,2-0,3 m tj. I N kanten är 2gropar, 2,5 m diam och 0,5 m dj, resp 3x2 m (N-S) och 0,8 m dj. Gamla potatiskällare? Beväxt med tre rönnar samt en- och hagtornsbuskar. 16 m V 15cg S om nr 2 är: 3) Stensättning, kvadratisk, 4x4m N 10cg Ö-S 10cg V) och 0,2 m h,. Övertorvad med i ytan enstaka0,2-0,3 m st stenar. Kantkedja, 0,2-0,3 m h, av 0,2-0,4 m l stenar. I mitten med dragning åt N är en grop, 0,7 m diam och 0,2 m dj. Möjligen finns omedelbart S om nr 2 ytterligare en kvadratiskstensättning. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1943:7092",
+      "name": "L1943:7092",
+      "lamningstyp": "Stensättning",
+      "provenance": "measured",
+      "position": {
+        "x": 738.9,
+        "z": 1136.1
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/595c3ce5-70c5-40e6-a3bf-c40c3c1827da",
+      "description": "1) Stensättning, kvadratisk, 5x5 m Ö 10cg S-V 10cg N och 0,2 m h. Övertorvad med i ytan enstaka synliga stenar, 0,2-0,3 m st. Kantkedja, 0,2-0,3 m h, av 0,2-0,5 m l stenar. Skadad i SV genom odling och påförd odlingssten, 0,4-0,7 m st. 21 m V 15cg N om nr 1 är: 2) Stensättning, kvadratisk, 12x12 m (Ö 10cg S-V 10cg N) och 0,5 m h. Övertorvad med iytan enstaka synliga stenar, 0,2-0,3 nm st. Kantkedja, 0,2-0,3 m h, av 0,2-0,6 m l stenar. Hörnstenar i NVoch NÖ, 0,4-0,6 m h, 0,3 m br och 0,2-0,3 m tj. I N kanten är 2gropar, 2,5 m diam och 0,5 m dj, resp 3x2 m (N-S) och 0,8 m dj. Gamla potatiskällare? Beväxt med tre rönnar samt en- och hagtornsbuskar. 16 m V 15cg S om nr 2 är: 3) Stensättning, kvadratisk, 4x4m N 10cg Ö-S 10cg V) och 0,2 m h,. Övertorvad med i ytan enstaka0,2-0,3 m st stenar. Kantkedja, 0,2-0,3 m h, av 0,2-0,4 m l stenar. I mitten med dragning åt N är en grop, 0,7 m diam och 0,2 m dj. Möjligen finns omedelbart S om nr 2 ytterligare en kvadratiskstensättning. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1943:7093",
+      "name": "L1943:7093",
+      "lamningstyp": "Stensättning",
+      "provenance": "measured",
+      "position": {
+        "x": 705.7,
+        "z": 1135.4
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/30bd5129-474d-4cf7-9bc5-317c7fde6bab",
+      "description": "1) Stensättning, kvadratisk, 5x5 m Ö 10cg S-V 10cg N och 0,2 m h. Övertorvad med i ytan enstaka synliga stenar, 0,2-0,3 m st. Kantkedja, 0,2-0,3 m h, av 0,2-0,5 m l stenar. Skadad i SV genom odling och påförd odlingssten, 0,4-0,7 m st. 21 m V 15cg N om nr 1 är: 2) Stensättning, kvadratisk, 12x12 m (Ö 10cg S-V 10cg N) och 0,5 m h. Övertorvad med iytan enstaka synliga stenar, 0,2-0,3 nm st. Kantkedja, 0,2-0,3 m h, av 0,2-0,6 m l stenar. Hörnstenar i NVoch NÖ, 0,4-0,6 m h, 0,3 m br och 0,2-0,3 m tj. I N kanten är 2gropar, 2,5 m diam och 0,5 m dj, resp 3x2 m (N-S) och 0,8 m dj. Gamla potatiskällare? Beväxt med tre rönnar samt en- och hagtornsbuskar. 16 m V 15cg S om nr 2 är: 3) Stensättning, kvadratisk, 4x4m N 10cg Ö-S 10cg V) och 0,2 m h,. Övertorvad med i ytan enstaka0,2-0,3 m st stenar. Kantkedja, 0,2-0,3 m h, av 0,2-0,4 m l stenar. I mitten med dragning åt N är en grop, 0,7 m diam och 0,2 m dj. Möjligen finns omedelbart S om nr 2 ytterligare en kvadratiskstensättning. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1943:7094",
+      "name": "L1943:7094",
+      "lamningstyp": "Stensättning",
+      "provenance": "measured",
+      "position": {
+        "x": 1632.3,
+        "z": -441.3
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/53e363fc-aa22-497b-a23e-4d9f9e0c4a41",
+      "description": "1) Stensättning, rund, 8 m diam och 0,4 m h. Fyllning av0,2-0,9m st stenar, vanligen 0,2-0,4 kantkedja, 0,2-0,4 m h, av 0,3-0,8m l stenar. Flera stenar i S är bortburna. Beväxt med enbuskar och i kanten en gran. 4 m N 40cg V om nr 1 är: 2) Stensättning, rund, 10 m diam och 0,4 m h. övertorvad med i ytan talrika stenar, 0,2-0,6 m st, vanligen 0,2-0,4. Delvis synlig kantkedja 0,2-0,3 mh, av 0,2-0,5 m l stenar. I S är flera stenar bortplockade och utkastade. Beväxt med enbuskar och björkar. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
       "id": "L1943:7106",
       "name": "L1943:7106",
       "lamningstyp": "Gravfält",
@@ -1824,6 +2513,126 @@
       "description": "Gravfält, 100x55 m (N-S), bestående av 14 fornlämningar. Dessa utgörs av 14 runda stensättningar. Stensättningarna är 3-6 m i diam (3 är 8-9 m) och 0,2-0,5 m h, vanligen 0,2-0,3 m h. Övertorvade med i ytan enstaka synliga stenar, 0,2-0,4 m st. Några har delvis synlig kantkedja, 0,2-0,3 m h av 0,2-0,6 m l stenar. Fyra har i mitten grop, 2-4 m diam och 0,2-0,7 m dj."
     },
     {
+      "id": "L1943:7174",
+      "name": "L1943:7174",
+      "lamningstyp": "Stensättning",
+      "provenance": "measured",
+      "position": {
+        "x": 835.6,
+        "z": 1646.2
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/8724d7a7-a89b-4663-95ee-690814cbcf47",
+      "description": "1) Stensättning, rund, 8 m diam och 0,4 m h. Övertorvad med i ytan talrika stenar, 0,2-0,4 m st. I mitten en sten, 2,5x1,5 m st och 1,0 m h. I SÖ delvis synlig kantkedja, 0,2-0,3 m h, av 0,2-0,5m l. Beväxt med granar. 25 m N 35cg Ö om nr 1 är: 2) Stensättning, rund, 8 m diam och 0,6 m h. Övertorvad med i ytan enstaka synliga stenar, 0,2-0,3 m st. Beväxt med granar, tallar och enar. 10m N 45cg Ö om nr 2 är: 3) Stensättning, rund,  6 m diam och 0,4 mh. Övertorvad med i ytan synliga stenar, 0,2-0,4 m st. I mittengrop, 2,5 m diam och 0,5 m dj. Beväxt med tall, granar och enbuskar. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1943:7175",
+      "name": "L1943:7175",
+      "lamningstyp": "Stensättning",
+      "provenance": "measured",
+      "position": {
+        "x": 869.8,
+        "z": 1610.4
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/c4e67891-bf7a-4fdb-9c12-be6af03f3800",
+      "description": "1) Stensättning, rund, 8 m diam och 0,4 m h. Övertorvad med i ytan talrika stenar, 0,2-0,4 m st. I mitten en sten, 2,5x1,5 m st och 1,0 m h. I SÖ delvis synlig kantkedja, 0,2-0,3 m h, av 0,2-0,5m l. Beväxt med granar. 25 m N 35cg Ö om nr 1 är: 2) Stensättning, rund, 8 m diam och 0,6 m h. Övertorvad med i ytan enstaka synliga stenar, 0,2-0,3 m st. Beväxt med granar, tallar och enar. 10m N 45cg Ö om nr 2 är: 3) Stensättning, rund,  6 m diam och 0,4 mh. Övertorvad med i ytan synliga stenar, 0,2-0,4 m st. I mittengrop, 2,5 m diam och 0,5 m dj. Beväxt med tall, granar och enbuskar. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1943:7176",
+      "name": "L1943:7176",
+      "lamningstyp": "Stensättning",
+      "provenance": "measured",
+      "position": {
+        "x": 853.0,
+        "z": 1619.4
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/c1a175c0-5337-47a5-a7ba-ac07b520acc1",
+      "description": "1) Stensättning, rund, 8 m diam och 0,4 m h. Övertorvad med i ytan talrika stenar, 0,2-0,4 m st. I mitten en sten, 2,5x1,5 m st och 1,0 m h. I SÖ delvis synlig kantkedja, 0,2-0,3 m h, av 0,2-0,5m l. Beväxt med granar. 25 m N 35cg Ö om nr 1 är: 2) Stensättning, rund, 8 m diam och 0,6 m h. Övertorvad med i ytan enstaka synliga stenar, 0,2-0,3 m st. Beväxt med granar, tallar och enar. 10m N 45cg Ö om nr 2 är: 3) Stensättning, rund,  6 m diam och 0,4 mh. Övertorvad med i ytan synliga stenar, 0,2-0,4 m st. I mittengrop, 2,5 m diam och 0,5 m dj. Beväxt med tall, granar och enbuskar. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1943:7178",
+      "name": "L1943:7178",
+      "lamningstyp": "Stensättning",
+      "provenance": "measured",
+      "position": {
+        "x": 1645.6,
+        "z": -434.3
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/39bc00c9-5824-4704-af60-8517cafe7f1b",
+      "description": "1) Stensättning, rund, 8 m diam och 0,4 m h. Fyllning av0,2-0,9m st stenar, vanligen 0,2-0,4 kantkedja, 0,2-0,4 m h, av 0,3-0,8m l stenar. Flera stenar i S är bortburna. Beväxt med enbuskar och i kanten en gran. 4 m N 40cg V om nr 1 är: 2) Stensättning, rund, 10 m diam och 0,4 m h. övertorvad med i ytan talrika stenar, 0,2-0,6 m st, vanligen 0,2-0,4. Delvis synlig kantkedja 0,2-0,3 mh, av 0,2-0,5 m l stenar. I S är flera stenar bortplockade och utkastade. Beväxt med enbuskar och björkar. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1943:7179",
+      "name": "L1943:7179",
+      "lamningstyp": "Röse",
+      "provenance": "measured",
+      "position": {
+        "x": 1884.6,
+        "z": -524.4
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/2451070e-1ecf-4f82-8af3-e9d07c534623",
+      "description": "1) Röse: närmast runt, 7-9 m diam (NÖ-SV) intill 1 m h, av 0,4-0,7 m st stenar. Ställvis synlig kantkedja? 0,3-0,6 m h av 0,4-0,9 m l stenar. Något ojämn i ytan. Utvisat i synnerhet i SV, Beväxt med några rönnar. 2 m Ö 30cg N om nr 1 är: 2) Stensättning, närmast rund, 5 m diam intill 0,2 m h. övertorvad. Delvis kantkedja,0,1-0,5 m h (vanligen 0,1-0,2 m h) av 0,5-0,8 m l stenar. I NÖ delen en delvis synlig berghäll, 3x1 m st i markytan. 18 m SV om nr 1 är: 3) Röse: 7 m diam, intill 0,6 m h av 0,4-0,6 m st stenar,samt tra 1-1,5 m st block. I SV ställvis synlig kantkedja 0,1-0,3  m h av 0,4-0,6 m l stenar. Mycket ojämn i ytan. 2,5 m V 40cg Nom nr 3 är: 4) Stensättning, röseliknande: 6 m diam, 0,5 m h. övertorvad fyllning av 0,4-0,6 m st stenar. Ställvis kantkedja, 0,1-0,25 m h av 0,3-0,5 m l stenar. Beväxt med lövsly. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1943:7180",
+      "name": "L1943:7180",
+      "lamningstyp": "Stensättning",
+      "provenance": "measured",
+      "position": {
+        "x": 1895.9,
+        "z": -530.1
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/12583194-2313-44cf-bf86-fae2fddff667",
+      "description": "1) Röse: närmast runt, 7-9 m diam (NÖ-SV) intill 1 m h, av 0,4-0,7 m st stenar. Ställvis synlig kantkedja? 0,3-0,6 m h av 0,4-0,9 m l stenar. Något ojämn i ytan. Utvisat i synnerhet i SV, Beväxt med några rönnar. 2 m Ö 30cg N om nr 1 är: 2) Stensättning, närmast rund, 5 m diam intill 0,2 m h. övertorvad. Delvis kantkedja,0,1-0,5 m h (vanligen 0,1-0,2 m h) av 0,5-0,8 m l stenar. I NÖ delen en delvis synlig berghäll, 3x1 m st i markytan. 18 m SV om nr 1 är: 3) Röse: 7 m diam, intill 0,6 m h av 0,4-0,6 m st stenar,samt tra 1-1,5 m st block. I SV ställvis synlig kantkedja 0,1-0,3  m h av 0,4-0,6 m l stenar. Mycket ojämn i ytan. 2,5 m V 40cg Nom nr 3 är: 4) Stensättning, röseliknande: 6 m diam, 0,5 m h. övertorvad fyllning av 0,4-0,6 m st stenar. Ställvis kantkedja, 0,1-0,25 m h av 0,3-0,5 m l stenar. Beväxt med lövsly. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1943:7181",
+      "name": "L1943:7181",
+      "lamningstyp": "Stensättning",
+      "provenance": "measured",
+      "position": {
+        "x": 1861.7,
+        "z": -513.9
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/2a2aa26e-249b-499c-9325-3d1a2adf6b16",
+      "description": "1) Röse: närmast runt, 7-9 m diam (NÖ-SV) intill 1 m h, av 0,4-0,7 m st stenar. Ställvis synlig kantkedja? 0,3-0,6 m h av 0,4-0,9 m l stenar. Något ojämn i ytan. Utvisat i synnerhet i SV, Beväxt med några rönnar. 2 m Ö 30cg N om nr 1 är: 2) Stensättning, närmast rund, 5 m diam intill 0,2 m h. övertorvad. Delvis kantkedja,0,1-0,5 m h (vanligen 0,1-0,2 m h) av 0,5-0,8 m l stenar. I NÖ delen en delvis synlig berghäll, 3x1 m st i markytan. 18 m SV om nr 1 är: 3) Röse: 7 m diam, intill 0,6 m h av 0,4-0,6 m st stenar,samt tra 1-1,5 m st block. I SV ställvis synlig kantkedja 0,1-0,3  m h av 0,4-0,6 m l stenar. Mycket ojämn i ytan. 2,5 m V 40cg Nom nr 3 är: 4) Stensättning, röseliknande: 6 m diam, 0,5 m h. övertorvad fyllning av 0,4-0,6 m st stenar. Ställvis kantkedja, 0,1-0,25 m h av 0,3-0,5 m l stenar. Beväxt med lövsly. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1943:7207",
+      "name": "L1943:7207",
+      "lamningstyp": "Stensättning",
+      "provenance": "measured",
+      "position": {
+        "x": 156.7,
+        "z": 1471.9
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/6ef4dd4b-36b3-4c01-8505-74ed550c8e08",
+      "description": "Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1943:7208",
+      "name": "L1943:7208",
+      "lamningstyp": "Stensättning",
+      "provenance": "measured",
+      "position": {
+        "x": 156.1,
+        "z": 1516.1
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/8fe8ebbd-3db6-43f7-847d-da4dae74e9d4",
+      "description": "Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1943:7228",
+      "name": "L1943:7228",
+      "lamningstyp": "Stensättning",
+      "provenance": "measured",
+      "position": {
+        "x": 732.1,
+        "z": 1704.0
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/0c812de0-5002-4dbe-80dc-269801b827f9",
+      "description": "1) Stensättning, rund, 9 m diam och 0,3 m h. Övertorvad med i ytan talrika synliga stenar, 0,2-0,3 m st. I SÖ-S-V-N kantkedja, 0,2-0,5 m h, av 0,4-1,0 m h. N om stensättningen är odlingssten. Beväxt med en rönn. Fyllningen delvis utkastad mot den N om stensättningen befintliga odlingsstenen. 20 m N 15 cg Ö om nr 1 är: 2) Skärvstenshög, 6 m diam och 0,6 m h. I ytan enstaka synliga stenar, 0,2-0,4 m st. Vid provstick framkommer talrika 0,05-0,1 m st skörbrända stenar. 22 m ÖNÖ om nr 2 är: 3) Skärvstenshög, rund, 6 mdiam och 0,5 m h. Övertorvad med i ytan enstaka synliga stenar,0,2-0,3 m st. I mitten är en jordfast sten, 2x1,5 m och 1,3 m h.Delvis synlig kantkedja i SÖ, 0,2 m h, av 0,3-0,5 m st stenar. Vid provstick framkommer 0,05-0,1 m st skörbrända stenar. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
       "id": "L1943:7229",
       "name": "L1943:7229",
       "lamningstyp": "Gravfält",
@@ -1905,6 +2714,18 @@
       },
       "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/10e96916-f1ab-4ec0-a35c-4e9d3b0b098a",
       "description": "Gravfält, 65x35 m (ÖNÖ-VSV), bestående av ca 7 fornlämningar. Dessa utgöres av 1 hög, 4 runda stensättningar och 2 rektangulära stensättningar. Högen är 8 m diam och 0,9 m h. I ytan enstaka synliga stenar, 0,2-0,4 m st. I mitten med dragning åt S är en grop,1 m diam och 0,3 m dj. De runda stensättningarna är 4-6 m diam och 0,2-0,4 m h. Övertorvade med i ytan enstaka synliga stenar, 0,2-0,3 m st. Flertalet är skadade och delvis bortgrävda. De rektangulära stensättningarna är 4-6x3 m (Ö 10cg S-V 10cg N och NV-SÖ).Övertorvade med i ytan enstaka synliga stenar, 0,1-0,3 m st. Kantkedja, 0,2-0,3 m h, av 0,4-0,7 m l stenar. En har resta krumstenar i NV och SÖ, 0,4-0,6 m st och 0,4-0,6 m h. Beväxt med gran, ekoch rönn. Stubbar. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1943:7233",
+      "name": "L1943:7233",
+      "lamningstyp": "Röse",
+      "provenance": "measured",
+      "position": {
+        "x": 1868.8,
+        "z": -502.4
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/7c20dfae-0bf6-4fed-bcc6-7b6e64f2a32a",
+      "description": "1) Röse: närmast runt, 7-9 m diam (NÖ-SV) intill 1 m h, av 0,4-0,7 m st stenar. Ställvis synlig kantkedja? 0,3-0,6 m h av 0,4-0,9 m l stenar. Något ojämn i ytan. Utvisat i synnerhet i SV, Beväxt med några rönnar. 2 m Ö 30cg N om nr 1 är: 2) Stensättning, närmast rund, 5 m diam intill 0,2 m h. övertorvad. Delvis kantkedja,0,1-0,5 m h (vanligen 0,1-0,2 m h) av 0,5-0,8 m l stenar. I NÖ delen en delvis synlig berghäll, 3x1 m st i markytan. 18 m SV om nr 1 är: 3) Röse: 7 m diam, intill 0,6 m h av 0,4-0,6 m st stenar,samt tra 1-1,5 m st block. I SV ställvis synlig kantkedja 0,1-0,3  m h av 0,4-0,6 m l stenar. Mycket ojämn i ytan. 2,5 m V 40cg Nom nr 3 är: 4) Stensättning, röseliknande: 6 m diam, 0,5 m h. övertorvad fyllning av 0,4-0,6 m st stenar. Ställvis kantkedja, 0,1-0,25 m h av 0,3-0,5 m l stenar. Beväxt med lövsly. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
     },
     {
       "id": "L1943:7246",
@@ -2004,6 +2825,66 @@
       },
       "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/16d16f8f-51ae-4b57-8513-4c3dbfcd97dc",
       "description": "Gravfält, 60x40 m (N-S), bestående av 5 fornlämningar. Dessa utgöres av 2 runda stensättningar, 1 rektangulär stensättning och 2resta stenar? De runda stensättningarna är 6-9 m i diam och 0,3-0,4 m h. Övertorvade med i ytan enstaka synliga stenar, 0,2-0,4 mst. Den minsta har kantkedja, 0,2-0,3 m h, av 0,2-0,6 m l stenar.En har mittgrop, 2 m diam och 0,5 m dj. Den rektangulära stensättningen är 12x10 m (Ö-V) och 0,3 m h. Övertorvad med i ytan enstaka synliga stenar, 0,2-0,4 m st. Kantkedja, 0,2-0,3 m h, av 0,4-0,8 m l stenar. De resta stenarna 0,6 resp 0,8 m h utgör möjligenkonstruktionsdetaljer i den rektangulära stensättningen. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1943:7251",
+      "name": "L1943:7251",
+      "lamningstyp": "Stensättning",
+      "provenance": "measured",
+      "position": {
+        "x": -26.0,
+        "z": 1085.1
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/068195d5-95be-4f22-a7d2-608a411477d0",
+      "description": "1) Stensättning, rund, 8 m diam och 0,4 m h. Övertorvad med i ytan enstaka synliga stenar, 0,2-0,4 m st. Delvis synlig kantkedja,0,2-0,3 m h, av 0,4-0,6 m l stenar. Beväxt med enbuskar. 5 m Ö om nr 1 är: 2) Stensättning, rund, 6 m diam och 0,2 m h. Övertorvad med i ytan talrika synliga stenar, 0,4-0,6 m st. Ytan är ojämnoch gropig. Beväxt med aspar och enbuskar. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1943:7252",
+      "name": "L1943:7252",
+      "lamningstyp": "Stensättning",
+      "provenance": "measured",
+      "position": {
+        "x": -40.3,
+        "z": 1083.0
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/34b50e38-be71-4308-b825-ad2f76784856",
+      "description": "1) Stensättning, rund, 8 m diam och 0,4 m h. Övertorvad med i ytan enstaka synliga stenar, 0,2-0,4 m st. Delvis synlig kantkedja,0,2-0,3 m h, av 0,4-0,6 m l stenar. Beväxt med enbuskar. 5 m Ö om nr 1 är: 2) Stensättning, rund, 6 m diam och 0,2 m h. Övertorvad med i ytan talrika synliga stenar, 0,4-0,6 m st. Ytan är ojämnoch gropig. Beväxt med aspar och enbuskar. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1943:7264",
+      "name": "L1943:7264",
+      "lamningstyp": "Stensättning",
+      "provenance": "measured",
+      "position": {
+        "x": 1740.2,
+        "z": 937.9
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/4aabfc7c-e6a9-4647-b3e6-dc7a68ce644a",
+      "description": "Stensättning, rund, 4 - 5 m diam och 0.3 - 0.4 m h. Delvisövermossad fyllning av 0.3 -- 0.4 m st stenar. kantkedja, 0.3 mh, av 0.4 - 0.5 n l stenar.Beväxt med ett lövträd samt sly. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1943:7305",
+      "name": "L1943:7305",
+      "lamningstyp": "Skärvstenshög",
+      "provenance": "measured",
+      "position": {
+        "x": 768.1,
+        "z": 1662.7
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/1f948d93-2022-405d-8a20-b4661d9efac8",
+      "description": "1) Stensättning, rund, 9 m diam och 0,3 m h. Övertorvad med i ytan talrika synliga stenar, 0,2-0,3 m st. I SÖ-S-V-N kantkedja, 0,2-0,5 m h, av 0,4-1,0 m h. N om stensättningen är odlingssten. Beväxt med en rönn. Fyllningen delvis utkastad mot den N om stensättningen befintliga odlingsstenen. 20 m N 15 cg Ö om nr 1 är: 2) Skärvstenshög, 6 m diam och 0,6 m h. I ytan enstaka synliga stenar, 0,2-0,4 m st. Vid provstick framkommer talrika 0,05-0,1 m st skörbrända stenar. 22 m ÖNÖ om nr 2 är: 3) Skärvstenshög, rund, 6 mdiam och 0,5 m h. Övertorvad med i ytan enstaka synliga stenar,0,2-0,3 m st. I mitten är en jordfast sten, 2x1,5 m och 1,3 m h.Delvis synlig kantkedja i SÖ, 0,2 m h, av 0,3-0,5 m st stenar. Vid provstick framkommer 0,05-0,1 m st skörbrända stenar. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1943:7306",
+      "name": "L1943:7306",
+      "lamningstyp": "Skärvstenshög",
+      "provenance": "measured",
+      "position": {
+        "x": 739.2,
+        "z": 1674.2
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/475b5315-5cf6-4e34-b670-d1cab4b19626",
+      "description": "1) Stensättning, rund, 9 m diam och 0,3 m h. Övertorvad med i ytan talrika synliga stenar, 0,2-0,3 m st. I SÖ-S-V-N kantkedja, 0,2-0,5 m h, av 0,4-1,0 m h. N om stensättningen är odlingssten. Beväxt med en rönn. Fyllningen delvis utkastad mot den N om stensättningen befintliga odlingsstenen. 20 m N 15 cg Ö om nr 1 är: 2) Skärvstenshög, 6 m diam och 0,6 m h. I ytan enstaka synliga stenar, 0,2-0,4 m st. Vid provstick framkommer talrika 0,05-0,1 m st skörbrända stenar. 22 m ÖNÖ om nr 2 är: 3) Skärvstenshög, rund, 6 mdiam och 0,5 m h. Övertorvad med i ytan enstaka synliga stenar,0,2-0,3 m st. I mitten är en jordfast sten, 2x1,5 m och 1,3 m h.Delvis synlig kantkedja i SÖ, 0,2 m h, av 0,3-0,5 m st stenar. Vid provstick framkommer 0,05-0,1 m st skörbrända stenar. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
     },
     {
       "id": "L1943:7307",
@@ -2143,6 +3024,78 @@
       },
       "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/b25df6ba-fad8-4319-a105-cd3aac042362",
       "description": "Gravfält, 120x60 m (N-S), bestående av ca 50 fornlämningar. Dessa utgöres av 6 högar och 44 runda stensättningar. Högarna är 7-9m diam och 0,7-1,1 m h. I ytan enstaka synliga stenar, 0,2-0,3 mst. Flertalet har i mitten en grop, 1-1,5 m diam och 0,3-0,5 m h.En hög är bortgärvd 6 m l och intill ett djup av 2 m. De runda stensättningarna är 4-8 m diam och 0,2-0,5 m h. Övertorvade med iytan enstaka synliga stenar, 0,2-0,4 m st. Några har delvis synlig kantkedja, 0,2-0,3 m h, av 0,2-0,6 m l. Ett fåtal har i mittengrop, 0,5-2,0 m diam och 0,2-0,6 m dj. Några är kantskadade genomvägbygge och trädgårdsanläggning. Beväxt med tall, björk, lönn och nyponbuskar. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1943:7313",
+      "name": "L1943:7313",
+      "lamningstyp": "Skärvstenshög",
+      "provenance": "measured",
+      "position": {
+        "x": 1827.1,
+        "z": 32.6
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/9c73bc72-05ce-4122-9d88-62805d40a1cd",
+      "description": "Skärvstenshög, 9 m diam och 0,6 m h. övertorvad med i ytan talrika skärviga stenar, intill 0,1 m st och enstaka andra stenar, 0,5-0,7 m st. I mitten grop, 2 m diam och 0,3 m dj. I Ö är högen kantskadad vid vägbygge ca 4 m l och intill ett djup av 1 m. Beväxtmed 2 björkar, 1 tall, 1 rönn nypon och ektelningar. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1943:7314",
+      "name": "L1943:7314",
+      "lamningstyp": "Röse",
+      "provenance": "measured",
+      "position": {
+        "x": 1895.1,
+        "z": -384.2
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/319e6306-3981-43e1-ad33-806a7471987c",
+      "description": "1) Röse: 10 m diam, intill 0,8 m h, av 0,4-0,7 m st stenar. Delvis synlig kantkedja, 0,2-0,3 m h av 0,4-0,7 m l stenar. Ställvisojämn och omplockad i ytan. Beväxt med asp- och rönnsly. 4 m N 20cg V om nr 1 är: 2) Stensättning, röseliknande: 5 m diam, 0,4 m h. övertorvad fyllning av 0,4-0,6 m st stenar. Ställvis kantkedja0,2-0,4 m h av 0,4-0,9 m l stenar. Belamrad med ris. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1943:7334",
+      "name": "L1943:7334",
+      "lamningstyp": "Stensättning",
+      "provenance": "measured",
+      "position": {
+        "x": 1894.6,
+        "z": -399.8
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/bf4dd412-81ba-452f-a39d-0738379ff02e",
+      "description": "1) Röse: 10 m diam, intill 0,8 m h, av 0,4-0,7 m st stenar. Delvis synlig kantkedja, 0,2-0,3 m h av 0,4-0,7 m l stenar. Ställvisojämn och omplockad i ytan. Beväxt med asp- och rönnsly. 4 m N 20cg V om nr 1 är: 2) Stensättning, röseliknande: 5 m diam, 0,4 m h. övertorvad fyllning av 0,4-0,6 m st stenar. Ställvis kantkedja0,2-0,4 m h av 0,4-0,9 m l stenar. Belamrad med ris. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1943:7337",
+      "name": "L1943:7337",
+      "lamningstyp": "Skärvstenshög",
+      "provenance": "measured",
+      "position": {
+        "x": 1644.4,
+        "z": -39.8
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/9aa792e9-9342-4aa5-ab9d-7dde498e1c35",
+      "description": "Skärvstenshög, närmast rund, 6 m diam och 0,4 m h. Övertorvad med i ytan enstaka synliga stenar, 0,2-0,4 m st. Vid provstick framkommer rikligt med 0,05 m st skörbrända stenar. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1943:7380",
+      "name": "L1943:7380",
+      "lamningstyp": "Stensättning",
+      "provenance": "measured",
+      "position": {
+        "x": -264.5,
+        "z": 630.1
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/61b76246-4e9e-4df2-ae0d-33b2bedb82c0",
+      "description": "1) Stensättning, närmast oval, 10x5 m (Ö-V) och 0,4 m h. Över torvad med i ytan enstaka stenar, 0,2-0,3 m dj. I mitten grop, 4 mdiam och 0,4 m dj. Beväxt med 3 enar. Osäker fornlämning. 20 m V10cg S om nr 1 är: 2) Stensättning, rund, 5 m diam och 0,3 m h. Övertorvad med i ytan talrika synliga stenar, 0,2-0,4 m st. Kantkedja, 0,2-0,3 m h, av 0,4-0,8 m l stenar. Beväxt med sälg. Röjningssten har påförts i Ö-S del. 8 m ÖNÖ om nr 1 är: 3) Grop, 3x2 m (NNV-SSÖ) och 0,3 m dj. Vall kring kanten, 1-2 m br och 0,05-0,10m h. Nr 1 är sannolkt ursprungligen en stensättning som sekundärtutnyttjats för annat ändamål. I omgivningen finns ställvis markröjda ytor. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1943:7408",
+      "name": "L1943:7408",
+      "lamningstyp": "Skärvstenshög",
+      "provenance": "measured",
+      "position": {
+        "x": 1717.6,
+        "z": 14.9
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/0225463b-b0c4-416e-8195-5a12384f2d30",
+      "description": "1) Skärvstenshög, rund, 5 m diam och 0,3 m h. övertorvad emd i ytan 0,2-0,4 m st. stenar. Delvis kantskoning 0,2 m h av 0,2-0,6 ml stenar. 3 m Ö 20cg N om 1 är: 2) Stensättning, närmast rund, ca 3 m diam och 0,2 m h övertorvad med i ytan talrika 0,2-0,4 m ststenar. Kantkedja 0,3 m h av 0,4-0,8 m l stenar. 41 m Ö 15cg N om 2 är: 3) Skärvstenshög, rund, 4 m diam och 0,6 m h. övertorvad.I S kanten två block 0,9 resp, 1,1 m st. Beväxt med hassel och slånbärsbuskar. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
     },
     {
       "id": "L1943:7459",
@@ -2432,6 +3385,42 @@
       "description": "Gravfält, 160x180 m (N-S), bestående av ca 162 fornlämningar. Dessa utgörs av 1 röse, 8 högar, 1 skeppsformig stensättning, ca 151 runda stensättningar och 1 rest sten. Röset är 11 m diam och 0,9 m h. Fyllning av i allmänhet 0,2-0,4 m st stenar. Delvis synlig kantkedja, 0,2-0,4 m h av 0,4-0,8 m l stenar. Röset är gropigt då sten omplockats. Högarna är 7-9 m diam och 0,6-1,1 m h. I ytan syns enstaka synliga stenar, 0,2-0,3 m st. Några har i mitten grop, 1,5-2,0 m diam och 0,3-0,5 m dj. Den skeppsformiga stensättningen är 17x3 m (NNÖ-SSV) och 0,2-0,3 m h. Övertorvad med i ytan talrika synliga stenar, 0,2-0,4 m st. Kantkedja, 0,2-0,3 m h av 0,4-0,8 m l stenar. I S del är en sten, 0,6x0,3 m st och 0,5 m h. Skeppssättningen ligger i gravfältets SÖ hörn. De runda stensättningarna är 2-10 m diam (vanligen 4-10) och 0,2-0,5 m h. Övertorvade med i ytan talrika synliga stenar, 0,2-0,4 m st. Några har jordfast mittsten, 0,8-3,5 m st. Flertalet har kantkedja, 0,1-0,3 m h (vanligen 0,2-0,3 m) av 0,2-0,6 m l stenar. Ett fåtal har i mitten grop, 0,5-2,0 m diam och 0,2-0,4 m dj. Den resta stenen är 0,4x0,35 m st och 0,6 m h. "
     },
     {
+      "id": "L1943:7485",
+      "name": "L1943:7485",
+      "lamningstyp": "Stensättning",
+      "provenance": "measured",
+      "position": {
+        "x": 1215.8,
+        "z": 1389.2
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/9e2adddd-dc88-4a37-a242-07f4fa25e81f",
+      "description": "Stensättning, rest av rund, ca 5 m diam och 0,3 m h. Fyllning av0,4-0,6 m st stenar. I V en större sten, 2x1,3 m st och 1 m h. Övermossad. Utkastad åt VNV. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1943:7530",
+      "name": "L1943:7530",
+      "lamningstyp": "Röse",
+      "provenance": "measured",
+      "position": {
+        "x": 1881.7,
+        "z": -643.2
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/4635e23d-b563-4bd8-bd33-94efd0446333",
+      "description": "Röse: 15 m diam, intill 1,8 m h, av 0,3-0,6 m st stenar. SÖ delen består av berg i dagen, kring vilket sten är lagt. Grop i mitten, 5x1,5 m st (NÖ-SV) intill 0,8 m dj. Delvis gropig i ytan. Beväxt med ett tjugotal enbuskar. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1943:7531",
+      "name": "L1943:7531",
+      "lamningstyp": "Skärvstenshög",
+      "provenance": "measured",
+      "position": {
+        "x": 1863.6,
+        "z": -198.4
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/2a4b065e-df82-44bc-a7a6-fbd759b142c8",
+      "description": "Skärvstenshög, rund 9 m diam och intill 0,6 m h. övertorvad medi ytan enstaka synliga 0,2-0,3 m st stenar. Beväxt med tre granar, en hassel- och en mobärsbuske. Vid provstick fram kommer 0,05-0,1 m st skörbrända stenar. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
       "id": "L1943:7532",
       "name": "L1943:7532",
       "lamningstyp": "Grav- och boplatsområde",
@@ -2711,6 +3700,18 @@
       "description": "Grav och boplatsområde, 165x30-8 m (NV-SÖ) bestående av 26 fornlämningar. Dessa utgöres av 18 runda stensättningar, 1 skeppsformig stensättning, 1 rest sten, 4 skärvstenshögar, 1 hyddbotten och1 skålad yta. De runda stensättningarna är 3-9 m diam och 0,2-0,5m h. Fyllning av 0,2-0,5 m st stenar. Flertalet har relativt kraftig sekundär övertorvning. Sex har kantkedja 0,1-0,6 m h av 0,2-0,9 m l stenar. En har mittblock 1,0 m st och 0,5 m h. Den skeppsformiga stensättningen är 9 m l (ÖNÖ-VSV) 2,5 m br och 0,25 m h.fyllning, delvis övertorvad av 0,3-0,8 m st stenar. Delvis bevarad kantkedja 0,2-0,3 m h av 0,4-0,6 m l stenar. I NÖ delen tre 0,5-0,9 m st block. Den resta stenen som står 1 m N om en stensättning är 1,2 m h 0,8 m br (N-S) och 0,5 m t. Nordsten? Skärvstenshögarna är runda eller närmast runda, 4-8 m diam och 0,2-0,6 m h. övertorvade med i ytan enstaka till talrika 0,4-0,9 m st stenar samt enstaka intill 1,5 m st block i ytan. Tre har 1,2, 3 resp 4 m st block i kanten. En har delvis kantskoning 0,2-0,3 m h av 0,3-0,6 m l stenar. Hyddbottnen i områdets N spets är närmast oval 10x13 m (NÖ-SV) bestående av en vall 3-5 m br och intill 0,5 m h. I NV delen innanför vallen ett 1 cm st något eldsprängt block. öppning mot SÖ, öppningen avgränsas mot N av ett 1 m st block. Vid provstick i vallen framkommer rikligt med 0,05 m st. skörbrända stenar. Den skålade och röjda ytan i områdets centrala S del är rund6 m diam, omgiven av 0,6-02,0 m st block. öppning mot SSÖ. Hyddbotten? Området är delvis tätt beväxt med hassel och annan lövsly vilket försvårar besiktningen. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
     },
     {
+      "id": "L1943:7551",
+      "name": "L1943:7551",
+      "lamningstyp": "Stensättning",
+      "provenance": "measured",
+      "position": {
+        "x": 1474.9,
+        "z": -160.9
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/389051dd-4a1b-44f5-b660-71f2a8825305",
+      "description": "Stensättning, rund, 7 m diam och 0,3 m h. övertorvad med i ytantalrika 0,2-0,4 m st stenar. kantkedja, 0,2 m h, av 0,2-0,7 m l stenar. Beväxt med 1 björk och nyponbuskar. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
       "id": "L1943:7552",
       "name": "L1943:7552",
       "lamningstyp": "Gravfält",
@@ -2876,6 +3877,42 @@
       },
       "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/c5c6780f-4f86-464f-a874-d53afe28631b",
       "description": "Gravfält, 210c70 m (VNV-ÖSÖ) bestående av 60 fornlämningar. Dessa utgöras 3 högar och 57 runda stensättningar. Högarna är 5-8 m diam och 0,5-1,0 m h. 2 har delvis synlig kantkedja, 0,2-0,3 m h,av 0,2-0,6 m l stenar. 3 har mittgrop, 0,5-1,5 m diam och 0,2-0,4m dj. En av stensättningarna är 11 m diam och 0,4 m h. Fyllningav 0,2-0,5 m st stenar. Odlingssten har påförts. De andra runda stensättningarna är 3-7 m diam och 0,2-0,4 m h. övertorvade med iytan enstaka-talrika synliga stenar, 0,2-0,3 m st. Några har delvis synlig kantkedja, 0,2-0,3 m h, av 0,2-0,6 m l. Flera har mittgrop 0,5-2,0 m diam och 0,2-0,4 m dj. Några av stensättningarna ärskadade i gravfältets mitt och tillstor del bortgrävda genom grustäkt. Beväxt med björk, enbuskar, asp, rönn och tall. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1943:7600",
+      "name": "L1943:7600",
+      "lamningstyp": "Stensättning",
+      "provenance": "measured",
+      "position": {
+        "x": 1340.6,
+        "z": 202.8
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/b56adc30-c190-4446-9586-0e2a45ba2041",
+      "description": "Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1943:7615",
+      "name": "L1943:7615",
+      "lamningstyp": "Stensättning",
+      "provenance": "measured",
+      "position": {
+        "x": 1271.2,
+        "z": 165.2
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/69f9d3de-8f05-46f4-8684-7349af02767e",
+      "description": "Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1943:7618",
+      "name": "L1943:7618",
+      "lamningstyp": "Stensättning",
+      "provenance": "measured",
+      "position": {
+        "x": 1019.2,
+        "z": 327.6
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/bb40ff5d-d485-435f-88f2-0c3762b003af",
+      "description": "Stensättning, närmast rund, 7 m diam och 0,3 m h. övertorvad medi ytan enstaka synliga stenar 0,2-0,3 m stenar. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
     },
     {
       "id": "L1943:7620",
@@ -3094,6 +4131,18 @@
       },
       "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/e8e9a1c5-c99f-46ff-b680-2059c7dfe8cc",
       "description": "Gravfält, 45x15 m (Ö-V) bestående av 6 fornlämningar. Dessa utgöres av 6 runda stensättningar. Stensättningarna är 4-6 m diam och0,2-0,3 m h. övertorvade med i ytan enstaka stenar 0,2-0,3 m st.En stensättning har i mitten en sten, 1,5x1,7 m st och 0,7 m h.Fleratalet har delvis synlig kantkedja, 0,2 m h, av 0,2-0,4 m l stenar. Två har mittgrop, 0,8-1,2 m diam och 0,2-0,3 m dj. En stensättning är bortgrävd 6 m l och intill ett djup av 3 m. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1943:7672",
+      "name": "L1943:7672",
+      "lamningstyp": "Hög",
+      "provenance": "measured",
+      "position": {
+        "x": 920.8,
+        "z": 152.7
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/656917bd-83cd-4b31-b3fe-38952ac6006f",
+      "description": "Hög, 7 m diam och 0,6  m h. I ytan enstaka synliga stenar 0,2-0,4 m st. I mitten en grop, 1,5 m diam och 0,2 m dj. Beväxt med enbuskar. Risbelamrad. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
     },
     {
       "id": "L1943:7673",
@@ -3616,6 +4665,42 @@
       "description": "Grav- och boplatsområde, närmast V-format, 135x40 m NV och 105x30 m (Ö-V), bestående av 22 fornlämningar. Dessa utgörs av 1 röse, 1 hög, 14 runda stensättningar, 2 kvadratiska stensättningar, 2 rektangulära stensättningar, 1 rest sten och 1 skärvstenshög. Röset är 18 m i diam och 1-1,2 m h. Fyllning av i allmänhet 0,2-0,4 m st stenar. Röset är gropigt då sten omplockats. I Ö är en grop, 10x5 m (NV-SÖ) st och 0,6 m dj. Högen är 12 m i diam och 0,8 m h. I mitten med dragning åt NV är 2 gropar, 2-3 m diam och 0,3-0,4 m dj. De runda stensättningarna är 4-8 m diam (vanligen 4-6) och 0,1-0,4 m h (vanligen 0,1-0,2). Övertorvade med i ytan enstaka - talrika synliga stenar, 0,2-0,4 m st. En har fyllning av 0,3-0,6 m st stenar. En i S del har mittsten, 1x0,5 m (Ö-V) st och 0,4 m h. Fyra stensättningar har helt eller delvis kantkedja, uppemot 0,4 m h, av 0,3-0,8 m l stenar. Fem har i mitten grop, 1,5-2,5 m diam och 0,05-0,1 m dj. De rektangulära stensättningarna är 6x5 m och 4x3 m (NÖ-SV till Ö-V) och 0,2-0,25 m h. Övertorvade med i ytan enstaka synliga stenar, 0,1-0,4 m st. Helt eller delvis kantkedja, 0,1-0,4 m h av 0,4-0,9 m l stenar. De kvadratiska stensättningarna är 7x7 resp 4x4 m st (NÖ-SV resp N-S) och 0,2 m h. Den största har fyllning av 0,2-0,4 m st stenar. Den andra är övertorvad med i ytan enstaka synliga stenar, 0,1-0,3 m st. Kantkedja, 0,1-0,4 m h av 0,4-0,6 m l stenar. Den större har även hörnstenar, 0,2-0,4 m h. Den resta stenen är 1 m diam och 1 m h. Stenen står i NV spetsen av en liggande triangulär häll, 1 m sida och 0,4 m h. Skärvstenshögen i områdets N kant, intill och S om ett flyttblock, är rund, 5 m diam och 0,4 m h. Anläggningen utgörs till övervägande delen av 0,02-0,05 m st skörbrända stenar uppblandade med sotig humus. I ytan finns enstaka 0,2-0,4 m st gråstenar. "
     },
     {
+      "id": "L1943:7754",
+      "name": "L1943:7754",
+      "lamningstyp": "Stensättning",
+      "provenance": "measured",
+      "position": {
+        "x": 596.5,
+        "z": 1969.6
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/835cbb79-e909-4419-8a54-8de70155a0bb",
+      "description": "Stensättning, rund, 13 m diam och 0,3-0,4 m h. Övermossad fyllning av 0,2-0,5 m st stenar. Flera stenar är 0,8-1,5 m st. I SV delvis synlig kantkedja, 0,2-0,3 m h, av 0,4-0,6 m l stenar."
+    },
+    {
+      "id": "L1943:7755",
+      "name": "L1943:7755",
+      "lamningstyp": "Stensättning",
+      "provenance": "measured",
+      "position": {
+        "x": 599.2,
+        "z": 1955.6
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/676477d4-22d3-4cf7-a6a3-27308af389bb",
+      "description": "Stensättning, rund, 7 m diam och 0,3 m h. Övermossad fyllning av 0,3-0,6 m st stenar. Kantkedja, 0,2-0,7 m h, av 0,6-1,2 m l stenar. "
+    },
+    {
+      "id": "L1943:7756",
+      "name": "L1943:7756",
+      "lamningstyp": "Stensättning",
+      "provenance": "measured",
+      "position": {
+        "x": 667.7,
+        "z": 1950.4
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/457de32e-6814-49db-8f00-3e430c28577e",
+      "description": "Stensättning, rund, 12 m diam och 0,8 m h. Fyllning av i allmänhet 0,2-0,4 m st stenar. Flera stenar är större än 0,6-0,8 m. Kantkedja 0,2-0,4 m h, av 0,6-0,8 m l stenar. I N är några stenar utplockade över kanten.  "
+    },
+    {
       "id": "L1943:7827",
       "name": "Broborg",
       "lamningstyp": "Fornborg",
@@ -3717,6 +4802,30 @@
       },
       "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/184ca0f6-16f9-4de8-bbec-99aa959f9824",
       "description": "Fornborg, 95x85 m (NÖ-SV), bestående av en inre och en yttre ringvall. I N och V begränsas borgen av branta sluttningar. Den inre vallen är ca 300 m l, 8-15 m br och 1-2 m h, av i allmänhet 0,3-1 m st stenar, enstaka större. Insidan av muren är förstärkt med jord. Ställvis 1 m h kallmurning. I VNV och ÖSÖ är vallen försedd med ingångar, 3-5 m br. Förslaggad och skörbränd sten finns på flera platser, men särskilt i S. Den yttre vallen är ca 140 m l, 7-10 m br och 0,5-1,5 m h, av i allmänhet 0,3-1 m st stenar, enstaka större. Ställvis 1,5 m h kallmurning. I ÖSÖ och NNÖ har vallen ingångar, 3-5 m br. Från SÖ leder en stig in i borgen. Den inre muren är huvudsakligen raserad utåt, medan den yttre är raserad både inåt och utåt. Borgens centrala del utgörs av röjda ytor omgivna av grovblockig morän samt berg i dagen. I anläggningens centrala krönparti finns en ev. stensättning, rund, 7 m i diam och 0,4 m h. Övertorvad med i ytan mycket talrika plockstenar samt enstaka 0,5-1,5 m st stenar. Smågropig i ytan."
+    },
+    {
+      "id": "L1943:7828",
+      "name": "Grimsahögen",
+      "lamningstyp": "Hög",
+      "provenance": "measured",
+      "position": {
+        "x": -383.4,
+        "z": 93.4
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/62ea97ad-aa21-4b93-9bc8-5c7eb42b6fd4",
+      "description": "Hög, 20 m diam och 2,3 m h. I ytan enstaka 0,2-0,3 m st stenar.I mitten en grop 6 m diam och 0,7 m dj. I Ö kanten en ca 15 m l schaktskada. Högen omges av gamla grustäkter genom vilka ytterligare fornlämningar kan ha borttagits. Högens närmaste omgivning börkontrolleras i samband med eventuell exploatering. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1943:7829",
+      "name": "L1943:7829",
+      "lamningstyp": "Stensättning",
+      "provenance": "measured",
+      "position": {
+        "x": -569.1,
+        "z": 358.2
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/5c514978-c85e-484e-8655-2223c1d08b2f",
+      "description": "Stensättning, med stenkista?, närmast rund, 5 m diam och 0,4 m h. Övertorvad med i ytan enstaka synliga stenar, 0,2-0,3 m st. Påstensättningen är 5 st hälliknande stenar, 0,4-0,6 m st, 3 av dessa är kantställda, varav en kullfallen, i rad (Ö-V). I mitten engrop 2 m diam och 0,6 m dj. I Ö är stensättningen skadad genom grustäkt. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
     },
     {
       "id": "L1943:7830",
@@ -3897,6 +5006,18 @@
       "description": "Gravfält, 55x50 m (NNÖ-SSV), bestående av 10 fornlämningar. Dessa utgöres av 1 hög och 9 runda stensättningar. Högen är 7 m diamoch 0,7 m h. I ytan talrika synliga stenar, 0,2-0,4 m st. De runda stensättningarna är 5-6 m diam (varav 2 är 9 m) och 0,2-0,5 m h. Övertorvade med i ytan talrika stenar, 0,2-0,5 m st. Några hardelvis synlig kantkedja, 0,2-0,4 m h, av 0,3-0,8 m l stenar. En har i mitten grop, 2 m i diam och 0,5 m dj. Två stensättningar harmöjligen rektangulär form. Beväxt med granskog. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
     },
     {
+      "id": "L1943:7902",
+      "name": "L1943:7902",
+      "lamningstyp": "Hög",
+      "provenance": "measured",
+      "position": {
+        "x": 77.1,
+        "z": 1027.4
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/4badbaf3-9b62-454c-b5cb-c3a4e8726658",
+      "description": "Hög? 18 m diam och 2,5 m h. I ytan enstaka synliga stenar, 0,2-0,4 m st. Avplanad topp. I VSV en grop, 3x1,5 m (VSV-ÖNÖ) och 0,4m dj. Beväxt med 1 gran, 1 björk, 1 ek samt en- och nyponbuskar. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
       "id": "L1943:7921",
       "name": "L1943:7921",
       "lamningstyp": "Gravfält",
@@ -4000,6 +5121,81 @@
       "description": "Gravfält, 130x20 m (N-S), bestående av 13 fornlämningar. Dessa utgöres av 1 hög, 5 runda stensättningar och 7 insjunkna gravar. Högen är 7 m diam och 0,6 m h. De runda stensättingarna av vilka flera är osäkra är 4-7 m diam och 0,1-0,25 m h. Övertorvade med iytan enstaka 0,2-0,3 m st st stenar. I områdets centrala del ligger 7 insjunkningar? av vilka några är osäkra. Dessa är 3-7 m l, 2-5 m br och 0,2-0,4 m dj. 5 är orienterade i Ö-V och 2 m i N-S. De bägge senare, belägna längst mot S, är oregelbundna till formen. Samtliga ligger omedelbart V om åskammen. Enligt 1952 års inv skall en vara undersökt! Åsen är skadad av mindre grustäkter vilket försvårar bedömningen. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
     },
     {
+      "id": "L1943:7993",
+      "name": "L1943:7993",
+      "lamningstyp": "Röse",
+      "provenance": "measured",
+      "position": {
+        "x": 654.48,
+        "z": -1095.27
+      },
+      "geometryLocal": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              654.0,
+              -1081.7
+            ],
+            [
+              663.2,
+              -1083.5
+            ],
+            [
+              666.7,
+              -1088.6
+            ],
+            [
+              669.2,
+              -1096.0
+            ],
+            [
+              668.7,
+              -1102.4
+            ],
+            [
+              665.4,
+              -1107.3
+            ],
+            [
+              655.4,
+              -1110.0
+            ],
+            [
+              649.8,
+              -1108.9
+            ],
+            [
+              646.6,
+              -1106.6
+            ],
+            [
+              641.3,
+              -1102.3
+            ],
+            [
+              639.2,
+              -1095.3
+            ],
+            [
+              642.0,
+              -1087.3
+            ],
+            [
+              647.2,
+              -1082.2
+            ],
+            [
+              654.0,
+              -1081.7
+            ]
+          ]
+        ]
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/d982a796-4bee-4452-9317-1d86df6254b6",
+      "description": "Röse, rund, 28 m diam och 0,8-1,4 m h. Fyllning av 0,3-0,6 m ststenar. I mitten grop, 13 m diam och 2,0-2,5 m dj. På botten 3 block 0,8-1,5 m st. I röset N-del är ett gränsröse, 1,5 m diam och0,4-0,6 m h. Kallmurat av 0,1-0,6 m st stenar, vanligen 0,2-0,4.Mittsten, 0,3 m h målad gul. Beväxt med 1 tall, 2 björkar, 1 rönn, stenar samt björkbuskar. Röset omges av ett blockrikt område men kan tydligt avgränsas härifrån p g a stenmaterialets regelbundenhet. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
       "id": "L1943:7996",
       "name": "L1943:7996",
       "lamningstyp": "Boplats",
@@ -4073,6 +5269,18 @@
       },
       "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/55420f70-0bba-4b4b-b3e9-46f3d5179dac",
       "description": "Boplats, ca 70x40 m (NV-SÖ) enl. Husby-Långhundras hembygdsförening. Vid schaktning för villabebyggelse upptäcktes sotfläckar med anhopningar av skörbrända stenar. Även keramik och lerklining påträffades inom Ö delen av tomten."
+    },
+    {
+      "id": "L1943:8003",
+      "name": "L1943:8003",
+      "lamningstyp": "Skärvstenshög",
+      "provenance": "measured",
+      "position": {
+        "x": 469.9,
+        "z": 1721.1
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/ca727afd-7b49-45d3-8b25-0175a6171366",
+      "description": "1) Hög, 9 m diam och 0,9 m h. I ytan enstaka synliga stenar, 0,2-0,3 m st. I mitten grop, 2 m diam och 0,1 m dj. I S del påfördo dlingssten. Beväxt med rönn, lönn och sälg. 33 m V 35cg N omnr 1 är:2) Skärvstenshög, rund, 6 m diam och 0,4 m h. Övertorvad med iytan enstaka synliga stenar, 0,2-0,3 m st. I S är stensättningen skadad genom odling. Skärvstenarna är 0,05 m st undertorven.3) Boplats, ca 80 x 70 m (NÖ-SV), med fynd av skörbränd sten ochmörkfärgad jord, liknar raä 300. Detta iaktogs vid besiktningenav Laä S Rydh 1985, i samband med planerad villabebyggelse. Ävenen oregistrerad stensättning finns inom området, delvis belamradmed odlingssten. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
     },
     {
       "id": "L1943:8004",
@@ -4160,6 +5368,30 @@
       },
       "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/e1dd09be-fa76-4cad-a616-0f21421b0f7c",
       "description": "Boplats, ca 90x70 m (N-S), med fynd av skörbränd sten och mörkfärgad jord.  "
+    },
+    {
+      "id": "L1943:8005",
+      "name": "L1943:8005",
+      "lamningstyp": "Hög",
+      "provenance": "measured",
+      "position": {
+        "x": 502.4,
+        "z": 1746.7
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/56fab933-3886-4ef6-b1cf-6a19ef2eec9c",
+      "description": "1) Hög, 9 m diam och 0,9 m h. I ytan enstaka synliga stenar, 0,2-0,3 m st. I mitten grop, 2 m diam och 0,1 m dj. I S del påfördo dlingssten. Beväxt med rönn, lönn och sälg. 33 m V 35cg N omnr 1 är:2) Skärvstenshög, rund, 6 m diam och 0,4 m h. Övertorvad med iytan enstaka synliga stenar, 0,2-0,3 m st. I S är stensättningen skadad genom odling. Skärvstenarna är 0,05 m st undertorven.3) Boplats, ca 80 x 70 m (NÖ-SV), med fynd av skörbränd sten ochmörkfärgad jord, liknar raä 300. Detta iaktogs vid besiktningenav Laä S Rydh 1985, i samband med planerad villabebyggelse. Ävenen oregistrerad stensättning finns inom området, delvis belamradmed odlingssten. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
+    },
+    {
+      "id": "L1943:8006",
+      "name": "L1943:8006",
+      "lamningstyp": "Grav markerad av sten/block",
+      "provenance": "measured",
+      "position": {
+        "x": 651.5,
+        "z": 1750.0
+      },
+      "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/ac51a321-9a55-4fc5-9085-fdf0a77bb7e6",
+      "description": "Rest sten, gråsten, 2,9 m h, 1,2 m br (Ö-V) och 0,9 m tj. Beskrivningen är inte kvalitetssäkrad. Information kan saknas, vara felaktig eller inaktuell. Se även Inventeringsbok."
     },
     {
       "id": "L2021:8789",
