@@ -1,6 +1,8 @@
 # Data formats — the pipeline ↔ app contract
 
-**Status: FROZEN v1 (2026-08-20), amended v1.1 (2026-08-20, additive — §6–§8).** This
+**Status: FROZEN v1 (2026-08-20), amended v1.1 (2026-08-20, additive — §6–§8),
+v1.2 (2026-08-21, additive — §9–§10), v1.3 (2026-08-21, additive — dynamic
+hydrology in §9–§10).** This
 file and the `manifest.json` schema below are the single source of truth for what the
 Python pipeline writes under `app/public/data/<siteId>/` and what the TypeScript app
 reads. Derived from PLAN.md §1, §4.1–§4.6 (incl. the [phase-0 verified] corrections).
@@ -427,8 +429,11 @@ Rules:
   (`raw < classes.length`; pipeline-tested).
 - Class indices are contiguous `0 … N−1`, `N ≤ 32`.
 - The raster is derived for `landcover_legend.json.referenceYearCE` only. The app MUST
-  NOT re-derive classes for other centuries; the honest interaction with the Phase-4
-  slider is render-side masking (below).
+  NOT re-derive classes for other centuries — **except** for legend classes marked
+  `dynamic` (§10, v1.3): those are exact functions of `(water_connect, current slider
+  level)` — the same data and §7 semantics the water rendering already uses — and the
+  app MUST derive them at the current level rather than read them from the raster.
+  Everything else interacts with the Phase-4 slider by render-side masking only (below).
 
 **Rendering contract (app side):**
 
@@ -439,12 +444,28 @@ Rules:
   terrain material — injected with the established overlay-shader chain, ordered
   **after viewshed, before water** (submerged ground must still read as submerged).
   Class lookup uses `NearestFilter` (indices must never interpolate).
+- Dynamic-class tint (v1.3, iff the legend declares `dynamic` classes and the site
+  ships `water_connect.tif`): inside the same wash, the app paints the
+  `dynamic: {"kind": "water"}` class's color wherever `connect ≤ levelM` at the
+  **current slider level**, and the `{"kind": "shore-band"}` class's color wherever
+  `levelM < connect ≤ levelM + bandM` — over whatever static class the raster holds
+  there. Still ordered before the §7 water tint, so submerged ground shades last
+  exactly as before. Sites or legends without `dynamic` classes render as pre-v1.3.
 - Vegetation: instanced procedural geometry (cones for `conifer`/`broadleaf`,
   cross-quad billboards for `reeds`), blue-noise/seeded-random sampled per class from
   the raster; deterministic for a given seed. Instances whose ground is wet at the
   **current slider level** (`connect ≤ levelM`, §7 semantics) are suppressed at
   runtime, so scrubbing the slider never shows trees standing in the sea. Appearance
   parameters (density scale, seed) are app-side UI state with defaults, not data.
+- Dynamic-band vegetation (v1.3): a `shore-band` class's vegetation is sampled from
+  the **connect grid**, not the raster — instances stand where
+  `levelM < connect ≤ levelM + bandM` at the current level, excluding cells whose
+  raster class is the `water` class or itself carries `reeds` vegetation (no double
+  planting on fens). Layout is deterministic for a given `(seed, level)`: an instance
+  that exists at two nearby levels has the identical transform at both. Tree-form
+  (`conifer`/`broadleaf`) instances are suppressed at `connect ≤ levelM + bandM`
+  (nothing woody stands inside the reed belt); reed-form instances at
+  `connect ≤ levelM` as before.
 - Vegetation keeps true metric size: positioned at `y = ground · exaggeration`, sized
   in the scale component (the palisade invariant).
 
@@ -468,13 +489,25 @@ Rules:
     {
       "index": 0,                             // == raw raster value
       "id": "water",                          // stable machine id, unique
-      "name": "Water (sea, ~500 CE)",         // legend row text
+      "name": "Open water",                   // legend row text
       "color": "#2d5a6b",                     // ground-tint + legend swatch, sRGB hex
       "rule": "<the rule that produced this class, verbatim>",  // methods panel
       "vegetation": null,                     // or { "type": "...", "densityPerHa": n }
+      "dynamic": { "kind": "water" },         // v1.3, optional — see rules below
       "areaFraction": 0.081                   // informational, of the full raster
+    },
+    // … one entry per class, ascending contiguous index; a v1.3 runtime-derived
+    // shore band looks like:
+    {
+      "index": 8,
+      "id": "shore_reeds",
+      "name": "Shore reed belt (follows the shoreline)",
+      "color": "#77875a",
+      "rule": "<verbatim, incl. that the app derives it at the current level>",
+      "vegetation": { "type": "reeds", "densityPerHa": 500 },
+      "dynamic": { "kind": "shore-band", "bandM": 0.6 },
+      "areaFraction": 0.0                     // no raster cells — runtime-only class
     }
-    // … one entry per class, ascending contiguous index …
   ]
 }
 ```
@@ -489,7 +522,50 @@ Rules:
   methods panel — the app never paraphrases a method it did not run. The rule engine's
   full rule list therefore lives in this file, not in app code.
 - `areaFraction` entries sum to 1 ± 0.001 (pipeline-tested); they feed the calibration
-  paragraph and the legend's percentage readouts.
+  paragraph and the legend's percentage readouts. The value is measured **on the
+  raster**: a purely-runtime `dynamic` class carries `0.0`, and the legend UI shows
+  "follows the slider" for it instead of a percentage.
+- `dynamic` (v1.3, optional): marks a class the app derives at the **current slider
+  level** from the §7 connect grid instead of reading it from the raster (§9). When
+  present it is an object with `kind ∈ "water" | "shore-band"`; `"shore-band"`
+  requires a finite `bandM > 0` (meters above the water line) and `"water"` must not
+  carry `bandM`. At most one class of each kind per legend. A class without `dynamic`
+  is fully static — pre-v1.3 legends therefore render unchanged.
 - The reference century is stated wherever the layer is described (legend, methods,
-  control note): the raster answers "what might the landscape have looked like around
-  <referenceYearCE>?", nothing else.
+  control note): the *raster* answers "what might the landscape have looked like around
+  <referenceYearCE>?"; v1.3 `dynamic` classes are the disclosed exception and answer
+  at the century shown.
+
+---
+
+# v1.3 amendment (2026-08-21) — dynamic hydrology (§9/§10)
+
+Additive per the versioning policy above; `schemaVersion` stays 1, no new assets.
+The change is a **narrow carve-out** from §9's "the app MUST NOT re-derive classes"
+rule, plus the optional per-class `dynamic` marker in §10 that scopes it.
+
+**Why.** The class raster is derived for one reference century, but two of its
+classes were pure functions of the water level: "sea at the reference level" and the
+shore reed band just above it. Freezing those into the raster made the Phase-4
+slider dishonest in exactly the two ways users can see: scrubbing to a later century
+left the reference sea's dark ground tint on land the slider had drained, and the
+reed belt stayed stranded at the reference shoreline (it is only valid within
+±`bandM` ≈ ±100 years of the reference at this uplift rate) instead of following
+the water's edge.
+
+**What changed.** Classes may now carry `dynamic: {"kind": "water"}` or
+`{"kind": "shore-band", "bandM": <m>}` (§10 rules). Such classes hold no cells in
+the raster beyond their static residue (the water class keeps SGU-mapped modern
+water); the app derives their extent at the **current slider level** from
+`water_connect.tif` — the same grid, the same `connect ≤ h` semantics, and the same
+monotonicity guarantee the §7 water rendering has always used. This is still not
+"re-running the rule engine in the browser": the sea and the band are *exact*
+functions of shipped, pipeline-computed data, the band width is pipeline-chosen data
+(`bandM`), and the rule text disclosing the derivation still ships in the legend and
+is rendered verbatim. Every soil-, slope- and evidence-derived class stays frozen at
+the reference century.
+
+**Compatibility.** A legend without `dynamic` classes (e.g. one produced before this
+amendment) renders exactly as before; a site without water assets renders `dynamic`
+classes as static (their raster residue), which for the shore band means "absent" —
+feature off, never an error.
