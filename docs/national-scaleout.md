@@ -77,7 +77,7 @@ assets). First-load payload per site stays ≈ 3 MB — comfortably below v1's r
 |---|---|
 | All 1,304 sites, current encoding | ~7.8 GB |
 | All 1,304 sites, optimized encoding (§2.1–2), 4×4 km as today | **~4 GB** |
-| — with the far-field ring ladder to 32×32 km (§2b) | **~9.3 GB** |
+| — with the adaptive horizon ladder, 64–128 km extents (§2b) | **~12 GB** |
 | App shell (GH Pages, unchanged) | ~1 MB |
 | National site index (`index.json`, §6.1) | ~0.2 MB |
 
@@ -90,58 +90,97 @@ Do we need to compress? We already do (int16 decimeters + DEFLATE ≈ 4.5× vs r
 float32). The §2 items are worth doing because they halve storage *and* per-site load
 time for ~1–2 days of work, but nothing breaks without them.
 
-## 2b. Far-field rings: doubling the view, and the horizon (added 2026-08-21)
+## 2b. Far-field rings & the horizon guarantee (added 2026-08-21; decided 2026-08-21)
 
-Owner request: extend the per-site view beyond 4×4 km — lower detail farther out, ideally
-far enough to see a plausible horizon. This slots cleanly into the existing two-ring
-design, because each doubling of extent at halved resolution costs the same 2000×2000
-pixel budget (constant *angular* detail: ~1 m of ground per km of distance, ≈ 0.06°):
+Owner request: extend the per-site view beyond 4×4 km — lower detail farther out, and
+**the map must be big enough that the horizon closes from a reasonable height**. Owner
+decisions (2026-08-21): the guarantee holds for the **first-person viewpoint on the
+fort** (not elevated orbit); ladder depth is **adaptive per site**; DEM gaps beyond
+Sweden's borders are **filled from the Copernicus global 30 m DEM**.
 
-| Ring | Extent | Res | Grid | Quant | Compressed **[measured 2026-08-21]** |
+The extension slots cleanly into the existing two-ring design, because each doubling of
+extent at halved resolution costs the same 2000×2000 pixel budget (constant *angular*
+detail: ~1 m of ground per km of distance, ≈ 0.06°):
+
+| Ring | Extent | Res | Grid | Quant | Compressed |
 |---|---|---|---|---|---|
-| core | 2×2 km | 1 m | 2000² | 0.1 m | 1.10 MB |
-| context | 4×4 km | 2 m | 2000² | 0.1 m | 1.43 MB |
-| ring 3 | 8×8 km | 4 m | 2000² | 0.5 m | **0.85 MB** |
-| ring 4 | 16×16 km | 8 m | 2000² | 0.5 m | **1.20 MB** |
-| ring 5 | 32×32 km | 16 m | 2000² | 0.5 m | **1.68 MB** |
+| core | 2×2 km | 1 m | 2000² | 0.1 m | 1.10 MB **[measured 2026-08-21]** |
+| context | 4×4 km | 2 m | 2000² | 0.1 m | 1.43 MB **[measured]** |
+| ring 3 | 8×8 km | 4 m | 2000² | 0.5 m | 0.85 MB **[measured]** |
+| ring 4 | 16×16 km | 8 m | 2000² | 0.5 m | 1.20 MB **[measured]** |
+| ring 5 | 32×32 km | 16 m | 2000² | 0.5 m | 1.68 MB **[measured]** |
+| ring 6 | 64×64 km | 32 m | 2000² | 1.0 m | ~1.7 MB **[estimated; verify in 8a]** |
+| ring 7 (rare) | 128×128 km | 64 m | 2000² | 1.0 m | ~2.0 MB **[estimated]** |
 
-Sizes measured by block-mean downsampling the real Broborg context grid and compressing
-with deflate + predictor. The 0.5 m vertical quantization on far rings is the key win
-(≈ ½ the bytes of 0.1 m): at ≥ 2 km viewing distance 0.5 m subtends < 0.015°, and the
-manifest's per-grid `encoding.scale` field already expresses it — **no schema change**,
-just `"scale": 0.5` on ring grids. Disclosed per-ring in the methods panel.
+Measured sizes come from block-mean downsampling the real Broborg context grid and
+compressing with deflate + predictor. Coarser vertical quantization on far rings is the
+key win (≈ ½ the bytes of 0.1 m steps): at ≥ 2 km viewing distance 0.5 m subtends
+< 0.015°, and the manifest's per-grid `encoding.scale` field already expresses it —
+**no schema change**, just `"scale": 0.5` (or `1.0`) on ring grids. Disclosed per-ring
+in the methods panel.
 
-- **"Double the view" (8×8 km)**: +~1 MB/site → ~4.1 MB/site, **~5.4 GB national**.
-- **Full ladder to 32×32 km** (16 km view radius): +~3.7 MB of terrain + ~0.3 MB ring
-  water-connect deltas → **~7 MB/site, ~9.3 GB national — still inside the R2 free
-  tier.** This is the recommended default.
-- **True horizon**: from a rampart ~50 m up, the refracted horizon sits at ~27 km, so
-  16 km radius doesn't quite close the sky in flat terrain. An optional `horizon`
-  preset adds a 6th ring (64×64 km @ 32 m, 1.0 m quant, ~1.5 MB) for a ~32 km radius —
-  curated/lowland-coastal sites only. Everywhere else, atmospheric haze fading out at
-  the 16 km edge reads naturally.
+### The horizon guarantee (first-person, adaptive per site)
+
+Refracted horizon distance is `d ≈ 3.83·√h` km for an eye `h` meters above the terrain
+it looks across. The pipeline computes, per site:
+
+- `h = (crown + 2 m) − floor`, where `crown` = max DEM elevation inside the site
+  extent polygon, and `floor` = the 5th-percentile elevation of the 16×16 km box
+  (0 m when sea or a large lake is present — the sea horizon is the far bound);
+- required radius `d = 3.83·√h`, then the ladder is extended ring by ring until the
+  half-extent ≥ `d`, capped at ring 7 (64 km radius, which covers `h` up to ~280 m —
+  more relative height than any Swedish fornborg has, so the cap never truncates in
+  practice **[verify against the registry in 8b]**).
+
+Expected distribution: lowland forts (h ≈ 30–70 m → d ≈ 21–32 km) stop at ring 6;
+high sea/lake-facing forts (the Västgöta plateau forts over Vänern, Omberg-class sites
+over Vättern, h up to ~200 m → d ≈ 54 km) get ring 7. Typical site ≈ **~9 MB**
+(terrain ladder ~7.7 MB + ring water-connect deltas ~0.5 MB + JSONs), ring-7 sites
+~11 MB. National total ≈ **~12 GB** — ~2 GB past the R2 free tier ≈ **$0.03/month**.
+Orbit views above the guarantee height may still see the haze band at the map edge;
+that is accepted (owner decision — the guarantee is the on-foot experience).
+
+### Border fill: Copernicus DEM
+
+Rings ≥ 32 km near national borders and coasts leave Lantmäteriet coverage. Open
+Baltic is genuinely sea-at-0 m, but Norwegian fjäll, Finnish coast and Åland would
+otherwise render as a false flat horizon. Decision: fill non-Swedish land in far rings
+from the **Copernicus DEM GLO-30** (free, attribution required **[reported — confirm
+license text on first use]**; note it is a *surface* model including canopy —
+irrelevant at 30 m in a far ring, disclosed in methods). Pipeline: reproject/resample
+to the ring grid, mosaic under the Lantmäteriet data (which always wins where present),
+tag the source in `provenance`, add the attribution line to affected manifests.
+Affected: Värmland's 39 sites, the Norrland handful, and east-coast archipelago views
+toward Åland.
 
 Rendering requirements the app must add (none change the analysis contract):
 
 1. **Earth-curvature displacement on far rings** — at 16 km the refracted drop is
-   ~17.5 m, at 32 km ~70 m; without sinking ring vertices by `(1−k)·d²/2R` the skyline
-   sits visibly too high. Analysis grids stay flat (the viewshed already applies
-   curvature internally); this is a render-mesh transform only.
+   ~17.5 m, at 32 km ~70 m, at 64 km ~280 m; without sinking ring vertices by
+   `(1−k)·d²/2R` the skyline sits visibly too high — at horizon scale this is the
+   difference between a horizon and a wall. Analysis grids stay flat (the viewshed
+   already applies curvature internally); this is a render-mesh transform only.
 2. **Annulus meshes, decimated** — each ring renders only its outer annulus (75 % of
    cells), at reduced vertex density (¼–⅛), with normals sampled from the full-res
    grid; far-terrain legibility lives in shading, not silhouette. Keeps total scene
    vertices ≈ 9–10 M (vs ~7 M today).
-3. **Logarithmic depth buffer** (three.js flag) — a 32 km far plane with sub-meter
+3. **Logarithmic depth buffer** (three.js flag) — a 32–64 km far plane with sub-meter
    near geometry needs it.
 4. **Lazy ring loading** — core+context first (today's experience, unchanged startup),
    rings stream in behind; low-end/mobile stops at 8×8 km. A missing ring is just a
-   nearer fog line — graceful everywhere.
+   nearer fog line — graceful everywhere, so the horizon guarantee is a *data*
+   guarantee; devices render as much of it as they can.
 5. **Water on the rings** — extend the paleo-shoreline plane and per-ring connect
    deltas outward. This is the emotional payoff of the whole feature: from Broborg's
    rampart at 500 CE the entire Långhundraleden inlet system toward the Baltic becomes
    visible water. Flood-fill at ring resolution is the same priority-flood, sea entry
    from the outermost ring's edge (which is far more robustly "open sea" than the
    4×4 km edge — this *simplifies* §4.3's sea-entry concern for coastal sites).
+   One honesty caveat at horizon scale: post-glacial uplift is a *gradient*, so a
+   single per-century level is only locally valid — across a 64 km extent the true
+   fort-era shoreline can differ by a few meters edge to edge. Default: render
+   paleo-water out to the 16 km ring and fade it; farther rings show terrain only.
+   Revisit with a per-ring level offset if the visual cut bothers (risk table §8).
 
 Viewshed: unchanged at 2 m/4×4 km for the interactive tool. As a cheap follow-on, the
 same XDraw worker can optionally run on the 16 m/32×32 km grid ("far sight" mode, 4 M
@@ -150,14 +189,19 @@ resolution caveat stated in-panel.
 
 Pipeline cost: outer rings are read from the source COGs' **overview levels** (×4–×32
 exist per PLAN §2.1) via decimated windowed reads — a few MB per touched tile instead
-of ~110 MB. The tile *footprint* grows (a 32 km box spans up to ~4×4 tiles; national
-union roughly 2,000–3,000 tiles instead of 504) but overview-only fetches keep the
-added transfer to ~20–30 GB one-time, alongside the full-res cache. Mosaicking across
-tile edges (§4.2) simply gets more exercise.
+of ~110 MB (the 64 m ring decimates the ×32 overview). The tile *footprint* grows
+substantially (a 64 km box spans ~7×7 tiles; the national union approaches most of
+settled Sweden's tiles) but overview-only fetches keep the added transfer to roughly
+**~40–60 GB one-time [estimated]**, alongside the 504-tile full-res cache. Mosaicking
+across tile edges (§4.2) becomes the normal case rather than the exception. Copernicus
+GLO-30 adds a handful of 1°-tile downloads, cached the same way.
 
 Contract: one additive v1.2 item — optional `grids.rings: [ … ]` array (same per-grid
 schema as core/context, ordered inside-out, each with its own `encoding.scale` and
-optional connect-delta asset). Old manifests have no rings; old apps ignore them.
+optional connect-delta asset; a per-ring `sources` note distinguishes
+Lantmäteriet-only rings from Copernicus-filled ones). Old manifests have no rings;
+old apps ignore them. Ring count varies per site — the app derives everything from
+the manifest and never assumes a fixed ladder depth.
 
 ## 3. Storage & hosting
 
@@ -170,7 +214,7 @@ the Cloudflare CDN, on a custom domain (e.g. `data.fornborgar.example`).**
 
 | Option | Verdict |
 |---|---|
-| **Cloudflare R2** | ✅ **Free egress** (bandwidth never costs, however popular the app gets); free tier 10 GB-month storage — the optimized dataset fits **at $0/month**; beyond that $0.015/GB-mo (8 GB ≈ $0.12/mo). S3-compatible API (`rclone sync` from the pipeline), custom domains, proper `Cache-Control`/CORS. **[reported 2026]** |
+| **Cloudflare R2** | ✅ **Free egress** (bandwidth never costs, however popular the app gets); free tier 10 GB-month storage — the 4×4 km dataset fits at **$0/month**, the full horizon-ladder dataset (~12 GB) runs ≈ **$0.03/month**; $0.015/GB-mo beyond the tier. S3-compatible API (`rclone sync` from the pipeline), custom domains, proper `Cache-Control`/CORS. **[reported 2026]** |
 | GitHub Releases | Workable free fallback (2 GB/file, CORS OK) but no cache control, clumsy URLs, and hotlinking release assets as a CDN is gray-zone. Keep as plan B only. |
 | GitHub LFS | ❌ 1 GB free bandwidth/month; a few visitors would exhaust it. |
 | AWS S3 / GCS | ❌ Egress pricing (~$0.09–0.12/GB) is exactly the cost R2 eliminates. |
@@ -273,8 +317,8 @@ and doubles as the picker's preview imagery.
 
 | Step | Scope | Exit criterion |
 |---|---|---|
-| **8a. Encoding + contract v1.2** | delta grid, no-overview TIFFs, presets, index schema; rebuild Broborg | Broborg loads byte-for-byte-equivalent scene at ~3 MB |
-| **8b. Batch machinery** | registry builder, tile cache, `build_site`, QA report + contact sheet | Broborg + 2 arbitrary registry sites build unattended |
+| **8a. Encoding + contract v1.2** | delta grid, no-overview TIFFs, presets, `grids.rings` + ring pipeline, curvature/log-depth/lazy-ring rendering; rebuild Broborg with its full horizon ladder | Standing on Broborg's rampart, the skyline closes at the true horizon; near scene byte-equivalent to v1; ring-size estimates verified |
+| **8b. Batch machinery** | registry builder (incl. per-site horizon-ladder depth from crown/floor heights), tile + Copernicus cache, `build_site`, QA report + contact sheet | Broborg + 2 arbitrary registry sites build unattended; ladder-depth histogram sanity-checked against the 128 km cap |
 | **8c. Pilot: ~25 curated forts** | the famous ones (Torsburgen, Ismantorp, Eketorp, Gråborg, Runsa, Gåseborg, Birka borg, Halleberg, Ramundersborg, …) incl. the 3 `large`-preset outliers; R2 bucket + custom domain live; picker MVP | public URL serves 25+ sites from R2; manual QA pass |
 | **8d. County-by-county fill** | remaining ~1,280 sites, east-coast counties first (they exercise the water path) | all 1,304 built; QA contact-sheet sweep done |
 | **8e. Stretch** | intervisibility between neighboring forts (76 % have a neighbor in-extent), Phase-7 landcover for curated sites | — |
@@ -293,11 +337,14 @@ disk for the tile cache).
 | Sea-entry assumption in flood fill wrong for some coasts/lakes | Generalize entry-cell selection (§4.3); testsite already exercises the basin logic |
 | R2 dependency | S3-compatible + rclone: the whole dataset moves anywhere in minutes; GitHub Releases as documented plan B |
 | Tile-edge sites | Mosaic support in the clip step from day one (§4.2) |
+| Uplift gradient across 64 km extents makes one water level per century locally wrong at the edges | v1 renders paleo-water only to the 16 km ring (§2b.5); per-ring level offsets from the SGU model as a later refinement |
+| Copernicus GLO-30 is a surface model (canopy included) with its own datum/license terms | Far-ring use only (invisible at 30 m/px in a distant silhouette); confirm license text and attribution wording on first use; provenance-tagged per manifest |
 
 ---
 
-*Summary: 1,304 sites; ~4 GB optimized (~3 MB/site) at today's 4×4 km extent, ~9.3 GB
-(~7 MB/site) with the far-field ring ladder giving a 16 km view radius and a haze-faded
-horizon — either way $0/month on R2's free tier, and no architectural change: the v1
+*Summary: 1,304 sites; ~12 GB (~9 MB/site) with the adaptive horizon ladder — every
+fort's skyline closes at the true refracted horizon from the first-person viewpoint,
+64×64 km extents for lowland sites, 128×128 km for the high outliers, Copernicus-filled
+beyond the borders. ≈ $0.03/month on R2, and no architectural change: the v1
 per-site-bundle design scales to the whole country as-is. Next concrete step: 8a
-(encoding + contract v1.2, now including the `grids.rings` amendment).*
+(encoding + contract v1.2, including `grids.rings` and the horizon rendering work).*
