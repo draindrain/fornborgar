@@ -134,13 +134,15 @@ One per site. Complete Broborg example (values illustrative where marked `<…>`
     "sites": "sites.json",
     "shoreline": "shoreline.json",            // v1.1 — §6 (century → water level)
     "waterConnect": "water_connect.tif",      // v1.1 — §7 (sea-connectivity grid)
-    "rampart": "rampart.json"                 // v1.1 — §8 (rampart crest polylines)
-    // later phases add: "landcover": "landcover.png", …
+    "rampart": "rampart.json",                // v1.1 — §8 (rampart crest polylines)
+    "landcover": "landcover.tif",             // v1.2 — §9 (land-cover class raster)
+    "landcoverLegend": "landcover_legend.json"// v1.2 — §10 (classes, palette, rules)
   },
   "layers": [                                 // provenance per layer (PLAN §6.1)
     { "id": "terrain", "name": "Terrain (LiDAR DEM)", "provenance": "measured" },
     { "id": "sites",   "name": "Registered sites (KMR)", "provenance": "measured" },
     { "id": "water",    "name": "Paleo-shoreline (SGU model)", "provenance": "model" },      // v1.1, iff assets.shoreline
+    { "id": "landcover", "name": "Modeled landscape (rule-based)", "provenance": "model" },  // v1.2, iff assets.landcover
     { "id": "palisade", "name": "Palisade (conjecture)",       "provenance": "conjecture" }  // v1.1, iff assets.rampart
   ],
   "attribution": [                            // rendered in the app footer, in order
@@ -372,3 +374,122 @@ Rules:
   point ≠ first point in the file).
 - Palisade appearance parameters (post spacing, height, jitter seed) are **app-side UI
   state with defaults**, not data — PLAN §4.6.3. The asset carries only the line.
+
+---
+
+# v1.2 amendment (2026-08-21) — Phase 7 land-cover assets
+
+Additive per the versioning policy above; `schemaVersion` stays 1. Two new optional
+`assets` entries that travel as a **pair** (both present or both absent, like
+shoreline/waterConnect):
+
+```jsonc
+"assets": {
+  "landcover": "landcover.tif",              // §9 — class-index raster
+  "landcoverLegend": "landcover_legend.json" // §10 — classes, palette, rules
+}
+```
+
+When the pair is present the manifest MUST also carry:
+
+- the layer entry `{ "id": "landcover", "name": "Modeled landscape (rule-based)",
+  "provenance": "model" }` — inserted after `water` and before `palisade` in the
+  contractual layer order (terrain, sites, water, landcover, palisade);
+- the SGU attribution, **widened** from the Phase-4 wording to
+  `{ "text": "Jordarts- och strandförskjutningsdata från Sveriges geologiska undersökning (CC0)", "license": "CC0", "url": "https://www.sgu.se" }`
+  (one SGU entry total — the pipeline replaces the narrower shoreline-only text when
+  soils ship, as anticipated by PLAN §6.3).
+
+**Format note (supersedes the `landcover.png` placeholder in §2's comment):** PLAN §4.7
+sketched an indexed-palette PNG at 5–10 m. This amendment ships the classification as a
+**uint8 GeoTIFF on the exact `grids.context` geometry (2 m)** instead: it reuses the
+frozen §1 raster machinery end-to-end (pipeline COG writer, app `loadBand` decode, §1
+array convention), stays GIS-inspectable with georeferencing, needs no PNG codec
+dependency in either codebase, and is finer than the planned resolution. The palette
+lives in the legend JSON, which is where the PNG's PLTE chunk would have pointed anyway.
+
+## 9. `landcover.tif` — land-cover class raster (PLAN §4.7)
+
+The rule-engine output: one land-cover class per cell, for **one fixed reference
+century** (the fort's active era; Broborg: 500 CE). It is a *model*, never rendered as
+measured data.
+
+**File encoding:** single band **uint8**, value = class **index** into the legend's
+`classes[]` array (`raw == classes[i].index`). No nodata — every cell is classified.
+DEFLATE, tiled COG, EPSG:3006 horizontal only. **Geometry identical to
+`grids.context`** (same width, height, resolution, bounds; row 0 = north) — the app
+validates dimensions against `grids.context` and reuses the §1 array convention;
+`grids.context` stays authoritative for geometry, exactly like `water_connect.tif` (§7).
+
+Rules:
+
+- Every raw value in the raster MUST be a valid index into `classes[]`
+  (`raw < classes.length`; pipeline-tested).
+- Class indices are contiguous `0 … N−1`, `N ≤ 32`.
+- The raster is derived for `landcover_legend.json.referenceYearCE` only. The app MUST
+  NOT re-derive classes for other centuries; the honest interaction with the Phase-4
+  slider is render-side masking (below).
+
+**Rendering contract (app side):**
+
+- The layer is off by default; the toggle is labeled **"modeled landscape
+  (rule-based)"** and carries the `model` badge; first toggle-on surfaces the legend's
+  `caveat` line (PLAN §6.1 UI rules).
+- Ground tint: a stylized flat per-class color wash (legend palette) blended into the
+  terrain material — injected with the established overlay-shader chain, ordered
+  **after viewshed, before water** (submerged ground must still read as submerged).
+  Class lookup uses `NearestFilter` (indices must never interpolate).
+- Vegetation: instanced procedural geometry (cones for `conifer`/`broadleaf`,
+  cross-quad billboards for `reeds`), blue-noise/seeded-random sampled per class from
+  the raster; deterministic for a given seed. Instances whose ground is wet at the
+  **current slider level** (`connect ≤ levelM`, §7 semantics) are suppressed at
+  runtime, so scrubbing the slider never shows trees standing in the sea. Appearance
+  parameters (density scale, seed) are app-side UI state with defaults, not data.
+- Vegetation keeps true metric size: positioned at `y = ground · exaggeration`, sized
+  in the scale component (the palisade invariant).
+
+## 10. `landcover_legend.json` — classes, palette, rules
+
+```jsonc
+{
+  "schemaVersion": 1,
+  "site": "broborg",
+  "referenceYearCE": 500,                     // the century the raster models
+  "referenceLevelM": 8.6,                     // water level used, m RH 2000 (from §6 table)
+  "method": "<one-paragraph derivation description>",   // methods panel, verbatim
+  "caveat": "<one-line model caveat>",        // first-toggle caveat + control note
+  "calibration": "<forest/open ratio vs. pollen literature (PLAN §2.5), verbatim>",
+  "source": {
+    "product": "SGU Jordarter 1:25 000–1:100 000",
+    "api": "https://api.sgu.se/oppnadata/jordarter25k-100k/ogc/features/v1",
+    "fetched": "<ISO date>"
+  },
+  "classes": [
+    {
+      "index": 0,                             // == raw raster value
+      "id": "water",                          // stable machine id, unique
+      "name": "Water (sea, ~500 CE)",         // legend row text
+      "color": "#2d5a6b",                     // ground-tint + legend swatch, sRGB hex
+      "rule": "<the rule that produced this class, verbatim>",  // methods panel
+      "vegetation": null,                     // or { "type": "...", "densityPerHa": n }
+      "areaFraction": 0.081                   // informational, of the full raster
+    }
+    // … one entry per class, ascending contiguous index …
+  ]
+}
+```
+
+Rules:
+
+- `classes` sorted by `index`, contiguous from 0, ids unique, colors `#rrggbb`.
+- `vegetation.type` ∈ `"conifer" | "broadleaf" | "reeds"`; `densityPerHa` > 0 is the
+  model's suggested instance density (the app may scale it globally for performance,
+  never per class). `vegetation: null` = no instances (open/water/bare classes).
+- `rule`, `method`, `calibration` and `caveat` are disclosed **verbatim** in the
+  methods panel — the app never paraphrases a method it did not run. The rule engine's
+  full rule list therefore lives in this file, not in app code.
+- `areaFraction` entries sum to 1 ± 0.001 (pipeline-tested); they feed the calibration
+  paragraph and the legend's percentage readouts.
+- The reference century is stated wherever the layer is described (legend, methods,
+  control note): the raster answers "what might the landscape have looked like around
+  <referenceYearCE>?", nothing else.

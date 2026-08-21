@@ -11,6 +11,8 @@
 
 import type { SiteManifest } from '../state/manifest';
 import type { ShorelineTable } from '../water/shoreline';
+import { formatYear } from '../water/shoreline';
+import type { LandcoverLegend } from '../landcover/legend';
 import type { RampartFile } from '../overlays/palisade';
 import type { SitesFile } from '../overlays/sites';
 
@@ -69,11 +71,45 @@ export const CITATIONS: string[] = [
   'Lantmäteriet, Markhöjdmodell Nedladdning (1 m national elevation model, LiDAR). CC BY 4.0.',
   'Riksantikvarieämbetet, Kulturmiljöregistret (KMR) / Fornsök, dataset "Kulturhistoriska lämningar". CC0.',
   'Sveriges geologiska undersökning, Strandförskjutningsmodell (sea/land distribution in 100-year steps). CC0.',
+  'Sveriges geologiska undersökning, Jordarter 1:25 000–1:100 000 (Quaternary deposits). CC0.',
   'Påsse, T. & Daniels, J. (2015): Past shore-level and sea-level displacements. SGU Rapporter och meddelanden 137.',
   'Kresten, P. & Ambrosiani, B. (1992): Swedish vitrified forts — a reconnaissance study. Fornvännen 87.',
   'PNNL-led analogue studies of Broborg’s vitrified inner wall as a natural analogue for nuclear-waste glass (npj Materials Degradation, 2018–2022).',
   'KMR record L1943:7827 (RAÄ Husby-Långhundra 156:1): fort description, dimensions and status.',
 ];
+
+/**
+ * Everything the land-cover model says about itself, in its own words.
+ *
+ * `method`, every class `rule`, `calibration` and `caveat` are contract §10's
+ * verbatim fields: the app runs no rule engine, so it must not paraphrase one. The
+ * only app-authored sentence here is the one describing what the *app* does with the
+ * raster — render-side masking against the Phase-4 slider — because that is our
+ * behaviour to disclose, not the pipeline's.
+ */
+function landcoverParagraphs(legend: LandcoverLegend): string[] {
+  const rules = legend.classes.map((c) => `${c.name} — ${c.rule}`);
+  const source = legend.source ?? {};
+  const product = typeof source['product'] === 'string' ? source['product'] : null;
+  const fetched = typeof source['fetched'] === 'string' && source['fetched'] ? `, fetched ${source['fetched']}` : '';
+
+  return [
+    legend.method,
+    `The raster models one reference century — ${formatYear(legend.referenceYearCE)}, at a modelled water ` +
+      `level of ${legend.referenceLevelM.toFixed(1)} m — and is never re-derived for another. Scrubbing the ` +
+      `shoreline slider only masks it: vegetation whose ground is under water at the level shown is hidden, ` +
+      `so nothing is ever drawn standing in the sea.`,
+    `Class rules, verbatim: ${rules.join(' | ')}`,
+    legend.calibration,
+    legend.caveat,
+    ...(product
+      ? [
+          `Source: ${product}${fetched}. Soil and shoreline-displacement data from Sveriges geologiska ` +
+            `undersökning (SGU), CC0.`,
+        ]
+      : []),
+  ];
+}
 
 function provenanceOf(manifest: SiteManifest, layerId: string): Provenance | null {
   const entry = manifest.layers?.find((l) => l.id === layerId);
@@ -98,6 +134,7 @@ export function buildMethodsModel(
   shoreline: ShorelineTable | null,
   rampart: RampartFile | null,
   sites: SitesFile | null,
+  landcover: LandcoverLegend | null = null,
 ): MethodsModel {
   const sections: MethodsSection[] = [];
 
@@ -143,6 +180,15 @@ export function buildMethodsModel(
         `Source: ${product}${fetched}. Enclosed basins that never connected to the sea are ` +
           `kept dry via a connectivity grid computed from the DEM.`,
       ],
+    });
+  }
+
+  if (landcover) {
+    sections.push({
+      id: 'landcover',
+      title: 'Modeled landscape',
+      badge: provenanceOf(manifest, 'landcover') ?? 'model',
+      paragraphs: landcoverParagraphs(landcover),
     });
   }
 

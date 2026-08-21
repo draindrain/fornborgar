@@ -49,11 +49,32 @@ renders the short attribution strings from `manifest.json` → `attribution`.
   the grid edge), so the app can exclude enclosed basins that never met the sea. It
   carries no SGU data and inherits the Lantmäteriet elevation license above.
 
+## Modeled landscape — `landcover.tif`, `landcover_legend.json`
+
+- **Source:** Sveriges geologiska undersökning, *Jordarter 1:25 000–1:100 000* (Quaternary
+  deposit polygons; the `grundlager` ground layer carries the classification `jg2`/`jg2_tx`,
+  the `ytlager` surface layer the thin peat/till veneer `jy1`/`jy1_tx`).
+- **Endpoint:** OGC API — Features, `https://api.sgu.se/oppnadata/jordarter25k-100k/ogc/features/v1`
+- **Collections read:** `grundlager`, `ytlager`
+- **Fetched:** 2026-08-21T16:46:25+00:00
+- **License:** **CC0** — attribution not required, given voluntarily.
+- **Voluntary attribution:** *"Jordarts- och strandförskjutningsdata från Sveriges geologiska
+  undersökning (CC0)"*.
+- **Caveat (shown in the app):** SGU maps the **present-day** soil surface. Using it as a
+  proxy for the ground of 500 CE is a modelling assumption; the classification
+  is a rule engine's output, not evidence for the vegetation at any single point.
+- **Processing applied:** none of SGU's geometry is shipped. The polygons are rasterized
+  onto the site's context grid and combined with slope from our own LiDAR DEM, the modelled
+  shoreline level for 500 CE and distance to registered grave/settlement sites
+  to produce `landcover.tif`, a uint8 class-index raster. Every rule, the palette and the
+  measured area fractions are disclosed verbatim in `landcover_legend.json`, which is what
+  the app's methods panel renders.
+
 ## Later phases (added when the layers ship)
 
-- Soils (jordarter, phase 7): Sveriges geologiska undersökning (SGU), **CC0** — when it
-  ships, the SGU attribution line above widens to *"Jordarts- och
-  strandförskjutningsdata från Sveriges geologiska undersökning (CC0)"* (PLAN.md §6.3).
+- Both SGU products (jordarter and strandförskjutning) now ship, so the app's single SGU
+  credit line reads *"Jordarts- och strandförskjutningsdata från Sveriges geologiska
+  undersökning (CC0)"* (PLAN.md §6.3). Nothing SGU-related is outstanding.
 
 ## Application code
 

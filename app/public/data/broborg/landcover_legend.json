@@ -1,0 +1,88 @@
+{
+  "schemaVersion": 1,
+  "site": "broborg",
+  "referenceYearCE": 500,
+  "referenceLevelM": 8.6,
+  "method": "Every 2 m cell of the 4×4 km context extent was classified once, for 500 CE, by a rule engine reading four inputs: the sea-connectivity grid (water_connect.tif) against the 500 CE water level of 8.6 m RH 2000 interpolated from shoreline.json; the SGU Jordarter polygons (grundlager, ytlager) rasterized onto the same grid, with any cell no polygon covered (0.0 % of the extent here) taking its nearest neighbour's class and the surface layer's peat veneer carried as a separate flag; slope in degrees from the committed LiDAR DEM (np.gradient); and the Euclidean distance to the nearest of the 35 registered grave or settlement records in sites.json, used as the cultivation proxy. The rules are applied in a fixed precedence — water first, then wetland, then farmland, then the drier classes — and each class's rule text below states its own branch verbatim. SGU maps the present-day soil surface; treating it as the ground of 500 CE is the model's central assumption. The raster answers only 'what might this landscape have looked like around 500 CE?'.",
+  "caveat": "Modeled landscape, not evidence: a rule engine derived this from modern SGU soil mapping, DEM slope and the modelled shoreline — there is no direct evidence for the vegetation shown at any single point.",
+  "calibration": "Measured on this raster: 39.4 % forest (26.2 % broadleaf, 13.1 % conifer), 53.3 % open ground (27.9 % farmland, 24.6 % wet meadow/pasture, 0.9 % dry gravel corridor), 4.9 % reed marsh and 2.5 % open water at the 500 CE level. Counting only dry land, the forest-to-open ratio is 42:58. No quantified (REVEALS-type) openness figure for Iron Age Uppland has been found (PLAN.md §2.5 records this as open), so there is no local number to calibrate against and none has been fitted. The nearest published benchmark — Hultberg et al. (2019), REVEALS openness of 90–97 % for agrarian Scania — is cited as methodological context only: it describes a different region and a later, far more intensively cleared agrarian landscape, and this model does not aim at it. The pollen records that do cover this valley (Karlsson 1999 for the Arlanda–Knivsta area; the Stockholm University thesis on shore displacement and paleoenvironment along Långhundraleden) are qualitative here: they describe an Iron Age landscape opening around settlement and waterway while forest persisted on till and bedrock, which is the pattern this classification reproduces. The ratio is reported, not force-fitted (PLAN.md §4.7).",
+  "source": {
+    "product": "SGU Jordarter 1:25 000–1:100 000",
+    "api": "https://api.sgu.se/oppnadata/jordarter25k-100k/ogc/features/v1",
+    "fetched": "2026-08-21T16:46:25+00:00"
+  },
+  "classes": [
+    {
+      "index": 0,
+      "id": "water",
+      "name": "Water (sea, ~500 CE)",
+      "color": "#2d5a6b",
+      "rule": "Sea-connected at the modelled 500 CE water level: the priority-flood connectivity grid (water_connect.tif, contract §7) is at or below 8.6 m RH 2000 — or SGU maps the present ground as 'Vatten'. Applied first, so every later rule sees only what this one leaves.",
+      "vegetation": null,
+      "areaFraction": 0.0245
+    },
+    {
+      "index": 1,
+      "id": "reed_marsh",
+      "name": "Reed marsh / shore fen",
+      "color": "#77875a",
+      "rule": "Not water, and either SGU's ground layer maps peat or gyttja (Kärrtorv, Mosstorv, Torv, Gyttja), or its surface layer maps a peat veneer over another soil, or the ground lies within 0.6 m above the 500 CE water line. The shore band is a modelling choice, not a mapped feature.",
+      "vegetation": {
+        "type": "reeds",
+        "densityPerHa": 500
+      },
+      "areaFraction": 0.0488
+    },
+    {
+      "index": 2,
+      "id": "farmland",
+      "name": "Open farmland",
+      "color": "#d1b96e",
+      "rule": "Not water or marsh, and all four of: SGU maps a postglacial fine sediment (Postglacial lera, Gyttjelera (eller lergyttja), Svämsediment, ler--silt, Postglacial sand) or the margin of a till unit within 40 m of one; the ground stands more than 3.0 m above the 500 CE water line (seabed drained more recently than that is too wet to plough); the slope is under 5°; and a registered grave or settlement site (Gravfält, Grav- och boplatsområde, Boplats, Boplatsområde, Boplatslämning övrig) lies within 700 m. Proximity to burial and settlement remains is the only cultivation proxy used — no Iron Age field system is mapped here.",
+      "vegetation": null,
+      "areaFraction": 0.2789
+    },
+    {
+      "index": 3,
+      "id": "wet_meadow",
+      "name": "Wet meadow / open pasture",
+      "color": "#a9c07a",
+      "rule": "The remaining fine-grained ground: postglacial sediments that failed the farmland test — too close to the water line, too steep, or too far from a settlement proxy — plus Glacial lera and modern Fyllning (fill). Fyllning is a present-day anthropogenic deposit with no Iron Age counterpart; it is folded in here rather than given a class of its own, and that choice is disclosed rather than hidden.",
+      "vegetation": null,
+      "areaFraction": 0.2457
+    },
+    {
+      "index": 4,
+      "id": "dry_corridor",
+      "name": "Dry open corridor",
+      "color": "#c9b79a",
+      "rule": "Isälvssediment (glaciofluvial sand and gravel) and Klapper (boulder beach gravel) — the well-drained esker and beach deposits that carry the dry routes across an otherwise wet valley floor.",
+      "vegetation": null,
+      "areaFraction": 0.0086
+    },
+    {
+      "index": 5,
+      "id": "broadleaf_forest",
+      "name": "Broadleaf forest",
+      "color": "#4f7a3a",
+      "rule": "The remaining till (Sandig morän and the other morän classes) on ground no steeper than 12°.",
+      "vegetation": {
+        "type": "broadleaf",
+        "densityPerHa": 90
+      },
+      "areaFraction": 0.2622
+    },
+    {
+      "index": 6,
+      "id": "conifer_forest",
+      "name": "Conifer forest / rocky ground",
+      "color": "#2f5233",
+      "rule": "Everything the rules above leave: exposed bedrock (Urberg), any ground steeper than 12°, and any SGU class this rule table does not name.",
+      "vegetation": {
+        "type": "conifer",
+        "densityPerHa": 120
+      },
+      "areaFraction": 0.1313
+    }
+  ]
+}

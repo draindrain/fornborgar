@@ -1,7 +1,8 @@
 /**
  * Site data loading: manifest, the two DEM COGs, the optional Phase-4 water
- * assets (contract §6 shoreline table + §7 connectivity grid) and the optional
- * Phase-5 rampart crest lines (§8).
+ * assets (contract §6 shoreline table + §7 connectivity grid), the optional
+ * Phase-5 rampart crest lines (§8) and the optional Phase-7 land-cover pair
+ * (§9 class raster + §10 legend).
  *
  * URL rule (docs/data-formats.md §0): every data URL is resolved against
  * `import.meta.env.BASE_URL` as `data/<siteId>/<path>` — never a leading slash —
@@ -19,6 +20,8 @@ import type { ConnectGrid } from '../water/connectGrid';
 import { validateShoreline, type ShorelineTable } from '../water/shoreline';
 import { validateSites, type SitesFile } from '../overlays/sites';
 import { validateRampart, type RampartFile } from '../overlays/palisade';
+import type { LandcoverGrid } from '../landcover/landcoverGrid';
+import { validateLandcoverLegend, type LandcoverLegend } from '../landcover/legend';
 
 export const DEFAULT_SITE_ID = 'broborg';
 
@@ -121,10 +124,13 @@ function checkGridInvariants(name: string, g: GridManifest, origin: { e: number;
 }
 
 /**
- * Fetch one single-band int16 GeoTIFF and hand back band 1 in the §1 array
- * convention, checked against the geometry the manifest declares for it. Shared
- * by the DEM grids (§1) and the water-connectivity grid (§7) — one decode path,
- * so a dimension mismatch reads the same either way.
+ * Fetch one single-band GeoTIFF and hand back band 1 in the §1 array convention,
+ * checked against the geometry the manifest declares for it. Shared by the DEM
+ * grids (§1, int16 dm), the water-connectivity grid (§7, int16 dm) and the
+ * land-cover class raster (§9, uint8 class indices) — one decode path, so a
+ * dimension mismatch reads the same whichever asset hit it. The sample type comes
+ * from the file: geotiff.js hands back the matching typed array, and each caller
+ * converts it to the representation its layer needs.
  */
 async function loadBand(
   url: string,
@@ -351,6 +357,126 @@ export async function loadRampart(siteId: string, manifest: SiteManifest): Promi
   } catch (error) {
     console.error(
       `[fornborg] ${siteId}: palisade layer disabled — ` +
+        (error instanceof Error ? error.message : String(error)),
+    );
+    return null;
+  }
+}
+
+// ------------------------------------------- Phase 7: land-cover assets -----
+
+/** Both §9/§10 assets, or nothing: the contract pairs them (v1.2 amendment). */
+export interface LandcoverAssets {
+  grid: LandcoverGrid;
+  legend: LandcoverLegend;
+}
+
+/** Fetch + validate the §10 legend. Throws `LandcoverError`. */
+export async function loadLandcoverLegend(siteId: string, manifest: SiteManifest): Promise<LandcoverLegend> {
+  const path = manifest.assets?.['landcoverLegend'];
+  if (!path) throw new Error('manifest.assets.landcoverLegend is not declared for this site.');
+  const url = `${siteDataUrl(siteId)}${path}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText} while fetching ${url}`);
+  const text = await res.text();
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    throw new Error(`${url} did not return JSON (got ${res.headers.get('content-type') ?? 'unknown content type'}).`);
+  }
+  return validateLandcoverLegend(parsed, path);
+}
+
+/**
+ * Fetch + decode the §9 land-cover class raster.
+ *
+ * Like `water_connect.tif` (§7), the file carries **no** manifest grid entry of its
+ * own — `grids.context` is authoritative for its geometry — so dimensions that
+ * disagree with the context grid are a hard error, not something to stretch over.
+ * Values are class **indices**, not measurements: they are kept as raw bytes (never
+ * scaled by `encoding.scale`, which belongs to the elevation grids) and every one of
+ * them must address a class the legend actually declares.
+ */
+export async function loadLandcoverGrid(
+  siteId: string,
+  manifest: SiteManifest,
+  classCount: number,
+  onProgress: (f: number) => void = () => {},
+): Promise<LandcoverGrid> {
+  const path = manifest.assets?.['landcover'];
+  if (!path) throw new Error('manifest.assets.landcover is not declared for this site.');
+  const g = manifest.grids.context;
+
+  const url = `${siteDataUrl(siteId)}${path}`;
+  const band = await loadBand(
+    url,
+    path,
+    g.width,
+    g.height,
+    onProgress,
+    'grids.context (authoritative for its geometry, docs/data-formats.md §9)',
+  );
+
+  const classes = new Uint8Array(band.length);
+  for (let i = 0; i < band.length; i++) {
+    const v = band[i];
+    if (!Number.isInteger(v) || v < 0 || v >= classCount) {
+      throw new Error(
+        `${path}: sample ${i} is ${v}, which is not a valid index into the legend's ${classCount} ` +
+          'classes (docs/data-formats.md §9).',
+      );
+    }
+    classes[i] = v;
+  }
+  onProgress(1);
+
+  return {
+    width: g.width,
+    height: g.height,
+    resolution: g.resolution,
+    boundsLocal: g.boundsLocal,
+    classes,
+  };
+}
+
+/**
+ * The Phase-7 feature gate: both §9/§10 assets present and valid, or the modeled
+ * landscape is off. Same policy as the Phase-4 water pair — a site that declares
+ * neither (every pre-v1.2 manifest) loads exactly as before and says nothing; only a
+ * *half*-declared pair is worth a warning, because that is a pipeline bug rather
+ * than a choice.
+ *
+ * The legend loads first: it is what tells the raster decode how many classes are
+ * legal, so a raster full of indices nobody declared fails loudly instead of
+ * painting an undefined colour.
+ */
+export async function loadLandcoverAssets(
+  siteId: string,
+  manifest: SiteManifest,
+  onProgress: (f: number) => void = () => {},
+): Promise<LandcoverAssets | null> {
+  const hasRaster = Boolean(manifest.assets?.['landcover']);
+  const hasLegend = Boolean(manifest.assets?.['landcoverLegend']);
+  if (!hasRaster || !hasLegend) {
+    if (hasRaster !== hasLegend) {
+      console.warn(
+        `[fornborg] ${siteId}: assets.landcover and assets.landcoverLegend are a pair ` +
+          `(docs/data-formats.md §9/§10); only ${hasRaster ? 'landcover' : 'landcoverLegend'} is declared, ` +
+          'so the modeled-landscape layer stays off.',
+      );
+    }
+    return null;
+  }
+
+  try {
+    const legend = await loadLandcoverLegend(siteId, manifest);
+    const grid = await loadLandcoverGrid(siteId, manifest, legend.classes.length, onProgress);
+    return { grid, legend };
+  } catch (error) {
+    // A broken optional asset must not take the whole site down with it.
+    console.error(
+      `[fornborg] ${siteId}: land-cover layer disabled — ` +
         (error instanceof Error ? error.message : String(error)),
     );
     return null;

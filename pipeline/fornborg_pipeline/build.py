@@ -1,4 +1,4 @@
-"""CLI: fetch -> clip -> water -> rampart -> manifest for one site.
+"""CLI: fetch -> clip -> water -> rampart -> land cover -> manifest for one site.
 
     python3 -m fornborg_pipeline.build --site broborg
 
@@ -6,10 +6,11 @@ Raw downloads are cached in the gitignored `data-cache/` at the repo root and
 reused when they match the site config; the app-facing outputs land in
 `app/public/data/<siteId>/` (docs/data-formats.md).
 
-The water step (shoreline table + connectivity grid, contract §6/§7) and the
-rampart step (crest polylines, §8) both run off the grids this module just wrote,
-so either can also be re-run on its own without the Lantmäteriet credentials —
-see `fornborg_pipeline.water` and `fornborg_pipeline.rampart`.
+The water step (shoreline table + connectivity grid, contract §6/§7), the rampart
+step (crest polylines, §8) and the land-cover step (class raster + legend, §9/§10)
+all run off the grids this module just wrote, so each can also be re-run on its own
+without the Lantmäteriet credentials — see `fornborg_pipeline.water`,
+`fornborg_pipeline.rampart` and `fornborg_pipeline.landcover`.
 """
 
 from __future__ import annotations
@@ -19,9 +20,11 @@ import sys
 
 import click
 
-from . import rampart, water
+from . import landcover, rampart, water
 from .clip_dem import VerticalDatumError, build_grids, sample_nearest, write_grid
 from .fetch_dem import FetchError, fetch_source_mosaic, read_source_mosaic
+from .fetch_soils import SoilsError
+from .landcover import LandcoverError
 from .manifest import build_manifest, write_data_licenses, write_manifest
 from .rampart import RampartError
 from .shoreline import ShorelineError
@@ -33,6 +36,7 @@ def run(
     force_download: bool = False,
     skip_water: bool = False,
     skip_rampart: bool = False,
+    skip_landcover: bool = False,
 ) -> dict:
     """Run the whole pipeline for one site. Returns the manifest dict."""
     cfg = get_site(site_id)
@@ -81,6 +85,17 @@ def run(
         except RampartError as exc:
             print(f"  rampart crest skipped: {exc}")
 
+    if not skip_landcover:
+        # Contract §9/§10: derives landcover.tif + landcover_legend.json from the
+        # grids just written, the water assets and the SGU soil polygons, and
+        # patches this manifest with the pair + the modelled `landcover` layer. A
+        # site whose soil extract or water assets are missing simply has nothing to
+        # classify — a missing input, not a build failure.
+        try:
+            manifest = landcover.run(site_id, force_download=force_download)
+        except (LandcoverError, SoilsError, FetchError) as exc:
+            print(f"  landcover skipped: {exc}")
+
     total = sum(p.stat().st_size for p in cfg.out_dir.glob("*") if p.is_file())
     print(f"== done: {cfg.out_dir} ({total / 1e6:.2f} MB total)")
     return manifest
@@ -110,7 +125,18 @@ def run(
     is_flag=True,
     help="Leave rampart.json untouched (contract §8).",
 )
-def cli(site_id: str, force_download: bool, skip_water: bool, skip_rampart: bool) -> None:
+@click.option(
+    "--skip-landcover",
+    is_flag=True,
+    help="Leave landcover.tif / landcover_legend.json untouched (contract §9/§10).",
+)
+def cli(
+    site_id: str,
+    force_download: bool,
+    skip_water: bool,
+    skip_rampart: bool,
+    skip_landcover: bool,
+) -> None:
     """Build the app data for a site: fetch the DEM, clip it, derive water, write the manifest."""
     try:
         run(
@@ -118,10 +144,11 @@ def cli(site_id: str, force_download: bool, skip_water: bool, skip_rampart: bool
             force_download=force_download,
             skip_water=skip_water,
             skip_rampart=skip_rampart,
+            skip_landcover=skip_landcover,
         )
     except FetchError as exc:
         raise SystemExit(f"FETCH FAILED: {exc}") from exc
-    except (VerticalDatumError, ShorelineError) as exc:
+    except (VerticalDatumError, ShorelineError, LandcoverError) as exc:
         raise SystemExit(f"SANITY CHECK FAILED: {exc}") from exc
 
 

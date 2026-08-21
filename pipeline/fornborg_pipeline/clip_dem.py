@@ -322,3 +322,45 @@ def write_grid(path: Path, grid: Grid) -> Path:
         dst.write(grid.data, 1)
         dst.update_tags(1, SCALE=str(DECIMETER_SCALE))
     return path
+
+
+def write_class_grid(path: Path, data: np.ndarray, transform: Affine) -> Path:
+    """Write a uint8 class-index raster as a COG per docs/data-formats.md §9.
+
+    The same COG machinery as `write_grid` — DEFLATE + predictor 2, 512x512 tiles,
+    EPSG:3006 horizontal only, no nodata — with three deliberate differences:
+
+      * **uint8** class indices instead of int16 decimeters;
+      * **no `SCALE` tag**: an index is a label, not a measurement, and a GIS that
+        multiplied it by 0.1 would be lying;
+      * **nearest** overview resampling — averaging class indices would invent
+        classes that no rule produced.
+
+    Everything else matches the elevation grids byte-for-byte in profile terms, so
+    a class raster on the context geometry passes the same identical-profile check
+    the water grid does (`landcover._check_context_profile`).
+    """
+    data = np.asarray(data)
+    if data.dtype != np.uint8:
+        raise ValueError(f"expected uint8 class indices, got {data.dtype}")
+    if data.ndim != 2:
+        raise ValueError(f"expected a 2D class raster, got shape {data.shape}")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with rasterio.open(
+        path,
+        "w",
+        driver="COG",
+        width=int(data.shape[1]),
+        height=int(data.shape[0]),
+        count=1,
+        dtype="uint8",
+        crs=CRS.from_epsg(EPSG_HORIZONTAL),
+        transform=transform,
+        compress="DEFLATE",
+        predictor="YES",  # -> PREDICTOR=2, as for the integer elevation grids
+        blocksize=BLOCKSIZE,
+        overview_resampling="nearest",
+        # No `nodata=`: contract §9 says every cell is classified.
+    ) as dst:
+        dst.write(data, 1)
+    return path

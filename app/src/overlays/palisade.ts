@@ -24,6 +24,9 @@
 
 import * as THREE from 'three';
 import type { BoundsLocal } from '../lib/coords';
+// The jitter must be reproducible; `lib/random` is the app's one seeded generator,
+// shared with the Phase-7 vegetation sampling.
+import { mulberry32 } from '../lib/random';
 
 // ------------------------------------------------------------- the asset ----
 
@@ -257,18 +260,6 @@ export function postPlacements(
 }
 
 // -------------------------------------------------------------- rendering ---
-
-/** mulberry32 — 32-bit, seedable, identical everywhere. The jitter must be reproducible. */
-export function mulberry32(seed: number): () => number {
-  let a = seed >>> 0;
-  return () => {
-    a = (a + 0x6d2b79f5) >>> 0;
-    let t = a;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
 
 export interface PalisadeParams {
   /** True post height in meters — never scaled by vertical exaggeration. */

@@ -25,13 +25,35 @@ LANTMATERIET_ATTRIBUTION = {
     "url": "https://www.lantmateriet.se",
 }
 
-# v1.1 (contract preamble): mandatory whenever `assets.shoreline` is present.
+# v1.2 (contract amendment): the single SGU credit line, widened from the v1.1
+# shoreline-only wording now that soils ship too (PLAN.md §6.3). Both patchers
+# write this one; `_ensure_sgu_attribution` guarantees there is exactly one SGU
+# entry, so a manifest never credits the same agency twice.
 SGU_ATTRIBUTION = {
+    "text": "Jordarts- och strandförskjutningsdata från Sveriges geologiska undersökning (CC0)",
+    "license": "CC0",
+    "url": "https://www.sgu.se",
+}
+# The v1.1 wording. Manifests written before the widening carry it, and the
+# contract still mandates it for a shoreline-only site, so the validator accepts
+# either text — but the pipeline only ever writes the widened one.
+SGU_SHORELINE_ATTRIBUTION = {
     "text": "Strandförskjutningsdata från Sveriges geologiska undersökning (CC0)",
     "license": "CC0",
     "url": "https://www.sgu.se",
 }
+SGU_ATTRIBUTION_TEXTS = (SGU_ATTRIBUTION["text"], SGU_SHORELINE_ATTRIBUTION["text"])
+
 WATER_LAYER = {"id": "water", "name": "Paleo-shoreline (SGU model)", "provenance": "model"}
+
+# v1.2 §9/§10: the rule engine's output is a model and the layer entry says so —
+# `_validate_landcover` refuses any other provenance, for the same reason
+# `_validate_palisade` refuses one on the palisade.
+LANDCOVER_LAYER = {
+    "id": "landcover",
+    "name": "Modeled landscape (rule-based)",
+    "provenance": "model",
+}
 
 # v1.1 §8: the crest *line* is measured, the palisade drawn on it is not. PLAN §6.1
 # makes the provenance tag load-bearing, so `validate_manifest` refuses any other
@@ -136,6 +158,49 @@ def build_manifest(
     return manifest
 
 
+def _ensure_sgu_attribution(manifest: dict) -> None:
+    """Exactly one SGU credit entry, carrying the widened v1.2 text.
+
+    Both SGU products are CC0 and the contract wants one entry for the agency, so
+    an already-present v1.1 shoreline-only entry is *replaced* in place (keeping
+    its position in the footer order) rather than joined by a second one.
+    """
+    attribution = manifest.setdefault("attribution", [])
+    existing = [
+        i for i, entry in enumerate(attribution) if entry.get("text") in SGU_ATTRIBUTION_TEXTS
+    ]
+    if not existing:
+        attribution.append(dict(SGU_ATTRIBUTION))
+        return
+    attribution[existing[0]] = dict(SGU_ATTRIBUTION)
+    for index in reversed(existing[1:]):
+        del attribution[index]
+
+
+def _merge_provenance(manifest: dict, source: dict | None, processing: Iterable[str]) -> None:
+    """Add/replace one provenance source by id and append new processing steps."""
+    provenance = manifest.setdefault("provenance", {})
+    if source is not None:
+        sources = provenance.setdefault("sources", [])
+        sources = [s for s in sources if s.get("id") != source.get("id")]
+        sources.append(dict(source))
+        provenance["sources"] = sources
+    steps = provenance.setdefault("processing", [])
+    for entry in processing:
+        if entry not in steps:
+            steps.append(entry)
+
+
+def _insert_layer(layers: list[dict], layer: dict, before: tuple[str, ...]) -> None:
+    """Insert `layer` once, ahead of the first layer id in `before`."""
+    if any(existing.get("id") == layer["id"] for existing in layers):
+        return
+    insert_at = next(
+        (i for i, existing in enumerate(layers) if existing.get("id") in before), len(layers)
+    )
+    layers.insert(insert_at, dict(layer))
+
+
 def add_water_assets(
     manifest: dict,
     shoreline_path: str,
@@ -152,28 +217,34 @@ def add_water_assets(
     manifest.setdefault("assets", {})["shoreline"] = shoreline_path
     manifest["assets"]["waterConnect"] = connect_path
 
-    layers = manifest.setdefault("layers", [])
-    if not any(layer.get("id") == WATER_LAYER["id"] for layer in layers):
-        # Contract order: terrain, sites, water, palisade.
-        insert_at = next(
-            (i for i, layer in enumerate(layers) if layer.get("id") == "palisade"), len(layers)
-        )
-        layers.insert(insert_at, dict(WATER_LAYER))
+    # Contract order: terrain, sites, water, landcover, palisade.
+    _insert_layer(manifest.setdefault("layers", []), WATER_LAYER, ("landcover", "palisade"))
+    _ensure_sgu_attribution(manifest)
+    _merge_provenance(manifest, source, processing)
+    return manifest
 
-    attribution = manifest.setdefault("attribution", [])
-    if not any(entry.get("text") == SGU_ATTRIBUTION["text"] for entry in attribution):
-        attribution.append(dict(SGU_ATTRIBUTION))
 
-    provenance = manifest.setdefault("provenance", {})
-    if source is not None:
-        sources = provenance.setdefault("sources", [])
-        sources = [s for s in sources if s.get("id") != source.get("id")]
-        sources.append(dict(source))
-        provenance["sources"] = sources
-    steps = provenance.setdefault("processing", [])
-    for entry in processing:
-        if entry not in steps:
-            steps.append(entry)
+def add_landcover_asset(
+    manifest: dict,
+    landcover_path: str,
+    legend_path: str,
+    source: dict | None = None,
+    processing: Iterable[str] = (),
+) -> dict:
+    """Patch the v1.2 §9/§10 land-cover pair into an existing manifest. Idempotent.
+
+    Additive per the contract's versioning policy — `schemaVersion` stays 1. The
+    raster, the legend, the `landcover` (model) layer and the SGU attribution
+    travel together (see `validate_manifest`); the attribution is the widened v1.2
+    wording, which replaces the shoreline-only one if the water step wrote it.
+    """
+    manifest.setdefault("assets", {})["landcover"] = landcover_path
+    manifest["assets"]["landcoverLegend"] = legend_path
+
+    # Contract order: terrain, sites, water, landcover, palisade.
+    _insert_layer(manifest.setdefault("layers", []), LANDCOVER_LAYER, ("palisade",))
+    _ensure_sgu_attribution(manifest)
+    _merge_provenance(manifest, source, processing)
     return manifest
 
 
@@ -276,7 +347,15 @@ def validate_manifest(manifest: dict) -> None:
             raise ValueError(f"asset path {entry!r} must be relative and contain no '..'")
 
     _validate_water(manifest, assets)
+    _validate_landcover(manifest, assets)
     _validate_palisade(manifest, assets)
+
+
+def _has_sgu_attribution(manifest: dict) -> bool:
+    """True if the manifest credits SGU, in either the v1.1 or the v1.2 wording."""
+    return any(
+        entry.get("text") in SGU_ATTRIBUTION_TEXTS for entry in manifest.get("attribution", [])
+    )
 
 
 def _validate_water(manifest: dict, assets: dict) -> None:
@@ -296,18 +375,47 @@ def _validate_water(manifest: dict, assets: dict) -> None:
             f"got {water.get('provenance')!r}"
         )
 
-    has_sgu = any(
-        entry.get("text") == SGU_ATTRIBUTION["text"] for entry in manifest.get("attribution", [])
-    )
+    has_sgu = _has_sgu_attribution(manifest)
     if has_shoreline and not has_sgu:
         raise ValueError(
             "assets.shoreline is present but the SGU attribution entry is missing from "
-            f"`attribution` (contract v1.1 requires {SGU_ATTRIBUTION['text']!r})"
+            f"`attribution` (contract v1.1/v1.2 requires one of {SGU_ATTRIBUTION_TEXTS!r})"
         )
-    if has_sgu and not has_shoreline:
+    if has_sgu and not has_shoreline and "landcover" not in assets:
         raise ValueError(
-            "the SGU shoreline attribution is present but assets.shoreline is not — "
-            "the app would credit a source it never loads"
+            "the SGU attribution is present but neither assets.shoreline nor assets.landcover "
+            "is — the app would credit a source it never loads"
+        )
+
+
+def _validate_landcover(manifest: dict, assets: dict) -> None:
+    """v1.2 §9/§10 rules: the raster, the legend, the layer and the credit travel together."""
+    has_raster = "landcover" in assets
+    has_legend = "landcoverLegend" in assets
+    if has_raster != has_legend:
+        raise ValueError(
+            "assets.landcover and assets.landcoverLegend are a pair (contract v1.2 preamble): "
+            f"landcover={assets.get('landcover')!r}, "
+            f"landcoverLegend={assets.get('landcoverLegend')!r}"
+        )
+
+    layer = next(
+        (entry for entry in manifest["layers"] if entry.get("id") == LANDCOVER_LAYER["id"]), None
+    )
+    if layer is not None and layer.get("provenance") != LANDCOVER_LAYER["provenance"]:
+        raise ValueError(
+            f"the 'landcover' layer is a rule-based reconstruction; provenance must be "
+            f"{LANDCOVER_LAYER['provenance']!r}, got {layer.get('provenance')!r} (PLAN.md §6.1)"
+        )
+    if has_raster and layer is None:
+        raise ValueError(
+            "assets.landcover is present but there is no 'landcover' layer entry — the app "
+            "would draw a modelled layer with no provenance label (contract §9, PLAN.md §6.1)"
+        )
+    if has_raster and not _has_sgu_attribution(manifest):
+        raise ValueError(
+            "assets.landcover is present but the SGU attribution entry is missing from "
+            f"`attribution` (contract v1.2 requires {SGU_ATTRIBUTION['text']!r})"
         )
 
 
@@ -369,7 +477,7 @@ renders the short attribution strings from `manifest.json` → `attribution`.
 - **Voluntary attribution:** *"Fornlämningsinformation från Riksantikvarieämbetet,
   Kulturmiljöregistret (CC0), hämtad {kmr_fetched}"*.
 
-{water_section}## Later phases (added when the layers ship)
+{water_section}{soils_section}## Later phases (added when the layers ship)
 
 - {later_sgu}
 
@@ -387,6 +495,11 @@ LATER_SGU_SHIPPED = (
     "Soils (jordarter, phase 7): Sveriges geologiska undersökning (SGU), **CC0** — when it\n"
     "  ships, the SGU attribution line above widens to *\"Jordarts- och\n"
     "  strandförskjutningsdata från Sveriges geologiska undersökning (CC0)\"* (PLAN.md §6.3)."
+)
+LATER_SGU_COMPLETE = (
+    "Both SGU products (jordarter and strandförskjutning) now ship, so the app's single SGU\n"
+    "  credit line reads *\"Jordarts- och strandförskjutningsdata från Sveriges geologiska\n"
+    "  undersökning (CC0)\"* (PLAN.md §6.3). Nothing SGU-related is outstanding."
 )
 
 WATER_SECTION_TEMPLATE = """## Paleo-shoreline — `shoreline.json`, `water_connect.tif`
@@ -413,6 +526,30 @@ WATER_SECTION_TEMPLATE = """## Paleo-shoreline — `shoreline.json`, `water_conn
 """
 
 
+SOILS_SECTION_TEMPLATE = """## Modeled landscape — `landcover.tif`, `landcover_legend.json`
+
+- **Source:** Sveriges geologiska undersökning, *Jordarter 1:25 000–1:100 000* (Quaternary
+  deposit polygons; the `grundlager` ground layer carries the classification `jg2`/`jg2_tx`,
+  the `ytlager` surface layer the thin peat/till veneer `jy1`/`jy1_tx`).
+- **Endpoint:** OGC API — Features, `{api}`
+- **Collections read:** {collections}
+- **Fetched:** {fetched}
+- **License:** **CC0** — attribution not required, given voluntarily.
+- **Voluntary attribution:** *"Jordarts- och strandförskjutningsdata från Sveriges geologiska
+  undersökning (CC0)"*.
+- **Caveat (shown in the app):** SGU maps the **present-day** soil surface. Using it as a
+  proxy for the ground of {reference_year} CE is a modelling assumption; the classification
+  is a rule engine's output, not evidence for the vegetation at any single point.
+- **Processing applied:** none of SGU's geometry is shipped. The polygons are rasterized
+  onto the site's context grid and combined with slope from our own LiDAR DEM, the modelled
+  shoreline level for {reference_year} CE and distance to registered grave/settlement sites
+  to produce `landcover.tif`, a uint8 class-index raster. Every rule, the palette and the
+  measured area fractions are disclosed verbatim in `landcover_legend.json`, which is what
+  the app's methods panel renders.
+
+"""
+
+
 def water_section(water_meta: dict | None) -> str:
     if not water_meta:
         return ""
@@ -424,10 +561,39 @@ def water_section(water_meta: dict | None) -> str:
     )
 
 
+def soils_section(soils_meta: dict | None) -> str:
+    if not soils_meta:
+        return ""
+    collections = ", ".join(f"`{c}`" for c in soils_meta.get("collections", [])) or "n/a"
+    return SOILS_SECTION_TEMPLATE.format(
+        api=soils_meta.get("api", "n/a"),
+        collections=collections,
+        fetched=soils_meta.get("fetched", "n/a"),
+        reference_year=soils_meta.get("referenceYearCE", "n/a"),
+    )
+
+
 def write_data_licenses(
-    path: Path, cfg: SiteConfig, source_meta: dict, water_meta: dict | None = None
+    path: Path,
+    cfg: SiteConfig,
+    source_meta: dict,
+    water_meta: dict | None = None,
+    soils_meta: dict | None = None,
 ) -> Path:
+    """Regenerate DATA-LICENSES.md from whatever this site currently ships.
+
+    The file is rewritten whole every time, so a caller that only just derived the
+    soils must pass `water_meta` too or the shoreline section would silently
+    vanish — `landcover.patch_manifest` reconstructs it from the manifest's own
+    provenance sources, exactly as `water.patch_manifest` does for the DEM.
+    """
     tiles = ", ".join(f"`{t}`" for t in source_meta.get("stacItems", [])) or "n/a"
+    if soils_meta:
+        later_sgu = LATER_SGU_COMPLETE
+    elif water_meta:
+        later_sgu = LATER_SGU_SHIPPED
+    else:
+        later_sgu = LATER_SGU_PENDING
     text = DATA_LICENSES_TEMPLATE.format(
         site_name=cfg.name,
         site_id=cfg.id,
@@ -436,7 +602,8 @@ def write_data_licenses(
         fetched=source_meta.get("fetched", "n/a"),
         kmr_fetched=cfg.kmr_fetched or "n/a",
         water_section=water_section(water_meta),
-        later_sgu=LATER_SGU_SHIPPED if water_meta else LATER_SGU_PENDING,
+        soils_section=soils_section(soils_meta),
+        later_sgu=later_sgu,
     )
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding="utf-8")

@@ -7,6 +7,8 @@
  *   app/public/data/testsite/water_connect.tif  256 x 256 @ 2 m, int16 dm (§7)
  *   app/public/data/testsite/shoreline.json     century -> water level (§6)
  *   app/public/data/testsite/rampart.json       rampart crest polyline (§8)
+ *   app/public/data/testsite/landcover.tif      256 x 256 @ 2 m, uint8 class ids (§9)
+ *   app/public/data/testsite/landcover_legend.json  classes, palette, rules (§10)
  *   app/public/data/testsite/manifest.json      schemaVersion 1, fully conformant
  *
  * The point of this fixture is that the app never blocks on the Python pipeline:
@@ -26,6 +28,15 @@
  *     DEM is bit-identical to the pre-v1.1 fixture.
  *   • the diagonal valley already reaches the southern grid edge at <1 m, which
  *     is where the rising sea enters the extent from outside.
+ *
+ * v1.2 (Phase 7) additions:
+ *   • a land-cover class raster (§9) and its legend (§10), derived from the *same*
+ *     closed-form terrain plus the §7 connectivity grid, for one reference century
+ *     (500 CE). Five classes exercise every branch the app has: `conifer`,
+ *     `broadleaf` and `reeds` vegetation plus two classes with `vegetation: null`.
+ *     The false basin is a deliberate highlight: its floor lies below several table
+ *     levels, so an elevation-only rule would call it sea — the connectivity rule
+ *     makes it woodland instead.
  *
  * Run: npm run make-test-dem
  */
@@ -49,6 +60,8 @@ const GRIDS = {
 const CONNECT_PATH = 'water_connect.tif';
 const SHORELINE_PATH = 'shoreline.json';
 const RAMPART_PATH = 'rampart.json';
+const LANDCOVER_PATH = 'landcover.tif';
+const LANDCOVER_LEGEND_PATH = 'landcover_legend.json';
 
 /**
  * The inner rampart ring the terrain function draws, restated as the crest
@@ -290,6 +303,27 @@ function priorityFlood(dem, width, height) {
 
 // -------------------------------------------------- water: §6 level table ---
 
+/**
+ * Level (m) at a year read off the *committed table*, linearly interpolated between
+ * steps exactly as the app's `levelAt` does. The reference century need not land on
+ * an SGU-shaped BP step (500 CE does not), and contract §10 says `referenceLevelM`
+ * comes from the §6 table — so the land-cover model must read the table, not the
+ * closed form behind it, or the two would disagree by the rounding.
+ */
+function tableLevelAt(steps, yearCE) {
+  if (yearCE <= steps[0].yearCE) return steps[0].levelM;
+  const last = steps[steps.length - 1];
+  if (yearCE >= last.yearCE) return last.levelM;
+  for (let i = 1; i < steps.length; i++) {
+    const b = steps[i];
+    if (b.yearCE < yearCE) continue;
+    const a = steps[i - 1];
+    const t = (yearCE - a.yearCE) / (b.yearCE - a.yearCE);
+    return a.levelM + (b.levelM - a.levelM) * t;
+  }
+  return last.levelM;
+}
+
 /** Level (m) for a calendar year, on the synthetic decelerating uplift curve. */
 function levelForYear(yearCE) {
   const yOld = 1950 - SHORELINE.bpFrom;
@@ -344,6 +378,215 @@ function buildRampartPath() {
   return { id: 'inner', name: 'Inner rampart', closed: true, lengthM: Number(lengthM.toFixed(1)), points };
 }
 
+// ------------------------------------------- land cover: §9/§10 rule model ---
+
+/**
+ * The land-cover rule model (contract §9/§10), for ONE reference century.
+ *
+ * Every rule below reads only two things the fixture already has: the context DEM
+ * and the §7 connectivity grid. That is deliberate — the classes are a *derivation*
+ * of the same closed-form terrain, so the raster can never disagree with the ground
+ * it is painted on, and the rule strings shipped in the legend are literally the
+ * rules the code applies (contract §10 requires them verbatim in the methods panel;
+ * a paraphrase here would be a lie there).
+ */
+export const LANDCOVER = {
+  referenceYearCE: 500,
+  /** How far above the reference level the shore/reed band reaches, meters. */
+  reedBandM: 1.2,
+  /** Ground below this height above the reference level counts as damp low ground. */
+  lowGroundM: 4.0,
+  /** Slope (m/m) at which the flanks count as forested rather than open. */
+  forestSlope: 0.05,
+  /** Radius (m) of the fort's cleared crown around the site origin. */
+  clearedRadiusM: 58,
+};
+
+/** Central-difference slope (m/m) of the decimeter grid at (col, row). */
+function slopeAt(dem, size, resolution, col, row) {
+  const at = (c, r) => dem[Math.min(size - 1, Math.max(0, r)) * size + Math.min(size - 1, Math.max(0, c))];
+  const dx = ((at(col + 1, row) - at(col - 1, row)) * SCALE) / (2 * resolution);
+  const dz = ((at(col, row + 1) - at(col, row - 1)) * SCALE) / (2 * resolution);
+  return Math.hypot(dx, dz);
+}
+
+/**
+ * Class index for one cell. Order matters: water and shore are decided by
+ * connectivity before anything looks at elevation, which is exactly how the false
+ * basin escapes being called sea.
+ */
+function classifyCell({ x, z, demM, connectM, slope, levelM }) {
+  if (connectM <= levelM) return 0; // sea at the reference level
+  if (connectM <= levelM + LANDCOVER.reedBandM) return 1; // shore band
+  if (Math.hypot(x, z) <= LANDCOVER.clearedRadiusM) return 4; // the fort's crown
+  if (demM - levelM < LANDCOVER.lowGroundM) return 2; // damp low ground
+  if (slope >= LANDCOVER.forestSlope) return 3; // hill flanks
+  return 4; // gentle high ground
+}
+
+/** The §10 class list, with the rules stated exactly as `classifyCell` applies them. */
+function landcoverClasses(levelM) {
+  const m = (v) => v.toFixed(1);
+  return [
+    {
+      index: 0,
+      id: 'water',
+      name: `Water (sea, ~${LANDCOVER.referenceYearCE} CE)`,
+      color: '#2d5a6b',
+      rule:
+        `Sea-connectivity value at or below the ${m(levelM)} m reference water level ` +
+        '(connect ≤ level, docs/data-formats.md §7) — wet AND connected to the open sea, so enclosed ' +
+        'basins below that level are excluded.',
+      vegetation: null,
+    },
+    {
+      index: 1,
+      id: 'reeds',
+      name: 'Reed bed and shore fen',
+      color: '#7f9455',
+      rule:
+        `Dry at the reference level but flooded by a further ${LANDCOVER.reedBandM} m rise ` +
+        `(connect ≤ ${m(levelM + LANDCOVER.reedBandM)} m): the shallow, seasonally wet shore band.`,
+      vegetation: { type: 'reeds', densityPerHa: 600 },
+    },
+    {
+      index: 2,
+      id: 'broadleaf',
+      name: 'Damp broadleaf woodland',
+      color: '#5c7f3c',
+      rule:
+        `Dry ground less than ${LANDCOVER.lowGroundM} m above the reference level ` +
+        `(below ${m(levelM + LANDCOVER.lowGroundM)} m), outside the fort's cleared crown — the valley ` +
+        'floors and the enclosed basin.',
+      vegetation: { type: 'broadleaf', densityPerHa: 90 },
+    },
+    {
+      index: 3,
+      id: 'conifer',
+      name: 'Conifer forest',
+      color: '#33512f',
+      rule:
+        `Ground at least ${LANDCOVER.lowGroundM} m above the reference level whose DEM slope is at least ` +
+        `${(LANDCOVER.forestSlope * 100).toFixed(0)} % — the hill flanks, the rampart ring and the basin rim.`,
+      vegetation: { type: 'conifer', densityPerHa: 120 },
+    },
+    {
+      index: 4,
+      id: 'open',
+      name: 'Open grazed ground',
+      color: '#a9a267',
+      rule:
+        `Everything else: gentle high ground below ${(LANDCOVER.forestSlope * 100).toFixed(0)} % slope, plus a ` +
+        `${LANDCOVER.clearedRadiusM} m cleared radius around the fort itself.`,
+      vegetation: null,
+    },
+  ];
+}
+
+/**
+ * Build the §9 class raster on the context geometry and the §10 legend that
+ * describes it, asserting the contract's invariants as it goes.
+ */
+function buildLandcover({ spec, grid }, connect) {
+  const { size, resolution } = spec;
+  const levelM = Number(tableLevelAt(buildShorelineSteps(), LANDCOVER.referenceYearCE).toFixed(2));
+  const classes = landcoverClasses(levelM);
+  const raw = new Uint8Array(size * size);
+  const counts = new Int32Array(classes.length);
+
+  for (let row = 0; row < size; row++) {
+    const z = grid.boundsLocal.minZ + (row + 0.5) * resolution;
+    for (let col = 0; col < size; col++) {
+      const x = grid.boundsLocal.minX + (col + 0.5) * resolution;
+      const i = row * size + col;
+      const index = classifyCell({
+        x,
+        z,
+        demM: grid.raw[i] * SCALE,
+        connectM: connect[i] * SCALE,
+        slope: slopeAt(grid.raw, size, resolution, col, row),
+        levelM,
+      });
+      raw[i] = index;
+      counts[index]++;
+    }
+  }
+
+  // Contract §9/§10 invariants — asserted here so a bad rule set can never be
+  // committed, exactly like the shoreline and rampart checks above.
+  if (classes.length > 32) throw new Error('landcover: at most 32 classes (§9)');
+  classes.forEach((c, i) => {
+    if (c.index !== i) throw new Error(`landcover: class indices must be contiguous from 0 (§10), got ${c.index} at ${i}`);
+    if (!/^#[0-9a-f]{6}$/i.test(c.color)) throw new Error(`landcover: class ${c.id} color must be #rrggbb (§10)`);
+    if (c.vegetation && !['conifer', 'broadleaf', 'reeds'].includes(c.vegetation.type)) {
+      throw new Error(`landcover: class ${c.id} vegetation.type is not a §10 type`);
+    }
+    if (c.vegetation && !(c.vegetation.densityPerHa > 0)) {
+      throw new Error(`landcover: class ${c.id} densityPerHa must be > 0 (§10)`);
+    }
+    if (counts[i] === 0) {
+      throw new Error(`landcover: class ${c.id} has no cells — the fixture must exercise every class it declares`);
+    }
+  });
+  if (new Set(classes.map((c) => c.id)).size !== classes.length) throw new Error('landcover: class ids must be unique (§10)');
+  for (const value of raw) {
+    if (value >= classes.length) throw new Error(`landcover: raw value ${value} is not a valid class index (§9)`);
+  }
+
+  // areaFraction: rounded for legibility, then the largest class absorbs the
+  // rounding error so the set still sums to 1 ± 0.001 (§10).
+  const total = size * size;
+  const fractions = classes.map((_, i) => Number((counts[i] / total).toFixed(4)));
+  const largest = fractions.indexOf(Math.max(...fractions));
+  fractions[largest] = Number((fractions[largest] + (1 - fractions.reduce((a, b) => a + b, 0))).toFixed(6));
+  const sum = fractions.reduce((a, b) => a + b, 0);
+  if (Math.abs(sum - 1) > 0.001) throw new Error(`landcover: areaFraction sums to ${sum}, not 1 ± 0.001 (§10)`);
+  classes.forEach((c, i) => {
+    c.areaFraction = fractions[i];
+  });
+
+  const legend = {
+    schemaVersion: 1,
+    site: 'testsite',
+    referenceYearCE: LANDCOVER.referenceYearCE,
+    referenceLevelM: levelM,
+    method:
+      'SYNTHETIC TEST DATA — no soil map, pollen record or rule engine was consulted. Classes are derived ' +
+      'by app/scripts/make-test-dem.mjs from the fixture\'s own closed-form terrain and its §7 ' +
+      `connectivity grid, for the single reference century ${LANDCOVER.referenceYearCE} CE at the ` +
+      `${levelM.toFixed(2)} m level its synthetic shoreline table gives at that year. It exists so the app's Phase-7 ` +
+      'land-cover feature can be exercised end to end against app/public/data/testsite/ without the Python ' +
+      'pipeline. A real site derives its classes from SGU Jordarter plus the DEM.',
+    caveat:
+      'Synthetic test data — a rule model of one century, not a survey of past vegetation. ' +
+      '(A real site states the rule engine\'s own caveat here.)',
+    calibration:
+      'SYNTHETIC TEST DATA — not calibrated against anything. The forest/open split here is whatever the ' +
+      'closed-form hill produces; a real site reports its forest/open ratio against the regional pollen ' +
+      'literature (PLAN §2.5).',
+    source: {
+      product: 'Synthetic — app/scripts/make-test-dem.mjs',
+      fetched: new Date().toISOString().slice(0, 10),
+    },
+    classes,
+  };
+
+  return { raw, legend, counts, levelM };
+}
+
+/** What the vegetation layer will instance, so a reviewer can sanity-check the load. */
+function reportVegetation(legend, counts, resolution) {
+  const cellArea = resolution * resolution;
+  let total = 0;
+  const parts = legend.classes.map((c, i) => {
+    const ha = (counts[i] * cellArea) / 10_000;
+    const instances = c.vegetation ? Math.round(ha * c.vegetation.densityPerHa) : 0;
+    total += instances;
+    return `${c.id} ${(c.areaFraction * 100).toFixed(1)} %${c.vegetation ? ` (~${instances} ${c.vegetation.type})` : ''}`;
+  });
+  return { line: parts.join(', '), total };
+}
+
 // ------------------------------------------------------------------ output --
 
 function buildGrid({ size, resolution }) {
@@ -388,13 +631,17 @@ function writeTiff(file, raw, size, resolution, bounds3006) {
   // strip of zero bytes. Two's-complement means the *bytes* are identical, so we
   // hand it a Uint16 view of the same buffer and declare `SampleFormat: [2]`
   // (signed int) explicitly; readers then decode band 1 straight back to Int16.
-  const asUint16 = new Uint16Array(raw.buffer, raw.byteOffset, raw.length);
+  //
+  // A Uint8Array (the §9 class raster) needs none of that: it is written as-is,
+  // 8 bits per sample, SampleFormat 1 (unsigned int).
+  const isBytes = raw instanceof Uint8Array;
+  const samples = isBytes ? raw : new Uint16Array(raw.buffer, raw.byteOffset, raw.length);
 
-  const arrayBuffer = writeArrayBuffer(asUint16, {
+  const arrayBuffer = writeArrayBuffer(samples, {
     width: size,
     height: size,
-    BitsPerSample: [16],
-    SampleFormat: [2], // 2 = two's-complement signed integer
+    BitsPerSample: [isBytes ? 8 : 16],
+    SampleFormat: [isBytes ? 1 : 2], // 1 = unsigned int, 2 = two's-complement signed
     PhotometricInterpretation: 1,
     SamplesPerPixel: [1],
     // EPSG:3006 horizontal only — the vertical CRS is deliberately absent
@@ -527,6 +774,26 @@ function main() {
       `at radius ${RAMPART.radius} m`,
   );
 
+  // --- §9 land-cover class raster + §10 legend -------------------------------
+  const { raw: landcoverRaw, legend: landcoverLegend, counts: landcoverCounts } = buildLandcover(context, connect);
+  const landcoverBytes = writeTiff(
+    join(OUT_DIR, LANDCOVER_PATH),
+    landcoverRaw,
+    context.spec.size,
+    context.spec.resolution,
+    context.grid.bounds3006,
+  );
+  writeFileSync(join(OUT_DIR, LANDCOVER_LEGEND_PATH), `${JSON.stringify(landcoverLegend, null, 2)}\n`);
+  const vegetationReport = reportVegetation(landcoverLegend, landcoverCounts, context.spec.resolution);
+  console.log(
+    `${LANDCOVER_PATH}: ${context.spec.size}x${context.spec.size} @ ${context.spec.resolution} m, uint8, ` +
+      `${landcoverLegend.classes.length} classes, ${(landcoverBytes / 1024).toFixed(0)} KiB`,
+  );
+  console.log(
+    `${LANDCOVER_LEGEND_PATH}: ${LANDCOVER.referenceYearCE} CE at ${landcoverLegend.referenceLevelM.toFixed(1)} m — ` +
+      `${vegetationReport.line}; ~${vegetationReport.total} vegetation instances at density x1`,
+  );
+
   const gridManifest = (name) => {
     const { spec, grid } = built[name];
     return {
@@ -561,14 +828,17 @@ function main() {
       shoreline: SHORELINE_PATH,
       waterConnect: CONNECT_PATH,
       rampart: RAMPART_PATH,
+      landcover: LANDCOVER_PATH,
+      landcoverLegend: LANDCOVER_LEGEND_PATH,
     },
     layers: [
       { id: 'terrain', name: 'Terrain (synthetic)', provenance: 'model' },
       // Same shape as Broborg's `water` entry (contract §2/§6); the name says
       // "synthetic" because nothing here came from SGU (PLAN §6.1 honesty).
       { id: 'water', name: 'Paleo-shoreline (synthetic model)', provenance: 'model' },
-      // Contract order: terrain, sites, water, palisade. The provenance is the one
-      // value the pipeline validator allows here (PLAN §6.1).
+      // Contract v1.2 order: terrain, sites, water, landcover, palisade.
+      { id: 'landcover', name: 'Modeled landscape (synthetic rule model)', provenance: 'model' },
+      // The provenance is the one value the pipeline validator allows here (PLAN §6.1).
       { id: 'palisade', name: 'Palisade (conjectural)', provenance: 'conjecture' },
     ],
     attribution: [
@@ -577,8 +847,11 @@ function main() {
         license: 'MIT',
       },
       {
-        // The slot the contract v1.1 preamble reserves for the SGU CC0 line.
-        text: 'Strandförskjutning: synthetic test data — not from Sveriges geologiska undersökning.',
+        // The slot the contract v1.1/v1.2 preamble reserves for the SGU CC0 line,
+        // widened for the land-cover pair. A real site says "Jordarts- och
+        // strandförskjutningsdata från Sveriges geologiska undersökning (CC0)";
+        // this fixture must not, because none of it came from SGU (PLAN §6.1).
+        text: 'Jordarts- och strandförskjutning: synthetic test data — not from Sveriges geologiska undersökning.',
         license: 'MIT',
       },
     ],
@@ -594,6 +867,8 @@ function main() {
         'priority-flood sea connectivity over the context grid (4-connected, every edge cell a sea entry)',
         'synthetic century -> level table on SGU-shaped BP centuries',
         'rampart crest ring restated from the same closed form that drew it (no ridge extraction)',
+        'land-cover rule model over the context grid (connectivity + height above the reference level + DEM slope)',
+        'uint8 class raster on the grids.context geometry, one reference century',
       ],
     },
   };
