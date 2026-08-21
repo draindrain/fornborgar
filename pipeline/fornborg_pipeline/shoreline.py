@@ -34,18 +34,17 @@ product [phase-0 verified], so that century simply has no entry (contract §6).
 from __future__ import annotations
 
 import json
-import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Iterable, Sequence
 
 import numpy as np
-import requests
 from pyproj import Transformer
 
 from .clip_dem import sample_nearest_many
-from .fetch_dem import DEFAULT_BACKOFF, MAX_RETRIES, USER_AGENT, FetchError, wgs84_bbox
+from .fetch_dem import wgs84_bbox
+from .sgu import MAX_PAGES, PAGE_LIMIT, page_features
 from .sites import CACHE_DIR, EPSG_HORIZONTAL, SiteConfig
 
 SHORELINE_PATH = "shoreline.json"
@@ -70,8 +69,6 @@ STRAND_COLLECTIONS = (
     "bp12000-12900",
     "bp13000-13500",
 )
-PAGE_LIMIT = 1000
-MAX_PAGES = 50
 
 CODE_HAV = 1  # sea — the only class we derive levels from
 CODE_SJO = 4  # lake — modelled by filling low points, "ytterst ungefärliga" per SGU
@@ -148,62 +145,18 @@ def collections_for_bp_range(bp_min: int, bp_max: int) -> list[str]:
     return out
 
 
-def _retry_delay(response: requests.Response, attempt: int) -> float:
-    header = response.headers.get("Retry-After", "")
-    try:
-        return max(1.0, float(header))
-    except ValueError:
-        return DEFAULT_BACKOFF * attempt
-
-
-def _get_json(url: str) -> dict:
-    """GET one OGC API page. Retries on transport errors and HTTP 429."""
-    for attempt in range(1, MAX_RETRIES + 1):
-        try:
-            response = requests.get(url, headers={"User-Agent": USER_AGENT}, timeout=120)
-        except requests.RequestException as exc:
-            if attempt == MAX_RETRIES:
-                raise FetchError(f"SGU request failed after {attempt} attempts: {exc}") from exc
-            time.sleep(DEFAULT_BACKOFF * attempt)
-            continue
-        if response.status_code == 429:
-            if attempt == MAX_RETRIES:
-                raise FetchError(f"SGU rate-limited (429) after {attempt} attempts: {url}")
-            delay = _retry_delay(response, attempt)
-            print(f"  SGU 429, retrying in {delay:.0f}s ({attempt}/{MAX_RETRIES})")
-            time.sleep(delay)
-            continue
-        if response.status_code >= 400:
-            raise FetchError(
-                f"SGU HTTP {response.status_code} for {url}: {response.text[:300]}"
-            )
-        return response.json()
-    raise FetchError(f"SGU request exhausted retries: {url}")
-
-
 def fetch_collection(collection: str, bbox4326: Sequence[float]) -> dict:
     """All features of one collection intersecting the bbox, as one FeatureCollection.
 
-    The API is served in WGS84 (CRS84 axis order), so `bbox` and the returned
-    coordinates are lon/lat — they get projected to EPSG:3006 before sampling.
+    Requested without a `crs` parameter, so the API answers in WGS84 (CRS84 axis
+    order): `bbox` and the returned coordinates are lon/lat and get projected to
+    EPSG:3006 before sampling. (`fetch_soils.py` takes the other route and asks
+    for EPSG:3006 output directly — it rasterizes rather than samples, so the
+    round trip through lon/lat would only cost precision.)
     """
     bbox = ",".join(f"{v:.8f}" for v in bbox4326)
     url = f"{STRAND_API}/collections/{collection}/items?f=json&bbox={bbox}&limit={PAGE_LIMIT}"
-    features: list[dict] = []
-    for _page in range(MAX_PAGES):
-        payload = _get_json(url)
-        features.extend(payload.get("features", []))
-        nxt = [
-            link.get("href")
-            for link in payload.get("links", [])
-            if link.get("rel") == "next" and link.get("href")
-        ]
-        if not nxt:
-            return {"type": "FeatureCollection", "features": features}
-        url = nxt[0]
-    raise FetchError(
-        f"SGU collection {collection!r} did not paginate to an end in {MAX_PAGES} pages"
-    )
+    return page_features(url, collection, MAX_PAGES)
 
 
 def _cache_path(cfg: SiteConfig, collection: str) -> Path:

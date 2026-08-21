@@ -9,8 +9,11 @@ import pytest
 
 from fornborg_pipeline.clip_dem import build_grids
 from fornborg_pipeline.manifest import (
+    LANDCOVER_LAYER,
     SCHEMA_VERSION,
     SGU_ATTRIBUTION,
+    SGU_SHORELINE_ATTRIBUTION,
+    add_landcover_asset,
     add_water_assets,
     build_manifest,
     local_bounds,
@@ -298,4 +301,147 @@ def test_data_licenses_gains_an_sgu_section_when_water_ships(tmp_path, fake_site
     assert "`bp1000-1900`" in text
     assert WATER_META["fetched"] in text
     assert "±500" in text
-    assert SGU_ATTRIBUTION["text"].split("(")[0].strip() in text
+    # The shoreline section credits the shoreline product in the v1.1 wording; the
+    # manifest's single SGU entry carries the widened v1.2 text (see below).
+    assert SGU_SHORELINE_ATTRIBUTION["text"].split("(")[0].strip() in text
+    assert "landcover.tif" not in text  # no land-cover assets shipped for this site
+
+
+# --------------------------------------------------------------------------- #
+# v1.2 land-cover assets (docs/data-formats.md §9/§10 + the amendment preamble)
+# --------------------------------------------------------------------------- #
+
+SOILS_META = {
+    "product": "SGU Jordarter 1:25 000–1:100 000",
+    "api": "https://api.sgu.se/oppnadata/jordarter25k-100k/ogc/features/v1",
+    "collections": ["grundlager", "ytlager"],
+    "fetched": "2026-08-21T12:00:00+00:00",
+    "referenceYearCE": 500,
+}
+
+
+@pytest.fixture
+def landcover_manifest(water_manifest):
+    patched = copy.deepcopy(water_manifest)
+    add_landcover_asset(
+        patched,
+        "landcover.tif",
+        "landcover_legend.json",
+        source={"id": "sgu-jordarter", "fetched": SOILS_META["fetched"]},
+        processing=["rule-based land-cover classification"],
+    )
+    return patched
+
+
+def test_add_landcover_asset_wires_up_the_whole_v12_bundle(landcover_manifest):
+    assert landcover_manifest["schemaVersion"] == SCHEMA_VERSION  # additive: no bump
+    assert landcover_manifest["assets"]["landcover"] == "landcover.tif"
+    assert landcover_manifest["assets"]["landcoverLegend"] == "landcover_legend.json"
+    assert [layer["id"] for layer in landcover_manifest["layers"]] == [
+        "terrain",
+        "sites",
+        "water",
+        "landcover",
+    ]
+    assert landcover_manifest["layers"][-1] == LANDCOVER_LAYER
+    assert LANDCOVER_LAYER["provenance"] == "model"
+    assert SGU_ATTRIBUTION in landcover_manifest["attribution"]
+    assert any(
+        s["id"] == "sgu-jordarter" for s in landcover_manifest["provenance"]["sources"]
+    )
+    validate_manifest(landcover_manifest)
+
+
+def test_add_landcover_asset_is_idempotent(landcover_manifest):
+    twice = copy.deepcopy(landcover_manifest)
+    add_landcover_asset(twice, "landcover.tif", "landcover_legend.json")
+    assert twice["layers"] == landcover_manifest["layers"]
+    assert twice["attribution"] == landcover_manifest["attribution"]
+    assert twice["assets"] == landcover_manifest["assets"]
+
+
+def test_landcover_layer_is_inserted_between_water_and_palisade(water_manifest):
+    """Contract §9: terrain, sites, water, landcover, palisade — in that order."""
+    patched = copy.deepcopy(water_manifest)
+    patched["layers"].append(
+        {"id": "palisade", "name": "Palisade (conjecture)", "provenance": "conjecture"}
+    )
+    add_landcover_asset(patched, "landcover.tif", "landcover_legend.json")
+    assert [layer["id"] for layer in patched["layers"]] == [
+        "terrain",
+        "sites",
+        "water",
+        "landcover",
+        "palisade",
+    ]
+
+
+def test_the_sgu_credit_is_widened_in_place_not_duplicated(manifest):
+    """v1.2: one SGU entry total — the shoreline-only wording is replaced."""
+    patched = copy.deepcopy(manifest)
+    patched["attribution"].append(dict(SGU_SHORELINE_ATTRIBUTION))
+    position = len(patched["attribution"]) - 1
+    add_water_assets(patched, "shoreline.json", "water_connect.tif")
+    add_landcover_asset(patched, "landcover.tif", "landcover_legend.json")
+    sgu = [
+        entry
+        for entry in patched["attribution"]
+        if entry["url"] == SGU_ATTRIBUTION["url"]
+    ]
+    assert sgu == [SGU_ATTRIBUTION]  # exactly one, carrying the widened text
+    assert patched["attribution"][position] == SGU_ATTRIBUTION  # kept its footer slot
+
+
+def test_a_v11_manifest_carrying_the_narrow_sgu_text_still_validates(water_manifest):
+    """Manifests written before the widening must not start failing the validator."""
+    legacy = copy.deepcopy(water_manifest)
+    legacy["attribution"] = [
+        SGU_SHORELINE_ATTRIBUTION if entry == SGU_ATTRIBUTION else entry
+        for entry in legacy["attribution"]
+    ]
+    validate_manifest(legacy)
+
+
+@pytest.mark.parametrize(
+    "mutate, match",
+    [
+        (lambda m: m["assets"].pop("landcoverLegend"), "pair"),
+        (lambda m: m["assets"].pop("landcover"), "pair"),
+        (lambda m: m["layers"][-1].update(provenance="measured"), "must be 'model'"),
+        (lambda m: m["layers"].pop(-1), "no 'landcover' layer entry"),
+        (lambda m: m["attribution"].remove(SGU_ATTRIBUTION), "SGU attribution entry is missing"),
+        (lambda m: m["assets"].update(landcover="/data/landcover.tif"), "relative"),
+    ],
+)
+def test_validator_rejects_broken_landcover_wiring(landcover_manifest, mutate, match):
+    broken = copy.deepcopy(landcover_manifest)
+    mutate(broken)
+    with pytest.raises(ValueError, match=match):
+        validate_manifest(broken)
+
+
+def test_a_v1_manifest_without_landcover_still_validates(manifest):
+    """A missing assets entry always means 'feature off', never an error."""
+    assert "landcover" not in manifest["assets"]
+    assert not any(layer["id"] == "landcover" for layer in manifest["layers"])
+    validate_manifest(manifest)
+
+
+def test_data_licenses_gains_a_jordarter_section_when_landcover_ships(tmp_path, fake_site):
+    path = write_data_licenses(
+        tmp_path / "DATA-LICENSES.md",
+        fake_site,
+        SOURCE_META,
+        water_meta=WATER_META,
+        soils_meta=SOILS_META,
+    )
+    text = path.read_text(encoding="utf-8")
+    assert "`landcover.tif`, `landcover_legend.json`" in text
+    assert "Jordarter" in text and "`grundlager`, `ytlager`" in text
+    assert SOILS_META["fetched"] in text
+    assert "500 CE" in text
+    # The widened v1.2 credit, un-wrapping the template's line break.
+    assert SGU_ATTRIBUTION["text"].split("(")[0].strip() in " ".join(text.split())
+    # Re-running the land-cover step must not drop the section the water step owns.
+    assert "Strandförskjutningsmodell" in text and "`bp1000-1900`" in text
+    assert "Nothing SGU-related is outstanding" in text

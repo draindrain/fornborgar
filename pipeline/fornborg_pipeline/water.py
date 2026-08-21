@@ -126,6 +126,22 @@ def _check_identical_profile(reference, candidate) -> None:
     print(f"  profile identical to {reference.name} (geometry, encoding, tiling, overviews)")
 
 
+def _soils_meta(cfg: SiteConfig, source: dict | None) -> dict | None:
+    """The land-cover step's DATA-LICENSES inputs, recovered from what it left behind.
+
+    Returns None when this site ships no land-cover assets, which is what
+    `write_data_licenses` wants in order to omit the section entirely.
+    """
+    if not source:
+        return None
+    legend_path = cfg.out_dir / "landcover_legend.json"
+    reference_year = "n/a"
+    if legend_path.exists():
+        legend = json.loads(legend_path.read_text(encoding="utf-8"))
+        reference_year = legend.get("referenceYearCE", "n/a")
+    return {**source, "referenceYearCE": reference_year}
+
+
 def patch_manifest(cfg: SiteConfig, water_meta: dict) -> dict:
     """Add the water pair to the site's committed manifest and re-validate it."""
     manifest_path = cfg.out_dir / "manifest.json"
@@ -147,21 +163,22 @@ def patch_manifest(cfg: SiteConfig, water_meta: dict) -> dict:
     write_manifest(manifest_path, manifest)
     print(f"  wrote {manifest_path}")
 
-    dem_source = next(
-        (
-            s
-            for s in manifest.get("provenance", {}).get("sources", [])
-            if s.get("id") == "lantmateriet-dtm"
-        ),
-        {},
-    )
+    # DATA-LICENSES.md is rewritten whole, so every section a *later* step owns is
+    # reconstructed from the manifest's own provenance rather than dropped — the
+    # same trick `landcover.patch_manifest` uses in the other direction.
+    sources = {s.get("id"): s for s in manifest.get("provenance", {}).get("sources", [])}
+    dem_source = sources.get("lantmateriet-dtm", {})
     source_meta = {
         "product": dem_source.get("product", ""),
         "stacItems": dem_source.get("tiles", []),
         "fetched": dem_source.get("fetched", ""),
     }
     licenses_path = write_data_licenses(
-        cfg.out_dir / "DATA-LICENSES.md", cfg, source_meta, water_meta=water_meta
+        cfg.out_dir / "DATA-LICENSES.md",
+        cfg,
+        source_meta,
+        water_meta=water_meta,
+        soils_meta=_soils_meta(cfg, sources.get("sgu-jordarter")),
     )
     print(f"  wrote {licenses_path}")
     return manifest
