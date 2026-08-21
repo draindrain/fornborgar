@@ -567,3 +567,22 @@ def test_ringless_manifest_still_validates(manifest):
     # v1 manifests carry no rings and no horizon — feature off, never an error.
     assert "rings" not in manifest["grids"]
     validate_manifest(manifest)
+
+
+def test_add_rings_replaces_stale_ring_seam_lines(ringed_manifest, fake_site):
+    """A re-run with full tile coverage must retract an earlier run's sea-fill
+    provenance line, not accumulate it (the 2026-08-21 ring4 regression)."""
+    stale = "ring4: 7140 cells outside tile coverage sea-filled at 0 m (…)"
+    ringed_manifest["provenance"]["processing"].append(stale)
+    other = "priority-flood sea-connectivity grid (int16 dm, ceil-quantized)"
+    ringed_manifest["provenance"]["processing"].append(other)
+    rings = [
+        _ring_grid(fake_site, "ring3", 400.0, 4.0, 0.5, "dem_ring3.tif"),
+        _ring_grid(fake_site, "ring4", 800.0, 8.0, 0.5, "dem_ring4.tif"),
+    ]
+    add_rings(ringed_manifest, rings, fake_site, horizon_info(50.0, 5.0),
+              processing=("far-field rings: decimated overview reads",))
+    steps = ringed_manifest["provenance"]["processing"]
+    assert stale not in steps
+    assert other in steps
+    assert steps.count("far-field rings: decimated overview reads") == 1

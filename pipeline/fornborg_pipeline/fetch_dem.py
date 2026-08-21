@@ -69,11 +69,17 @@ def _retry_after_seconds(response: requests.Response, attempt: int) -> float:
 
 
 def wgs84_bbox(bounds3006: tuple[float, float, float, float]) -> tuple[float, float, float, float]:
-    """Project an EPSG:3006 bbox to WGS84 lon/lat for the STAC query."""
+    """Project an EPSG:3006 bbox to a WGS84 lon/lat bbox that fully covers it.
+
+    The edges of a projected rectangle curve in lon/lat — this far east of the
+    TM central meridian the southern edge of a 16 km box sags ~700 m of latitude
+    below its corners — so a bbox from the two corners alone under-covers the
+    box and silently drops corner tiles from the STAC query (which then
+    sea-fills real terrain, docs/data-formats.md §11). `transform_bounds`
+    densifies each edge before taking the envelope.
+    """
     t = Transformer.from_crs(EPSG_HORIZONTAL, 4326, always_xy=True)
-    lon1, lat1 = t.transform(bounds3006[0], bounds3006[1])
-    lon2, lat2 = t.transform(bounds3006[2], bounds3006[3])
-    return (min(lon1, lon2), min(lat1, lat2), max(lon1, lon2), max(lat1, lat2))
+    return t.transform_bounds(*bounds3006, densify_pts=101)
 
 
 def _stac_request(

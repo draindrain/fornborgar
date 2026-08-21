@@ -114,7 +114,7 @@ detail: ~1 m of ground per km of distance, ≈ 0.06°):
 | ring 3 | 8×8 km | 4 m | 2000² | 0.5 m | 0.85 MB **[measured]** |
 | ring 4 | 16×16 km | 8 m | 2000² | 0.5 m | 1.20 MB **[measured]** |
 | ring 5 | 32×32 km | 16 m | 2000² | 0.5 m | 1.68 MB **[measured]** |
-| ring 6 | 64×64 km | 32 m | 2000² | 1.0 m | ~1.7 MB **[estimated; verify in 8a]** |
+| ring 6 | 64×64 km | 32 m | 2000² | 1.0 m | 2.19 MB **[measured 2026-08-21, Broborg rebuild]** |
 | ring 7 (rare) | 128×128 km | 64 m | 2000² | 1.0 m | ~2.0 MB **[estimated]** |
 
 Measured sizes come from block-mean downsampling the real Broborg context grid and
@@ -123,6 +123,15 @@ key win (≈ ½ the bytes of 0.1 m steps): at ≥ 2 km viewing distance 0.5 m su
 < 0.015°, and the manifest's per-grid `encoding.scale` field already expresses it —
 **no schema change**, just `"scale": 0.5` (or `1.0`) on ring grids. Disclosed per-ring
 in the methods panel.
+
+As-built measurement (Broborg Phase-8 rebuild, 2026-08-21): the shipped ladder
+weighs ring 3 = 1.37 MB, ring 4 = 1.85 MB, ring 5 = 2.34 MB, ring 6 = 2.19 MB —
+**7.75 MB of ring terrain** (the "~7.7 MB" ladder figure below, confirmed), plus
+1.79 MB for the §11 far-water connect grid on ring 4 (not yet delta-encoded) =
+**9.54 MB of new Phase-8 assets; the whole Broborg bundle is 15.96 MB**. The shipped
+ring COGs still carry overviews, which is why rings 3–5 come in above the
+overview-free projections in the table rows; the §2 encoding wins (overview drop,
+connect-grid delta) land in 9a.
 
 ### The horizon guarantee (first-person, adaptive per site)
 

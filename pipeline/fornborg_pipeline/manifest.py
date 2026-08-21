@@ -264,6 +264,17 @@ def add_rings(
     """
     manifest["grids"]["rings"] = [grid_entry(grid, cfg) for grid in ring_grids]
     manifest["horizon"] = dict(horizon)
+    # A rebuild replaces the ring seam lines rather than accumulating them — a
+    # stale "sea-filled" count from an earlier run must not survive a re-run
+    # that fetched full coverage.
+    steps = manifest.get("provenance", {}).get("processing")
+    if steps:
+        manifest["provenance"]["processing"] = [
+            s
+            for s in steps
+            if not s.startswith("far-field rings:")
+            and "cells outside tile coverage sea-filled" not in s
+        ]
     _merge_provenance(manifest, None, processing)
     return manifest
 
