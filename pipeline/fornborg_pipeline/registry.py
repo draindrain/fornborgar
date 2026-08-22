@@ -181,16 +181,36 @@ def _resolve_columns(path: Path, table: str) -> dict[str, str]:
 
 
 def fornborg_layers(path: Path) -> list[str]:
-    """The denormalized feature layers to scan, geometry classes in a stable order."""
-    layers = [name for name, kind in list_layers(path) if kind == "features"]
-    wanted = []
-    for suffix in ("polygon", "linestring", "point"):
-        wanted += sorted(name for name in layers if name.lower().endswith(suffix))
-    if not wanted:
+    """The denormalized feature layers to scan, geometry classes in a stable order.
+
+    The riket GeoPackage carries the KMR schema *twice*: bare relational geometry
+    tables (`polygon`, `point`, `linestring` — only `lamning_uuid` and a geometry
+    column) alongside the denormalized `lämningar_sverige_*` layers that join the
+    attributes back in. Both match a name-suffix test, and only the second kind
+    is usable, so layers are selected by **carrying the attributes we need** — a
+    test that also survives the layers being renamed again, as they were in the
+    October 2025 schema change.
+
+    Order is polygon, then line, then point: a site with both an extent polygon
+    and a point should be registered from the polygon (§4.1), and `build_entries`
+    keeps the first row it sees per slug.
+    """
+    order = {"polygon": 0, "linestring": 1, "point": 2}
+    candidates = []
+    for name, kind in list_layers(path):
+        if kind != "features":
+            continue
+        present = {column.lower() for column in table_columns(path, name)}
+        if not ({"lamningstyp"} <= present and present & set(WANTED_COLUMNS["lamningsnummer"])):
+            continue
+        rank = next((r for suffix, r in order.items() if name.lower().endswith(suffix)), 3)
+        candidates.append((rank, name))
+    if not candidates:
         raise RegistryError(
-            f"{path.name} has no point/linestring/polygon feature layers; found {layers}"
+            f"{path.name} has no feature layer carrying lamningstyp + lamningsnummer; "
+            f"layers are {[n for n, _k in list_layers(path)]}"
         )
-    return wanted
+    return [name for _rank, name in sorted(candidates)]
 
 
 def entry_from(attributes: dict, geometry: Geometry) -> RegistryEntry:

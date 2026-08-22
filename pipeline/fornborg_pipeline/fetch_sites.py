@@ -142,13 +142,25 @@ def national_gpkg_path() -> Path:
 
 
 def national_layers(gpkg: Path) -> dict[str, str]:
-    """{"polygon": <table>, "linestring": …} for the riket file's feature layers."""
-    tables = [name for name, kind in list_layers(gpkg) if kind == "features"]
-    found = {}
-    for suffix in ("polygon", "linestring", "point"):
-        matches = sorted(name for name in tables if name.lower().endswith(suffix))
-        if matches:
-            found[suffix] = matches[0]
+    """{"polygon": <table>, "linestring": …} for the riket file's usable layers.
+
+    The riket file holds the bare relational geometry tables (`polygon`, `point`,
+    `linestring`) as well as the denormalized `lämningar_sverige_*` ones; only
+    the latter carry `lamningstyp`, which is what this extract filters on. So a
+    layer qualifies by having the attributes, not by being named a certain way.
+    """
+    found: dict[str, str] = {}
+    for name, kind in list_layers(gpkg):
+        if kind != "features":
+            continue
+        lowered = name.lower()
+        suffix = next((s for s in ("polygon", "linestring", "point") if lowered.endswith(s)), None)
+        if suffix is None or suffix in found:
+            continue
+        present = {column.lower() for column in table_columns(gpkg, name)}
+        if "lamningstyp" not in present:
+            continue
+        found[suffix] = name
     return found
 
 

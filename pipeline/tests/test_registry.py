@@ -59,6 +59,14 @@ def kmr(tmp_path):
         conn.execute(f'CREATE TABLE "{table}" ({COLUMNS})')
         conn.execute("INSERT INTO gpkg_contents VALUES (?, 'features')", (table,))
         conn.execute("INSERT INTO gpkg_geometry_columns VALUES (?, 'geom')", (table,))
+        # The real riket file carries the KMR schema twice: these bare
+        # relational geometry tables sit alongside the denormalized layers
+        # above, match the same name-suffix test, and are useless — they hold
+        # no attributes at all. The fixture has to include them or the layer
+        # selection would be tested against a file simpler than reality.
+        conn.execute(f'CREATE TABLE "{suffix}" (fid INTEGER, lamning_uuid TEXT, geom BLOB)')
+        conn.execute("INSERT INTO gpkg_contents VALUES (?, 'features')", (suffix,))
+        conn.execute("INSERT INTO gpkg_geometry_columns VALUES (?, 'geom')", (suffix,))
 
     def row(uuid, nummer, namn, typ, bedomning, lan, blob):
         return (uuid, nummer, f"RAÄ {namn}", namn, typ, bedomning, lan, "Knivsta", blob)
@@ -178,6 +186,31 @@ def test_layers_are_scanned_polygon_first(kmr):
     layers = fornborg_layers(kmr)
     assert layers[0].endswith("polygon")
     assert layers[-1].endswith("point")
+
+
+def test_the_attribute_free_relational_layers_are_ignored(kmr):
+    """The riket file's bare `polygon`/`point`/`linestring` tables carry no attributes."""
+    assert fornborg_layers(kmr) == [
+        "lämningar_sverige_polygon",
+        "lämningar_sverige_linestring",
+        "lämningar_sverige_point",
+    ]
+
+
+def test_a_file_with_no_usable_layer_says_so(tmp_path):
+    import sqlite3
+
+    path = tmp_path / "useless.gpkg"
+    conn = sqlite3.connect(path)
+    conn.execute("CREATE TABLE gpkg_contents (table_name TEXT, data_type TEXT)")
+    conn.execute("CREATE TABLE gpkg_geometry_columns (table_name TEXT, column_name TEXT)")
+    conn.execute("CREATE TABLE polygon (fid INTEGER, lamning_uuid TEXT, geom BLOB)")
+    conn.execute("INSERT INTO gpkg_contents VALUES ('polygon', 'features')")
+    conn.execute("INSERT INTO gpkg_geometry_columns VALUES ('polygon', 'geom')")
+    conn.commit()
+    conn.close()
+    with pytest.raises(RegistryError, match="lamningstyp"):
+        fornborg_layers(path)
 
 
 def test_build_registry_selects_only_fornborgar(kmr):
