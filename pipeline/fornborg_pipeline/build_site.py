@@ -170,6 +170,14 @@ def site_config(entry: dict, out_dir: Path) -> SiteConfig:
             "fornsokUrl": entry.get("fornsokUrl", ""),
         },
         out_dir_override=out_dir,
+        # No published local shoreline estimate exists for an arbitrary fort, so
+        # the §6 table is gated on `shoreline.check_derivation` instead (the
+        # site's own terrain plus a physical envelope). A gently-shelving coast
+        # also wobbles more between centuries than Broborg's valley does, so the
+        # monotonicity clamp is looser — it is guarding against a broken
+        # derivation, not against geometry.
+        shoreline_anchors=None,
+        shoreline_max_clamp_m=1.5,
         extent_preset=preset_name,
         county=entry.get("county", ""),
         from_registry=True,

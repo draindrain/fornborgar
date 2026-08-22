@@ -84,12 +84,28 @@ MAX_ISOTONIC_CLAMP = 0.5  # m; a bigger upward wobble is a bug, not noise
 
 # PLAN.md §2.4 / contract §6: (yearCE, low, high) in meters above present sea level.
 # Interpolated literature estimates for the Uppsala/Knivsta area, generous bands.
+# These are LOCAL. `SiteConfig.shoreline_anchors` carries them for Broborg and is
+# None everywhere else — see `check_derivation` for what replaces them.
 SANITY_ANCHORS = (
     (-500, 13.0, 16.0),
     (1, 10.0, 12.5),
     (500, 8.0, 10.0),
     (1000, 5.0, 6.5),
 )
+
+#: Absolute envelope for a derived level anywhere in Sweden over the slider's
+#: BP 800-3000 range (m above present sea level). Deliberately wide: it is a
+#: nonsense filter, not a regional estimate. Relative sea level at 3000 BP runs
+#: from about zero on the Skåne coast to a few tens of metres in Norrland, and
+#: the marine limit anywhere in the country is ~285 m and far older than this
+#: window.
+NATIONAL_LEVEL_ENVELOPE_M = (-10.0, 150.0)
+
+#: How far outside the site's own terrain a derived level may fall (m). The
+#: level is a median of boundary samples taken *inside* this extent, so by
+#: construction it should sit within the DEM's range; drifting outside it means
+#: the steps came from the trend fit rather than from measurements.
+LEVEL_VS_TERRAIN_MARGIN_M = 5.0
 
 UNCERTAINTY = (
     "SGU strandförskjutningsmodell: dating margins up to ±500 years; general "
@@ -376,8 +392,54 @@ def interpolate_level(steps: Sequence[dict], year_ce: float) -> float:
     return float(np.interp(year_ce, years, levels))
 
 
+def check_derivation(
+    steps: Sequence[dict],
+    terrain_range_m: tuple[float, float] | None = None,
+    envelope: tuple[float, float] = NATIONAL_LEVEL_ENVELOPE_M,
+) -> None:
+    """Region-independent gate on a derived table, for sites with no local literature.
+
+    The §2.4 anchors cross-check Broborg's derivation against published local
+    estimates. Nationally there is no equivalent — post-glacial uplift varies by
+    an order of magnitude across the country, so a band that fits Uppland
+    rejects correct answers in Skåne and Norrland alike. What survives the move
+    is everything that does not depend on knowing the local uplift:
+
+      * the levels sit inside a wide physical envelope for Sweden;
+      * they sit inside the site's **own terrain**, because each one is a median
+        of boundary samples taken within this extent — a level far outside the
+        DEM's range means the steps came from the trend fit, not from measured
+        boundaries.
+
+    Monotonicity, sample counts and the trend RMS are checked elsewhere and are
+    likewise region-independent.
+    """
+    levels = [float(s["levelM"]) for s in steps]
+    low, high = envelope
+    outside = [level for level in levels if not (low <= level <= high)]
+    if outside:
+        raise ShorelineError(
+            f"derived level {outside[0]:.2f} m RH 2000 is outside the physical envelope "
+            f"[{low}, {high}] m for anywhere in Sweden over this period — the derivation "
+            f"is wrong; fix it, do NOT widen the envelope"
+        )
+    if terrain_range_m is not None:
+        zmin, zmax = terrain_range_m
+        margin = LEVEL_VS_TERRAIN_MARGIN_M
+        stray = [
+            level for level in levels if not (zmin - margin <= level <= zmax + margin)
+        ]
+        if stray:
+            raise ShorelineError(
+                f"derived level {stray[0]:.2f} m RH 2000 lies outside this site's own "
+                f"terrain ({zmin:.1f}..{zmax:.1f} m, ±{margin} m) — the boundary samples "
+                f"cannot have come from inside this extent, so the table is extrapolation "
+                f"dressed as measurement"
+            )
+
+
 def check_sanity_anchors(steps: Sequence[dict], anchors=SANITY_ANCHORS) -> None:
-    """Hard gate against the PLAN.md §2.4 literature anchors."""
+    """Hard gate against the PLAN.md §2.4 literature anchors (Broborg only)."""
     years = [s["yearCE"] for s in steps]
     for year, low, high in anchors:
         if not (min(years) <= year <= max(years)):
@@ -404,6 +466,7 @@ def derive_steps(
     bp_max: int = BP_OLDEST,
     min_samples: int = MIN_BOUNDARY_SAMPLES,
     trend_degree: int = TREND_DEGREE,
+    max_clamp: float = MAX_ISOTONIC_CLAMP,
 ) -> tuple[list[Step], dict]:
     """Century steps for the site, oldest first. Returns (steps, derivation stats).
 
@@ -444,7 +507,7 @@ def derive_steps(
         for bp in present
     ]
 
-    levels, clamped = clamp_non_increasing([s.level_m for s in steps])
+    levels, clamped = clamp_non_increasing([s.level_m for s in steps], max_clamp=max_clamp)
     steps = [
         Step(bp=s.bp, level_m=round(level, 1), samples=s.samples)
         for s, level in zip(steps, levels)
@@ -496,13 +559,34 @@ def method_text(cfg: SiteConfig, steps: Sequence[Step], stats: dict) -> str:
         text += f" {gaps} is absent from the SGU product and therefore has no entry."
     text += (
         " The table is clamped monotone non-increasing (post-glacial uplift only lowers the "
-        "sea over this range) and checked against published shoreline estimates for the "
-        "Uppsala/Knivsta area before it ships."
+        "sea over this range)"
     )
+    # The methods panel shows this verbatim, so it must describe the check this
+    # site actually got. Only Broborg has local published estimates to be
+    # checked against; claiming them elsewhere would be the panel lying about
+    # its own provenance.
+    if cfg.shoreline_anchors:
+        text += (
+            " and checked against published shoreline estimates for the Uppsala/Knivsta "
+            "area before it ships."
+        )
+    else:
+        text += (
+            " and checked against the site's own terrain and a physical envelope for "
+            "Sweden. No published local shoreline estimate is used: post-glacial uplift "
+            "varies across the country by an order of magnitude, and there is no "
+            "per-site literature to check against."
+        )
     return text
 
 
-def build_shoreline(cfg: SiteConfig, steps: Sequence[Step], stats: dict, meta: dict) -> dict:
+def build_shoreline(
+    cfg: SiteConfig,
+    steps: Sequence[Step],
+    stats: dict,
+    meta: dict,
+    terrain_range_m: tuple[float, float] | None = None,
+) -> dict:
     """Assemble shoreline.json (contract §6) and gate it on the invariants."""
     table = {
         "schemaVersion": SCHEMA_VERSION,
@@ -520,12 +604,20 @@ def build_shoreline(cfg: SiteConfig, steps: Sequence[Step], stats: dict, meta: d
             for s in sorted(steps, key=lambda s: s.year_ce)
         ],
     }
-    validate_shoreline(table)
+    validate_shoreline(table, anchors=cfg.shoreline_anchors, terrain_range_m=terrain_range_m)
     return table
 
 
-def validate_shoreline(table: dict) -> None:
-    """Raise ShorelineError on any contract §6 violation."""
+def validate_shoreline(
+    table: dict,
+    anchors: tuple[tuple[int, float, float], ...] | None = SANITY_ANCHORS,
+    terrain_range_m: tuple[float, float] | None = None,
+) -> None:
+    """Raise ShorelineError on any contract §6 violation.
+
+    `anchors=None` selects the region-independent `check_derivation` instead of
+    the local literature anchors — see `SiteConfig.shoreline_anchors`.
+    """
     if table.get("schemaVersion") != SCHEMA_VERSION:
         raise ShorelineError(f"schemaVersion must be {SCHEMA_VERSION}")
     for key in ("site", "method", "uncertainty", "datumNote", "source", "steps"):
@@ -549,11 +641,14 @@ def validate_shoreline(table: dict) -> None:
     levels = [s["levelM"] for s in steps]
     if any(b > a for a, b in zip(levels, levels[1:])):
         raise ShorelineError("levelM must be non-increasing with yearCE (uplift only falls)")
-    check_sanity_anchors(steps)
+    if anchors:
+        check_sanity_anchors(steps, anchors)
+    else:
+        check_derivation(steps, terrain_range_m)
 
 
-def write_shoreline(path: Path, table: dict) -> Path:
-    validate_shoreline(table)
+def write_shoreline(path: Path, table: dict, **validate_kwargs) -> Path:
+    validate_shoreline(table, **validate_kwargs)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(table, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     return path

@@ -72,9 +72,17 @@ def run_shoreline(cfg: SiteConfig, heights_m, transform, bounds, force: bool = F
     """Fetch SGU, derive the century table, write `shoreline.json`. Returns the meta."""
     features, meta = fetch_strand_features(cfg, force=force)
     steps, stats = derive_steps(
-        features, heights_m, transform, bounds, project=sweref_projector()
+        features,
+        heights_m,
+        transform,
+        bounds,
+        project=sweref_projector(),
+        max_clamp=cfg.shoreline_max_clamp_m,
     )
-    table = build_shoreline(cfg, steps, stats, meta)
+    # The site's own terrain is what a registry site's levels are checked
+    # against, in place of literature nobody has written for it.
+    terrain_range = (float(heights_m.min()), float(heights_m.max()))
+    table = build_shoreline(cfg, steps, stats, meta, terrain_range_m=terrain_range)
 
     print(f"  {'yearCE':>7} {'BP':>5} {'levelM':>7}  source")
     for step in sorted(steps, key=lambda s: s.year_ce):
@@ -88,7 +96,12 @@ def run_shoreline(cfg: SiteConfig, heights_m, transform, bounds, force: bool = F
     if stats["missingBp"]:
         print(f"  BP steps absent from the SGU product: {stats['missingBp']}")
 
-    path = write_shoreline(cfg.out_dir / SHORELINE_PATH, table)
+    path = write_shoreline(
+        cfg.out_dir / SHORELINE_PATH,
+        table,
+        anchors=cfg.shoreline_anchors,
+        terrain_range_m=terrain_range,
+    )
     print(f"  wrote {path} ({path.stat().st_size / 1e3:.1f} kB)")
     return meta
 

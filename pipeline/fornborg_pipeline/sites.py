@@ -83,6 +83,19 @@ class SiteConfig:
     # hand-configured Uppland sites and would silently return an empty overlay
     # for a fort anywhere else in the country.
     from_registry: bool = False
+    # Literature anchors for the §6 shoreline table: (yearCE, low, high) in
+    # metres above present sea level. Broborg carries the PLAN.md §2.4 estimates
+    # for the Uppsala/Knivsta area, which are a genuine independent cross-check
+    # *there*. `None` means the site has no local literature to check against —
+    # which is every registry site, because post-glacial uplift ranges from
+    # roughly nothing in Skåne to ~9 mm/yr in Norrland and no single band can be
+    # right in both. Those sites get `shoreline.check_derivation` instead: the
+    # region-independent structural checks, plus the site's own terrain.
+    shoreline_anchors: tuple[tuple[int, float, float], ...] | None = None
+    # How far a century level may be clamped down to stay non-increasing before
+    # the derivation is called broken (m). A shallow, gently-shelving coast
+    # genuinely wobbles more between centuries than Broborg's valley does.
+    shoreline_max_clamp_m: float = 0.5
 
     @property
     def grids(self) -> tuple[GridSpec, ...]:
@@ -208,6 +221,12 @@ BROBORG = SiteConfig(
         "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/184ca0f6-16f9-4de8-bbec-99aa959f9824",
     },
     kmr_fetched="2026-08-20",
+    shoreline_anchors=(
+        (-500, 13.0, 16.0),
+        (1, 10.0, 12.5),
+        (500, 8.0, 10.0),
+        (1000, 5.0, 6.5),
+    ),
 )
 
 SITES: dict[str, SiteConfig] = {BROBORG.id: BROBORG}
