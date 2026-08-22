@@ -93,10 +93,30 @@ class Grid:
 # --------------------------------------------------------------------------- #
 
 
-def fill_nodata(array: np.ndarray, nodata: float | None, max_search_distance: float = 200.0):
-    """Interpolate across nodata cells. Returns (filled float32 array, cells filled).
+def fill_nodata(
+    array: np.ndarray,
+    nodata: float | None,
+    max_search_distance: float = 200.0,
+    sea_level_m: float = 0.0,
+):
+    """Repair nodata cells. Returns (filled float32 array, cells filled).
 
     Runs BEFORE quantization so the written int16 grid has no nodata at all.
+
+    Two different repairs, because nodata means two different things in a
+    *ground* model (the same distinction the §11 ring step already makes):
+
+      * a hole **enclosed** by valid data — a pond, a building shadow, a gap in
+        the returns — is interpolated across, which is what `fillnodata` is for;
+      * a region reaching the grid **edge** whose surrounding land is at shore
+        height is **water**. The DTM has no returns there because there is no
+        ground. It is filled at sea level, not interpolated: interpolating a
+        4x4 km stretch of Baltic would invent terrain out of nothing, and at a
+        coastal site that is most of the window.
+
+    A region reaching the edge but bounded by *high* ground is neither, and is
+    refused: that is terrain beyond the tile set (another country), and filling
+    it at 0 m would render the false flat horizon §2b exists to prevent.
     """
     array = np.asarray(array, dtype=np.float32)
     if nodata is None:
@@ -108,21 +128,82 @@ def fill_nodata(array: np.ndarray, nodata: float | None, max_search_distance: fl
         return array.copy(), 0
     if invalid.all():
         raise ValueError("cannot fill nodata: the whole array is nodata")
-    filled = fillnodata(
-        array.copy(),
-        mask=(~invalid).astype(np.uint8),
-        max_search_distance=max_search_distance,
-        smoothing_iterations=0,
-    ).astype(np.float32)
-    still_invalid = ~np.isfinite(filled)
+
+    from .qa import classify_region, classify_uncovered
+
+    working = array.copy()
+    valid = ~invalid
+    regions = classify_uncovered(valid, np.where(valid, array, nodata), nodata=nodata)
+
+    # Sea first, so the interpolation that follows never has to reach across it.
+    sea = np.zeros(array.shape, dtype=bool)
+    from scipy import ndimage
+
+    labels, _n = ndimage.label(invalid)
+    refused = []
+    for index, region in enumerate(_relabel(regions, labels, invalid), start=0):
+        verdict = classify_region(region["stats"])
+        if verdict == "sea":
+            sea |= region["mask"]
+        elif verdict == "foreign-land":
+            refused.append(region["stats"])
+    if refused:
+        worst = max(refused, key=lambda r: r["cells"])
+        raise ValueError(
+            f"{worst['cells']} nodata cells reach the grid edge bounded by land at "
+            f"{worst.get('boundaryMedianM')} m, not by a shoreline — that is terrain "
+            f"outside the tile set, and filling it at {sea_level_m} m would render a "
+            f"false flat horizon (docs/national-scaleout.md §2b)"
+        )
+
+    sea_cells = int(sea.sum())
+    working[sea] = sea_level_m
+    remaining = invalid & ~sea
+    if remaining.any():
+        working = fillnodata(
+            working,
+            mask=(~remaining).astype(np.uint8),
+            max_search_distance=max_search_distance,
+            smoothing_iterations=0,
+        ).astype(np.float32)
+    working = working.astype(np.float32)
+
+    still_invalid = ~np.isfinite(working)
     if not np.isnan(nodata):
-        still_invalid |= filled == nodata
+        still_invalid |= working == nodata
     if still_invalid.any():
         raise ValueError(
             f"{int(still_invalid.sum())} nodata cells survived fillnodata "
             f"(max_search_distance={max_search_distance}); refusing to ship a grid with holes"
         )
-    return filled, count
+    if sea_cells:
+        print(f"  nodata: {sea_cells:,} cells filled at sea level, {count - sea_cells:,} interpolated")
+    return working, count
+
+
+def _relabel(regions: list[dict], labels: np.ndarray, invalid: np.ndarray):
+    """Pair each classified region with its mask, in the order `classify_uncovered` used.
+
+    `classify_uncovered` sorts its output biggest-first for reporting, so the
+    masks have to be matched back by size and edge-membership rather than by
+    position. Matching on cell count is exact here: `ndimage.label` produced
+    both, so the counts are the same multiset.
+    """
+    from scipy import ndimage
+
+    del invalid  # labels already encode it
+    sizes = ndimage.sum_labels(np.ones(labels.shape), labels, range(1, labels.max() + 1))
+    by_size: dict[int, list[int]] = {}
+    for label_index, size in enumerate(sizes, start=1):
+        by_size.setdefault(int(size), []).append(label_index)
+    paired = []
+    for stats in regions:
+        candidates = by_size.get(stats["cells"])
+        if not candidates:
+            continue
+        label_index = candidates.pop(0)
+        paired.append({"stats": stats, "mask": labels == label_index})
+    return paired
 
 
 def crop_to_bounds(

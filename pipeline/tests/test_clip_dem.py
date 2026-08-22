@@ -357,3 +357,72 @@ def test_written_ring_grid_carries_its_scale_tag(fake_site, tmp_path):
     with rasterio.open(path) as src:
         assert src.tags(1)["SCALE"] == "0.5"
         assert src.dtypes[0] == "int16"
+
+
+# ------------- nodata in a ground model: water vs. a hole to fill -------------
+
+
+def coastal_source(size=200, sea_cols=120, nodata=NODATA):
+    """Land in the west, sea (no ground returns) in the east — a coastal window."""
+    rows, cols = np.mgrid[0:size, 0:size]
+    array = (2.0 + 0.05 * (size - cols)).astype(np.float32)
+    array[:, sea_cols:] = nodata
+    # ...with the shore itself at about sea level, as a real coastline is.
+    array[:, sea_cols - 6 : sea_cols] = 0.4
+    return array
+
+
+def test_sea_is_filled_at_sea_level_not_interpolated():
+    """Interpolating a 4x4 km stretch of Baltic would invent terrain from nothing."""
+    source = coastal_source()
+    filled, count = fill_nodata(source, NODATA)
+    assert count == int((source == NODATA).sum())
+    sea = filled[:, 130:]
+    assert np.allclose(sea, 0.0), "open water must be flat at sea level"
+    # And the land is untouched.
+    np.testing.assert_allclose(filled[:, :100], source[:, :100])
+
+
+def test_an_enclosed_hole_is_still_interpolated():
+    source = np.full((60, 60), 20.0, dtype=np.float32)
+    source[28:32, 28:32] = NODATA
+    filled, count = fill_nodata(source, NODATA)
+    assert count == 16
+    # Interpolated from its surroundings, not zeroed.
+    assert np.allclose(filled[28:32, 28:32], 20.0)
+    assert not (filled == 0.0).any()
+
+
+def test_a_hole_and_the_sea_in_one_grid_get_different_treatment():
+    source = coastal_source()
+    source[10:14, 10:14] = NODATA  # a pond inland
+    filled, _count = fill_nodata(source, NODATA)
+    assert np.allclose(filled[:, 130:], 0.0)  # sea
+    assert filled[10:14, 10:14].min() > 1.0  # the pond took its neighbours' height
+
+
+def test_land_beyond_the_tile_set_is_refused_not_zeroed():
+    """§2b: filling foreign terrain at 0 m is the false flat horizon we must not ship."""
+    source = np.full((80, 80), 300.0, dtype=np.float32)
+    source[:, 50:] = NODATA  # beyond the border, and the Swedish side is high
+    with pytest.raises(ValueError, match="false flat horizon"):
+        fill_nodata(source, NODATA)
+
+
+def test_a_grid_with_no_nodata_is_returned_unchanged():
+    source = np.full((20, 20), 12.0, dtype=np.float32)
+    filled, count = fill_nodata(source, NODATA)
+    assert count == 0
+    np.testing.assert_array_equal(filled, source)
+
+
+def test_an_all_nodata_grid_is_refused():
+    with pytest.raises(ValueError, match="whole array is nodata"):
+        fill_nodata(np.full((10, 10), NODATA, dtype=np.float32), NODATA)
+
+
+def test_the_sea_fill_survives_quantization_as_zero():
+    """The written int16 grid must read 0 dm over water, not a nodata sentinel."""
+    filled, _count = fill_nodata(coastal_source(), NODATA)
+    raw = quantize_decimeters(filled)
+    assert raw[:, 130:].max() == 0 and raw[:, 130:].min() == 0
