@@ -235,7 +235,14 @@ def _cache_is_valid(cfg: SiteConfig) -> dict | None:
 
 
 def fetch_source_mosaic(cfg: SiteConfig, force: bool = False) -> tuple[Path, dict]:
-    """Ensure `cfg.cache_path` holds the site's raw 1 m mosaic; return (path, meta).
+    """Ensure `cfg.cache_path` holds the site's raw source mosaic; return (path, meta).
+
+    Reads at `cfg.source_resolution`, which is 1 m for a standard site and 2 m
+    for a §5.2 `large` one — whose finest output grid is 2 m, so fetching 1 m
+    would quadruple both the transfer and the memory for data that gets
+    block-averaged away immediately. At a coarser resolution the read goes
+    through the same decimated path the rings use (average resampling served
+    from the source COGs' overviews).
 
     Reuses a valid cached file instead of re-downloading unless `force` is set.
     """
@@ -260,20 +267,38 @@ def fetch_source_mosaic(cfg: SiteConfig, force: bool = False) -> tuple[Path, dic
 
     mosaic = np.full((height, width), DTM_NODATA, dtype=np.float32)
     used_items: list[str] = []
+    decimated = not _close_enough(res, 1.0)
 
     with _gdal_env(user, password):
         for item in items:
             href = item["assets"]["data"]["href"]
-            result = _read_window("/vsicurl/" + href, cfg.source_bounds)
-            if result is None:
-                print(f"  {item['id']}: no overlap with the clip, skipped")
-                continue
-            data, (iw, is_, ie, in_) = result
-            row0 = int(round((north - in_) / res))
-            col0 = int(round((iw - west) / res))
-            mosaic[row0 : row0 + data.shape[0], col0 : col0 + data.shape[1]] = data
+            if decimated:
+                # The ring reader already places the window on the mosaic
+                # lattice for us, which is what keeps a 2 m read from landing
+                # half a pixel off the grid the clip step expects.
+                ring_result = _read_window_decimated("/vsicurl/" + href, cfg.source_bounds, res)
+                if ring_result is None:
+                    print(f"  {item['id']}: no overlap with the clip, skipped")
+                    continue
+                data, (row0, col0), _bounds = ring_result
+                data[data < -1000.0] = DTM_NODATA
+                window = mosaic[row0 : row0 + data.shape[0], col0 : col0 + data.shape[1]]
+                fresh = window == DTM_NODATA
+                window[fresh] = data[fresh]
+            else:
+                result = _read_window("/vsicurl/" + href, cfg.source_bounds)
+                if result is None:
+                    print(f"  {item['id']}: no overlap with the clip, skipped")
+                    continue
+                data, (iw, is_, ie, in_) = result
+                row0 = int(round((north - in_) / res))
+                col0 = int(round((iw - west) / res))
+                mosaic[row0 : row0 + data.shape[0], col0 : col0 + data.shape[1]] = data
             used_items.append(item["id"])
-            print(f"  {item['id']}: read {data.shape[1]}x{data.shape[0]} px window")
+            print(
+                f"  {item['id']}: read {data.shape[1]}x{data.shape[0]} px window"
+                + (f" @ {res} m (decimated)" if decimated else "")
+            )
 
     if not used_items:
         raise FetchError("no STAC item overlapped the clip — nothing was downloaded")
@@ -425,6 +450,10 @@ def _read_window_decimated(
                   f"({attempt}/{MAX_RETRIES})")
             time.sleep(delay)
     return None
+
+
+def _close_enough(a: float, b: float, tol: float = 1e-9) -> bool:
+    return abs(a - b) <= tol
 
 
 def fetch_ring_mosaic(cfg: SiteConfig, spec, force: bool = False) -> tuple[Path, dict]:

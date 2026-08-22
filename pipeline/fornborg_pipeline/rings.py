@@ -30,6 +30,7 @@ from .horizon import (
     horizon_distance_m,
     horizon_info,
     ladder,
+    rings_beyond,
 )
 from .manifest import add_rings, validate_manifest, write_manifest
 from .rampart import RampartError, extent_ring
@@ -67,6 +68,21 @@ def extent_ring_en(cfg: SiteConfig) -> np.ndarray | None:
     )
 
 
+#: §11 defines the horizon floor as the 5th percentile of the **16x16 km box**.
+#: That is ring4 for a standard site and, for a `large` one whose ladder starts
+#: at ring4, still ring4 — but naming the box rather than an index keeps the
+#: definition true whichever preset built the ladder.
+FLOOR_BOX_HALF_EXTENT_M = 8000.0
+
+
+def _floor_grid(ring_grids: list[Grid]) -> Grid:
+    """The built ring covering §11's 16x16 km floor box, or the widest we have."""
+    for grid in ring_grids:
+        if abs(grid.spec.half_extent - FLOOR_BOX_HALF_EXTENT_M) < 1e-6:
+            return grid
+    return max(ring_grids, key=lambda g: g.spec.half_extent)
+
+
 def ring_processing_steps(ring_grids: list[Grid], metas: list[dict]) -> list[str]:
     """Provenance lines for the §11 seams: overview resampling + sea fill."""
     steps = [
@@ -97,10 +113,12 @@ def run(site_id: str, force_download: bool = False) -> dict:
     if not core_path.exists():
         raise RingsError(f"{core_path} is missing — run the build step for {cfg.id} first.")
 
-    # A site always ships ring3+ring4 (§11); ring4 also supplies the floor height.
+    # A site always ships the first two rings beyond its context (§11); the
+    # 16x16 km box among them supplies the floor height.
+    usable = rings_beyond(cfg.context.half_extent)
     ring_grids: list[Grid] = []
     metas: list[dict] = []
-    for spec in RING_LADDER[:2]:
+    for spec in usable[:2]:
         print(f"-- {spec.name}: {2 * spec.half_extent / 1000:.0f} km box @ {spec.resolution:.0f} m")
         grid, meta = build_ring(cfg, spec, force=force_download)
         ring_grids.append(grid)
@@ -110,10 +128,10 @@ def run(site_id: str, force_download: bool = False) -> dict:
     crown = crown_height(
         dequantize_decimeters(core_dm), core_transform, extent_ring_en(cfg)
     )
-    floor = floor_height(ring_grids[1].heights_m())
+    floor = floor_height(_floor_grid(ring_grids).heights_m())
     h = (crown + EYE_HEIGHT_M) - floor
     distance = horizon_distance_m(h)
-    specs = ladder(distance)
+    specs = ladder(distance, context_half_extent_m=cfg.context.half_extent)
     print(
         f"-- horizon: crown {crown:.1f} m + eye {EYE_HEIGHT_M:.0f} m, floor {floor:.1f} m "
         f"-> h {h:.1f} m -> d {distance / 1000:.1f} km -> "

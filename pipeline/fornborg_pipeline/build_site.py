@@ -380,9 +380,17 @@ def run(
         grids, _meta, manifest = build_grids_step(cfg, force_download, archive_cogs)
         filled = _grid_counts(grids)
         result.steps.append(StepResult("grids", "ok"))
-    except (FetchError, VerticalDatumError, ValueError, OSError) as exc:
+    except (FetchError, VerticalDatumError, ValueError, OSError, MemoryError) as exc:
+        # The one path that used to return in silence. Without the grids there
+        # is nothing to QA and nothing to ship, but a batch runner still has to
+        # be told why — an exit code with no message is the worst possible
+        # report, and this is precisely the case a national run hits at 3am.
         result.steps.append(StepResult("grids", "failed", f"{type(exc).__name__}: {exc}"))
         result.bytes_written = bundle_bytes(out_dir) if out_dir.exists() else 0
+        (out_dir / BUILD_REPORT).write_text(
+            json.dumps(result.as_json(), ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+        )
+        print(f"== {result.summary()}")
         return result
 
     # The KMR overlay comes before the rings and the rampart: both want the
