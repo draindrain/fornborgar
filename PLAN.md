@@ -598,6 +598,15 @@ projection of ~9 GB against the ~12 GB estimate. Horizons 13.3–52.8 km, all we
 inside the 128 km cap, and ring 7 used once (Ramundersborg), so the rare case is
 real.*
 
+*The §6.1-amendment tree track (species-level naturalistic rendering, owner
+decision 2026-08-22) shipped 2026-08-22 on its parallel branch: seeded species
+mixes and clumped stands over the unchanged §10 contract (conifer =
+spruce/pine, broadleaf = oak/birch per `docs/vegetation-zones.md` §4),
+home-generated per-species archetype meshes (no hand-modeled assets), a baked
+impostor atlas with a 320 m mesh/impostor LOD split under the same 150k
+budget, textured far-field silhouettes, and contact-shadow grounding. All
+determinism streams and the shore-band invariants preserved; 444 app tests.*
+
 *Two national-scope corrections the pilot forced, both of which had been failing
 **silently**: the §2.4 shoreline literature band is Uppland's and was rejecting
 correct derivations across the country (while the methods panel claimed a check it

@@ -730,6 +730,8 @@ async function start(): Promise<void> {
       if (target) rig.controls.target.set(...target);
       rig.controls.update();
     },
+    /** Last-frame draw stats, so headless perf checks read real numbers. */
+    renderInfo: () => ({ ...renderer.info.render }),
     modes,
     groundAt,
     enterFirstPerson(opts: EnterOptions = {}) {
