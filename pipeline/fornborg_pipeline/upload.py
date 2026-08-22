@@ -39,6 +39,9 @@ from .sites import CACHE_DIR
 
 #: Path prefix for this contract generation (docs/national-scaleout.md §3).
 BUNDLE_PREFIX = "v1"
+#: Non-secret object-store configuration, committed alongside the pipeline. Holds
+#: the public base URL and nothing else; credentials never live in a file.
+CONFIG_PATH = Path(__file__).resolve().parents[1] / "r2-config.json"
 #: Where per-site batch state lives. Gitignored with the rest of data-cache/.
 STATE_DIR = CACHE_DIR / "batch-state"
 #: The national site index (§6.1) — one object at the bundle root.
@@ -98,12 +101,16 @@ def config_from_env(env: dict | None = None) -> R2Config:
             f"missing environment variable(s): {', '.join(missing)}. The pipeline reads "
             f"object-store credentials from the environment only, never from a file."
         )
-    public = source.get("R2_PUBLIC_BASE_URL", "").strip()
+    # The public base URL is not a secret — it is in every request a visitor's
+    # browser makes — so it lives in a committed config file, with the
+    # environment able to override it for a one-off run against somewhere else.
+    public = source.get("R2_PUBLIC_BASE_URL", "").strip() or public_base_url_from_config()
     if not public:
         raise UploadError(
-            "R2_PUBLIC_BASE_URL is not set. It is the base the app fetches bundles from "
-            "(the r2.dev development URL today, a custom domain later), so it is "
-            "configuration rather than a constant in the source."
+            f"no public base URL: set R2_PUBLIC_BASE_URL, or give {CONFIG_PATH.name} a "
+            f"`publicBaseUrl`. It is the base the app fetches bundles from (the r2.dev "
+            f"development URL today, a custom domain later), so it is configuration "
+            f"rather than a constant in the source."
         )
     return R2Config(
         account_id=source["R2_ACCOUNT_ID"],
@@ -112,6 +119,21 @@ def config_from_env(env: dict | None = None) -> R2Config:
         bucket=source["R2_BUCKET"],
         public_base_url=public,
     )
+
+
+def public_base_url_from_config(path: Path | None = None) -> str:
+    """`publicBaseUrl` from the committed config file, or "" when there is none.
+
+    `CONFIG_PATH` is read at call time rather than bound as a default argument,
+    so pointing the module elsewhere (a test, a second bucket) actually takes.
+    """
+    path = path or CONFIG_PATH
+    if not path.exists():
+        return ""
+    try:
+        return str(json.loads(path.read_text(encoding="utf-8")).get("publicBaseUrl", "")).strip()
+    except (json.JSONDecodeError, OSError):
+        return ""
 
 
 def make_client(config: R2Config):

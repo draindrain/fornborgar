@@ -99,17 +99,55 @@ def test_config_names_the_missing_variable_not_its_value():
         config_from_env({"R2_ACCOUNT_ID": "a", "R2_ACCESS_KEY_ID": "b", "R2_BUCKET": "c"})
 
 
-def test_config_requires_the_public_base_url():
-    """§3: the base URL moves to a custom domain, so it is config, not a constant."""
-    with pytest.raises(UploadError, match="R2_PUBLIC_BASE_URL"):
-        config_from_env(
-            {
-                "R2_ACCOUNT_ID": "a",
-                "R2_ACCESS_KEY_ID": "b",
-                "R2_SECRET_ACCESS_KEY": "c",
-                "R2_BUCKET": "d",
-            }
-        )
+CREDENTIALS = {
+    "R2_ACCOUNT_ID": "a",
+    "R2_ACCESS_KEY_ID": "b",
+    "R2_SECRET_ACCESS_KEY": "c",
+    "R2_BUCKET": "d",
+}
+
+
+def test_the_public_base_url_comes_from_the_committed_config(monkeypatch, tmp_path):
+    """§3: it is public by definition, so it is config — not a secret, not a constant."""
+    config_file = tmp_path / "r2-config.json"
+    config_file.write_text('{"publicBaseUrl": "https://data.example"}', encoding="utf-8")
+    monkeypatch.setattr("fornborg_pipeline.upload.CONFIG_PATH", config_file)
+    assert config_from_env(CREDENTIALS).public_base_url == "https://data.example"
+
+
+def test_the_environment_overrides_the_config_file(monkeypatch, tmp_path):
+    config_file = tmp_path / "r2-config.json"
+    config_file.write_text('{"publicBaseUrl": "https://data.example"}', encoding="utf-8")
+    monkeypatch.setattr("fornborg_pipeline.upload.CONFIG_PATH", config_file)
+    env = {**CREDENTIALS, "R2_PUBLIC_BASE_URL": "https://staging.example"}
+    assert config_from_env(env).public_base_url == "https://staging.example"
+
+
+def test_config_requires_a_public_base_url_from_somewhere(monkeypatch, tmp_path):
+    monkeypatch.setattr("fornborg_pipeline.upload.CONFIG_PATH", tmp_path / "absent.json")
+    with pytest.raises(UploadError, match="no public base URL"):
+        config_from_env(CREDENTIALS)
+
+
+def test_a_corrupt_config_file_does_not_crash_the_batch(monkeypatch, tmp_path):
+    config_file = tmp_path / "r2-config.json"
+    config_file.write_text("{not json", encoding="utf-8")
+    monkeypatch.setattr("fornborg_pipeline.upload.CONFIG_PATH", config_file)
+    with pytest.raises(UploadError, match="no public base URL"):
+        config_from_env(CREDENTIALS)
+
+
+def test_the_committed_config_holds_no_credentials():
+    """The one file in the repo that names the object store must stay boring."""
+    from fornborg_pipeline.upload import CONFIG_PATH
+
+    text = CONFIG_PATH.read_text(encoding="utf-8")
+    for forbidden in ("R2_SECRET_ACCESS_KEY", "R2_ACCESS_KEY_ID", "secretAccessKey", "accessKeyId"):
+        assert forbidden not in text or "never" in text.lower()
+    payload = json.loads("".join(
+        line for line in text.splitlines(keepends=True) if True
+    ))
+    assert set(payload) <= {"comment", "publicBaseUrl"}
 
 
 def test_endpoint_and_public_url_shapes():
