@@ -231,3 +231,72 @@ def test_drop_asset_is_a_no_op_when_the_entry_is_absent(tmp_path):
     drop_asset(path, "sites")
     drop_asset(tmp_path / "absent.json", "sites")  # and when there is no manifest at all
     assert path.read_text(encoding="utf-8") == '{"assets": {}}'
+
+
+# ------------------- evidence for the §11 coverage-seam gate ------------------
+
+
+def _ring_manifest():
+    return {"grids": {"rings": [{"path": "dem_ring3.tif"}, {"path": "dem_ring4.tif"}]}}
+
+
+def _write_ring_meta(cfg, spec_name, payload):
+    import json as _json
+
+    from fornborg_pipeline.sites import RING_LADDER
+
+    spec = next(s for s in RING_LADDER if s.name == spec_name)
+    path = cfg.ring_cache_meta_path(spec)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(_json.dumps(payload), encoding="utf-8")
+
+
+def test_uncovered_regions_reads_the_ring_cache(tmp_path, monkeypatch):
+    from fornborg_pipeline import sites as sites_module
+    from fornborg_pipeline.build_site import uncovered_regions
+
+    monkeypatch.setattr(sites_module, "CACHE_DIR", tmp_path)
+    cfg = site_config(entry(), tmp_path / "out")
+    _write_ring_meta(cfg, "ring3", {"seaFilledCells": 0, "uncoveredRegions": []})
+    _write_ring_meta(
+        cfg, "ring4", {"seaFilledCells": 500, "uncoveredRegions": [{"cells": 500, "touchesEdge": True, "boundaryMedianM": 1.0}]}
+    )
+    classified, unclassified = uncovered_regions(cfg, _ring_manifest())
+    assert set(classified) == {"ring4"}
+    assert unclassified == {}
+
+
+def test_a_pre_classification_cache_is_reported_as_unclassified(tmp_path, monkeypatch):
+    """The exact case a cached mosaic from an older build produces."""
+    from fornborg_pipeline import sites as sites_module
+    from fornborg_pipeline.build_site import uncovered_regions
+
+    monkeypatch.setattr(sites_module, "CACHE_DIR", tmp_path)
+    cfg = site_config(entry(), tmp_path / "out")
+    _write_ring_meta(cfg, "ring4", {"seaFilledCells": 1_490_140})  # no uncoveredRegions key
+    classified, unclassified = uncovered_regions(cfg, _ring_manifest())
+    assert classified == {}
+    assert unclassified == {"ring4": 1_490_140}
+
+
+def test_an_old_cache_with_no_uncovered_cells_is_not_flagged(tmp_path, monkeypatch):
+    """Nothing to classify is genuinely nothing to worry about."""
+    from fornborg_pipeline import sites as sites_module
+    from fornborg_pipeline.build_site import uncovered_regions
+
+    monkeypatch.setattr(sites_module, "CACHE_DIR", tmp_path)
+    cfg = site_config(entry(), tmp_path / "out")
+    _write_ring_meta(cfg, "ring3", {"seaFilledCells": 0})
+    classified, unclassified = uncovered_regions(cfg, _ring_manifest())
+    assert classified == {} and unclassified == {}
+
+
+def test_rings_the_manifest_does_not_declare_are_ignored(tmp_path, monkeypatch):
+    from fornborg_pipeline import sites as sites_module
+    from fornborg_pipeline.build_site import uncovered_regions
+
+    monkeypatch.setattr(sites_module, "CACHE_DIR", tmp_path)
+    cfg = site_config(entry(), tmp_path / "out")
+    _write_ring_meta(cfg, "ring6", {"seaFilledCells": 999})
+    classified, unclassified = uncovered_regions(cfg, _ring_manifest())
+    assert classified == {} and unclassified == {}

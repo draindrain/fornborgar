@@ -470,3 +470,20 @@ def test_agreement_check_reports_the_worst_ring():
 def test_agreement_check_passes_a_ringless_site():
     assert check_ring_agreement({}).severity == "pass"
     assert check_ring_agreement({"a.tif": None}).severity == "pass"
+
+
+def test_missing_classification_fails_rather_than_passing_on_silence():
+    """A gate that answers "pass" when it means "I did not look" is worse than none."""
+    check = check_sea_fill({}, unclassified={"ring6": 1_490_140})
+    assert check.severity == "fail"
+    assert "no classification recorded" in check.message
+    assert "force-download" in check.message
+
+
+def test_missing_classification_outranks_a_clean_classified_ring():
+    check = check_sea_fill({"ring5": [region(boundary=0.5)]}, unclassified={"ring6": 900})
+    assert check.severity == "fail"
+
+
+def test_no_uncovered_cells_at_all_still_passes():
+    assert check_sea_fill({}, unclassified={}).severity == "pass"

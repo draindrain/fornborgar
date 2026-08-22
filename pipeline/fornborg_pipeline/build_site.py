@@ -246,17 +246,26 @@ def drop_asset(manifest_path: Path, key: str) -> None:
     print(f"  dropped assets.{key} from the manifest — the step that writes it failed")
 
 
-def uncovered_regions(cfg: SiteConfig, manifest: dict) -> dict[str, list[dict]]:
+def uncovered_regions(
+    cfg: SiteConfig, manifest: dict
+) -> tuple[dict[str, list[dict]], dict[str, int]]:
     """Per ring, what the cells outside the tile set actually are (§11).
 
-    Read from the ring cache metadata the fetch step wrote, because that is the
-    only place the covered mask and the real heights existed together — after
-    the sea fill every such cell reads 0.0 and open Baltic is indistinguishable
-    from a Norwegian mountainside.
+    Returns `(classified, unclassified)`. Read from the ring cache metadata the
+    fetch step wrote, because that is the only place the covered mask and the
+    real heights existed together — after the sea fill every such cell reads
+    0.0 and open Baltic is indistinguishable from a Norwegian mountainside.
+
+    A ring whose cache was written before this classification existed reports
+    `seaFilledCells` but no regions. That is *missing evidence*, not an absence
+    of uncovered cells, and it goes in the second dict so the gate can say so
+    rather than passing on silence.
     """
-    found: dict[str, list[dict]] = {}
+    classified: dict[str, list[dict]] = {}
+    unclassified: dict[str, int] = {}
+    declared = {ring.get("path") for ring in manifest.get("grids", {}).get("rings") or []}
     for spec in RING_LADDER:
-        if not any(ring.get("path") == spec.path for ring in manifest.get("grids", {}).get("rings") or []):
+        if spec.path not in declared:
             continue
         meta_path = cfg.ring_cache_meta_path(spec)
         if not meta_path.exists():
@@ -267,8 +276,10 @@ def uncovered_regions(cfg: SiteConfig, manifest: dict) -> dict[str, list[dict]]:
             continue
         regions = meta.get("uncoveredRegions")
         if regions:
-            found[spec.name] = regions
-    return found
+            classified[spec.name] = regions
+        elif regions is None and int(meta.get("seaFilledCells", 0)) > 0:
+            unclassified[spec.name] = int(meta["seaFilledCells"])
+    return classified, unclassified
 
 
 def measure_ring_offsets(cfg: SiteConfig, manifest: dict) -> dict[str, float | None]:
@@ -450,13 +461,15 @@ def run(
 
     print("-- QA gates (scale-out §4.4)")
     result.manifest = manifest
+    classified_regions, unclassified_regions = uncovered_regions(cfg, manifest)
     result.qa = run_gates(
         slug,
         out_dir,
         manifest,
         cfg.elevation_range,
         filled,
-        uncovered_by_ring=uncovered_regions(cfg, manifest),
+        uncovered_by_ring=classified_regions,
+        unclassified_by_ring=unclassified_regions,
         steps=result.steps,
         ring_offsets=measure_ring_offsets(cfg, manifest),
     )

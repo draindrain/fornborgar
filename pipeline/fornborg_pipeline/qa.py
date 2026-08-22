@@ -298,7 +298,10 @@ def classify_region(region: dict) -> str:
     return "sea" if median <= SEA_BOUNDARY_MAX_M else "foreign-land"
 
 
-def check_sea_fill(regions_by_ring: dict[str, list[dict]]) -> Check:
+def check_sea_fill(
+    regions_by_ring: dict[str, list[dict]],
+    unclassified: dict[str, int] | None = None,
+) -> Check:
     """Cells no Lantmäteriet tile covered (contract §11 coverage seam).
 
     Three verdicts, from `classify_region`:
@@ -314,6 +317,20 @@ def check_sea_fill(regions_by_ring: dict[str, list[dict]]) -> Check:
         says must be Copernicus GLO-30 filled instead. Fail, loudly, with the
         numbers — the fix is a pipeline feature, not a retry.
     """
+    # "No evidence" is not "no problem". A ring whose fetch predates this
+    # classification (a cache written by an older build) has cells outside
+    # coverage and nothing that says what they are — and a gate that answers
+    # "pass" when it means "I did not look" is worse than no gate at all.
+    if unclassified:
+        rings = ", ".join(f"{ring} ({cells:,} cells)" for ring, cells in sorted(unclassified.items()))
+        return Check(
+            "sea-fill",
+            "fail",
+            f"cells outside tile coverage with no classification recorded: {rings}. The "
+            f"cached ring mosaic predates the check, so whether that is open sea or land "
+            f"beyond the border is unknown — re-fetch with --force-download",
+            {"unclassified": unclassified},
+        )
     if not regions_by_ring:
         return Check("sea-fill", "pass", "no cells outside tile coverage")
 
@@ -533,6 +550,7 @@ def run_gates(
     band: tuple[float, float],
     filled_by_grid: dict[str, tuple[int, int]],
     uncovered_by_ring: dict[str, list[dict]] | None = None,
+    unclassified_by_ring: dict[str, int] | None = None,
     steps: list | None = None,
     ring_offsets: dict[str, float | None] | None = None,
 ) -> QAReport:
@@ -546,7 +564,7 @@ def run_gates(
             check_nodata_fill(filled_by_grid),
             check_ladder(manifest),
             check_ring_agreement(ring_offsets or {}),
-            check_sea_fill(uncovered_by_ring or {}),
+            check_sea_fill(uncovered_by_ring or {}, unclassified_by_ring or {}),
             check_water_pair(manifest),
         ],
     )
