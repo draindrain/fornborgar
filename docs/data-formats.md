@@ -491,7 +491,7 @@ Rules:
 - The layer is off by default; the toggle is labeled **"modeled landscape
   (rule-based)"** and carries the `model` badge; first toggle-on surfaces the legend's
   `caveat` line (PLAN §6.1 UI rules).
-- Ground tint: a stylized flat per-class color wash (legend palette) blended into the
+- Ground tint: a flat per-class color wash (legend palette) blended into the
   terrain material — injected with the established overlay-shader chain, ordered
   **after viewshed, before water** (submerged ground must still read as submerged).
   Class lookup uses `NearestFilter` (indices must never interpolate).
@@ -502,12 +502,21 @@ Rules:
   `levelM < connect ≤ levelM + bandM` — over whatever static class the raster holds
   there. Still ordered before the §7 water tint, so submerged ground shades last
   exactly as before. Sites or legends without `dynamic` classes render as pre-v1.3.
-- Vegetation: instanced procedural geometry (cones for `conifer`/`broadleaf`,
-  cross-quad billboards for `reeds`), blue-noise/seeded-random sampled per class from
-  the raster; deterministic for a given seed. Instances whose ground is wet at the
-  **current slider level** (`connect ≤ levelM`, §7 semantics) are suppressed at
-  runtime, so scrubbing the slider never shows trees standing in the sea. Appearance
-  parameters (density scale, seed) are app-side UI state with defaults, not data.
+- Vegetation: instanced procedural geometry, blue-noise/seeded-random sampled per
+  class from the raster; deterministic for a given seed. Instances whose ground is
+  wet at the **current slider level** (`connect ≤ levelM`, §7 semantics) are
+  suppressed at runtime, so scrubbing the slider never shows trees standing in the
+  sea. Appearance parameters (density scale, seed) are app-side UI state with
+  defaults, not data.
+  *Amended 2026-08-22 (rendering only — no schema change, no new bytes):* the app
+  renders each §10 `vegetation.type` as a seeded, render-side **species mix** of
+  procedurally generated tree archetypes — `conifer` → spruce + pine, `broadleaf` →
+  oak + birch, `reeds` unchanged — with a mesh/impostor level-of-detail split. The
+  original forms (cones for `conifer`/`broadleaf`, cross-quad billboards for
+  `reeds`) are what pre-amendment builds drew; the §10 type enum, densities,
+  determinism-for-a-seed, suppression semantics and the metric-size invariant below
+  are all unchanged. Which species stand in a mix is an app-side rendering decision
+  (evidence basis: `docs/vegetation-zones.md` §2/§4), never data.
 - Dynamic-band vegetation (v1.3): a `shore-band` class's vegetation is sampled from
   the **connect grid**, not the raster — instances stand where
   `levelM < connect ≤ levelM + bandM` at the current level, excluding cells whose
@@ -858,7 +867,9 @@ Rules, mirroring §10 where they overlap: indices contiguous `0 … N−1`, `N �
 ids unique; colors `#rrggbb`; `rule` and `method` are non-empty strings rendered
 verbatim in the methods panel; `billboard` is optional per class — when present,
 `type` is one of the §10 vegetation types (the billboard renders that type's
-silhouette) and `densityPerHa > 0`. `farField` classes carry no `areaFraction`
+silhouette — since the 2026-08-22 §9 rendering amendment, that silhouette may be
+a baked archetype texture rather than a flat-color quad; densities, budget and
+orientation rules below are unchanged) and `densityPerHa > 0`. `farField` classes carry no `areaFraction`
 (the rasters vary per ring) and no `dynamic` marker — the far field is fully
 static; far *water* rendering remains §11's job. The `method` text MUST disclose
 that the far classifier is cruder than the §9 engine (terrain-derived, no soil or

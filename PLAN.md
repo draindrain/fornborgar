@@ -240,7 +240,8 @@ corrections to this plan where the schema assumptions were wrong.
 
 ### Phase 7 — Modeled Iron Age landscape — ✅ DONE 2026-08-21
 - Pipeline rule engine (§4.7) → land-cover classification raster + legend; instanced
-  low-poly vegetation (procedural cones/billboards) driven by it; "modeled landscape"
+  low-poly vegetation (procedural cones/billboards as built then; rendering superseded
+  by the §6.1 amendment's species-level archetypes) driven by it; "modeled landscape"
   toggle, labeled as a model, with the rules disclosed verbatim in the methods panel and
   the forest/open ratio sanity-checked against §2.5 literature.
 - Built as contract v1.2 (`docs/data-formats.md` §9–§10). One deliberate deviation from
@@ -433,6 +434,8 @@ Plan:
 - App: instanced low-poly cones (conifer/broadleaf as two cone variants) and cross-quad
   billboards for reeds, blue-noise-sampled per class with per-class density; a single
   draw call per vegetation type. Toggle labeled **"modeled landscape (rule-based)"**.
+  *(Rendering superseded by the §6.1 amendment: species-level procedural archetypes;
+  sampling, densities and the toggle unchanged.)*
 - Calibration: compare resulting forest/open ratio against §2.5 literature; report the
   comparison in the methods panel rather than force-fitting.
 
@@ -517,9 +520,23 @@ visual language:
 
 | Class | Layers | Visual language |
 |---|---|---|
-| **Measured** | Terrain (LiDAR DEM), RAÄ site geometries as registered | Opaque, naturalistic shading; the only class allowed to look "real" |
-| **Model** | Paleo-shoreline level, land cover, vegetation | Stylized/flat rendering; slider & toggles annotated "model"; uncertainty stated next to the control (e.g. "±500 yr, SGU") |
+| **Measured** | Terrain (LiDAR DEM), RAÄ site geometries as registered | Opaque, naturalistic shading |
+| **Model** | Paleo-shoreline level, land cover, vegetation | Naturalistic rendering permitted (amendment below); toggles & slider annotated "model"; uncertainty stated next to the control (e.g. "±500 yr, SGU") |
 | **Conjecture** | Palisade (and any future reconstruction) | Ghosted/semi-transparent, cool hue, no surface detail; permanent "conjectural" tag in legend and on-hover |
+
+**Amended 2026-08-22 (owner decision): naturalistic model rendering.** The original rule
+made the *rendering style itself* part of the Model badge — vegetation was deliberately
+schematic (flat-colour cones and blobs) so nobody could mistake it for a reconstruction.
+That rule is retired: the vegetation layer now aims for as natural and photoreal-leaning
+a look as the performance budget allows — procedurally *generated* species-level tree
+models and impostors, never hand-modeled assets (§1's hard constraint stands unchanged).
+Rationale: the schematic forms failed exactly where the model should persuade — up close
+and at the treeline — and a badge that depends on ugliness conflates provenance with
+rendering quality. What carries the honesty instead, unchanged or strengthened: the
+"model" badge, the first-toggle caveat, the verbatim rule disclosure in the methods
+panel, the legend's calibration text, and species composition tied to the zone evidence
+(docs/vegetation-zones.md §2/§4). Provenance lives in the badges and the panel, not in
+how rough the trees look.
 
 UI rules: the methods panel is one click from anywhere; toggling any model/conjecture
 layer on for the first time surfaces its one-line caveat; vertical exaggeration ≠ 1.0 is
