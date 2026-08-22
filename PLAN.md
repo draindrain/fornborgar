@@ -160,8 +160,11 @@ for Iron Age Uppland specifically was found [open]** — nearest anchors:
   along Broborg's waterway; also the source of the ~5.6–6.2 mm/yr apparent-uplift rates. **[verified]**
 - *Domesticated Forest Landscapes in Central Scandinavia during the Iron Age*, J. Field
   Arch. (2023) — Iron Age grazing-driven landscape change. **[verified]**
-- Hultberg et al. (2019), Veget. Hist. Archaeobot. — REVEALS openness for agrarian Scania
-  (90–97 % open), a methodological benchmark, *not* an Uppland value. **[verified]**
+- Hultberg et al., Veget. Hist. Archaeobot. 24:253–266, doi:10.1007/s00334-014-0469-8 —
+  REVEALS openness for agrarian Scania (90–97 % open), a methodological benchmark, *not*
+  an Uppland value. **[verified]** (Previously cited here as "Hultberg et al. (2019)";
+  Crossref returns no 2019 Hultberg VHA paper — the correction is recorded in
+  `docs/vegetation-zones.md` §3. The openness figure itself stays [reported].)
 - Länsstyrelsen Uppsala (2013): *Brons- och järnålder i Uppsala län* — synthesis incl.
   E4-project shoreline/pollen work (shoreline ~12 m ö.h. at the start of the Iron Age). **[verified]**
 
