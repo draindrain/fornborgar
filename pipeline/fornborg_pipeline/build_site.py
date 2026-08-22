@@ -48,7 +48,7 @@ from .fetch_dem import FetchError, fetch_source_mosaic, read_source_mosaic
 from .fetch_sites import SitesError
 from .fetch_sites import run as fetch_sites_run
 from .landcover import LandcoverError
-from .manifest import build_manifest, validate_manifest, write_data_licenses, write_manifest
+from .manifest import build_manifest, write_data_licenses, write_manifest
 from .qa import QAReport, bundle_bytes, run_gates, water_mask_at
 from .rampart import RampartError
 from .registry import REGISTRY_PATH, RegistryError, get_entry
@@ -58,7 +58,6 @@ from .sites import (
     CACHE_DIR,
     EXTENT_PRESETS,
     NATIONAL_ELEVATION_RANGE,
-    GridSpec,
     SiteConfig,
     register_site,
 )

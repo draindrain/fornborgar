@@ -22,6 +22,7 @@ from __future__ import annotations
 import json
 import re
 import sys
+import unicodedata
 import urllib.request
 from collections import Counter
 from dataclasses import asdict, dataclass
@@ -333,6 +334,34 @@ def load_registry(path: Path = REGISTRY_PATH) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def find_entries(text: str, path: Path = REGISTRY_PATH, limit: int = 25) -> list[dict]:
+    """Registry rows matching `text` in name, lämningsnummer, slug or county.
+
+    How a curated site list (§7's pilot, say) gets turned into slugs. KMR names
+    only a minority of fornborgar — most rows carry no `lamningsnamn` at all —
+    so this searches the identifiers too, and a caller that finds nothing should
+    reach for the lämningsnummer rather than assume the fort is absent.
+    """
+    needle = _fold(text)
+    if not needle:
+        return []
+    matches = [
+        site
+        for site in load_registry(path)["sites"]
+        if any(
+            needle in _fold(str(site.get(field, "")))
+            for field in ("name", "lamningsnummer", "slug", "county", "kommun")
+        )
+    ]
+    return matches[:limit]
+
+
+def _fold(value: str) -> str:
+    """Casefold and strip diacritics, so "graborg" finds "Gråborg"."""
+    decomposed = unicodedata.normalize("NFD", value)
+    return "".join(c for c in decomposed if not unicodedata.combining(c)).lower().strip()
+
+
 def get_entry(slug: str, path: Path = REGISTRY_PATH) -> dict:
     registry = load_registry(path)
     for site in registry["sites"]:
@@ -342,6 +371,7 @@ def get_entry(slug: str, path: Path = REGISTRY_PATH) -> dict:
 
 
 @click.command()
+@click.option("--find", "find_text", default=None, help="Search the built registry and print matches.")
 @click.option("--build", "do_build", is_flag=True, help="Build registry.json from the cached extract.")
 @click.option("--fetch", "do_fetch", is_flag=True, help="Download the national GeoPackage only.")
 @click.option("--force-download", is_flag=True, help="Re-download even if a cached copy exists.")
@@ -354,10 +384,31 @@ def get_entry(slug: str, path: Path = REGISTRY_PATH) -> dict:
     show_default=True,
     help="Where to write registry.json.",
 )
-def cli(do_build: bool, do_fetch: bool, force_download: bool, lamningstyp: str, out_path: Path) -> None:
+def cli(
+    find_text: str | None,
+    do_build: bool,
+    do_fetch: bool,
+    force_download: bool,
+    lamningstyp: str,
+    out_path: Path,
+) -> None:
     """Build the national fornborg registry from the KMR riket GeoPackage."""
+    if find_text:
+        try:
+            matches = find_entries(find_text, out_path)
+        except RegistryError as exc:
+            raise SystemExit(str(exc)) from exc
+        if not matches:
+            print(f"no registry entry matches {find_text!r}")
+            return
+        for site in matches:
+            print(
+                f"  {site['slug']:16} {site['lamningsnummer']:14} {site['extentPreset']:9} "
+                f"{site['extentSpanM']:8.0f} m  {site['county']:20} {site['name']}"
+            )
+        return
     if not (do_build or do_fetch):
-        raise SystemExit("nothing to do: pass --build (and/or --fetch)")
+        raise SystemExit("nothing to do: pass --build, --fetch or --find")
     print(f"-- national KMR extract ({NATIONAL_GPKG})")
     path = fetch_national_gpkg(force=force_download)
     print(f"  {path} ({path.stat().st_size / 1e9:.2f} GB)")

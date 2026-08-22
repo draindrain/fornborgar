@@ -8,7 +8,6 @@ staying out of the repository, and the thumbnail's water window.
 
 from __future__ import annotations
 
-from pathlib import Path
 
 import pytest
 

@@ -40,7 +40,7 @@ from pathlib import Path
 import click
 
 from .gpkg import list_layers, read_features_bbox, table_columns
-from .sites import CACHE_DIR, SITES, SiteConfig, get_site
+from .sites import CACHE_DIR, SiteConfig, get_site
 
 SITES_PATH = "sites.json"
 SCHEMA_VERSION = 1

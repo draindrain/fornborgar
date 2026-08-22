@@ -8,7 +8,6 @@ that a record we cannot place is dropped and counted rather than guessed at.
 
 from __future__ import annotations
 
-import json
 import sqlite3
 
 import pytest
@@ -247,3 +246,36 @@ def test_registry_roundtrips_through_disk(tmp_path, kmr):
 def test_load_registry_says_how_to_build_it_when_missing(tmp_path):
     with pytest.raises(RegistryError, match="registry --build"):
         load_registry(tmp_path / "absent.json")
+
+
+# ------------------------------- registry search -----------------------------
+
+
+def test_find_matches_name_number_slug_and_county(tmp_path, kmr):
+    out = tmp_path / "registry.json"
+    write_registry(out, build_registry(kmr))
+    from fornborg_pipeline.registry import find_entries
+
+    assert [s["slug"] for s in find_entries("Broborg", out)] == ["l1943-7827"]
+    assert [s["slug"] for s in find_entries("L1976:4254", out)] == ["l1976-4254"]
+    assert [s["slug"] for s in find_entries("l2000-0009", out)] == ["l2000-0009"]
+    assert {s["slug"] for s in find_entries("Uppsala", out)} == {"l1943-7827"}
+
+
+def test_find_folds_diacritics_and_case(tmp_path, kmr):
+    """A curated list typed on a non-Swedish keyboard still resolves to slugs."""
+    out = tmp_path / "registry.json"
+    write_registry(out, build_registry(kmr))
+    from fornborg_pipeline.registry import find_entries
+
+    assert [s["slug"] for s in find_entries("broborg", out)] == ["l1943-7827"]
+    assert [s["slug"] for s in find_entries("TORSBURGEN", out)] == ["l1976-4254"]
+
+
+def test_find_returns_nothing_for_an_unknown_name(tmp_path, kmr):
+    out = tmp_path / "registry.json"
+    write_registry(out, build_registry(kmr))
+    from fornborg_pipeline.registry import find_entries
+
+    assert find_entries("Camelot", out) == []
+    assert find_entries("", out) == []
