@@ -393,6 +393,26 @@ cause. Confirmed live: `GET …/index.json` → 200 with `max-age=300`;
 `GET …/dem_core.tif` with `Range:` → **206** with `Content-Range` and
 `max-age=31536000, immutable`; `OPTIONS` preflight → 204.
 
+**Load verification (headless Chromium, 2026-08-22).** Three pilot bundles —
+Broborg, Eketorp (coastal, 3-ring) and Ramundersborg (`large` preset, 4-ring) —
+fetched from the published bytes with `VITE_DATA_BASE_URL` set: every ring
+loaded, far water rendered, **zero console errors**, and the picker read all 27
+sites out of `index.json`. Each manifest lists `waterConnectDelta`, so the §12
+encoding is both what ships and what the app decodes.
+
+Back-compat, same app build with `VITE_DATA_BASE_URL` unset: the committed
+**pre-v1.5** `broborg` (absolute `waterConnect`, tiled COGs with overviews) and
+`testsite` load unchanged, and `testsite-rings` loads the delta form — both
+encodings exercised by one binary. The picker correctly stays off when there is
+no index, which is the pre-Phase-9 experience exactly.
+
+One gap, stated rather than papered over: the browser check runs against the
+published bytes served locally, not across the CDN, because this build
+environment denies the browser outbound network (every external host, not just
+this one). The network hop is verified separately with curl against the live URL
+— see the CORS paragraph above — so the two halves are each confirmed and only
+their join is inferred.
+
 ### 7.2 What the pilot changed, and what it is honest about
 
 Running arbitrary registry sites found nine defects that no amount of reading
