@@ -393,6 +393,21 @@ cause. Confirmed live: `GET …/index.json` → 200 with `max-age=300`;
 `GET …/dem_core.tif` with `Range:` → **206** with `Content-Range` and
 `max-age=31536000, immutable`; `OPTIONS` preflight → 204.
 
+**Deploying the app against the object host.** The Pages workflow resolves the
+bundle host at build time: the `VITE_DATA_BASE_URL` *repository variable* if one
+is set (so the host can move without a commit), otherwise `publicBaseUrl` from
+the committed `pipeline/r2-config.json`, otherwise nothing — which is a correct
+build that serves the two committed fixtures with no site picker. No repo
+configuration is needed for the default to be right.
+
+One consequence worth knowing: once a host is configured, **every** site
+resolves against it, including `?site=broborg` and `?site=testsite`. Those are
+documented deep links, so the two committed fixtures are published to the object
+host under their own slugs alongside the registry sites. They are deliberately
+**absent from `index.json`**: `broborg` duplicates the registry's `l1943-7827`
+and `testsite` is a synthetic fixture, so neither belongs in a picker that
+offers real forts — but both keep resolving for anyone holding the link.
+
 **Load verification (headless Chromium, 2026-08-22).** Three pilot bundles —
 Broborg, Eketorp (coastal, 3-ring) and Ramundersborg (`large` preset, 4-ring) —
 fetched from the published bytes with `VITE_DATA_BASE_URL` set: every ring
