@@ -140,7 +140,7 @@ def test_measured_min_max_match_the_written_values(fake_site, fake_source_clean)
 
 def test_fill_nodata_repairs_every_hole(fake_site, fake_source):
     holed, _transform, nodata, pristine = fake_source
-    filled, count = fill_nodata(holed, nodata)
+    filled, count, _stats = fill_nodata(holed, nodata)
     assert count == _expected_hole_count()
     assert not (filled == nodata).any()
     assert np.isfinite(filled).all()
@@ -161,7 +161,7 @@ def test_no_nodata_reaches_the_output_grids(fake_site, fake_source):
 
 def test_fill_nodata_is_a_noop_without_holes(fake_site, fake_source_clean):
     source, _transform, nodata = fake_source_clean
-    filled, count = fill_nodata(source, nodata)
+    filled, count, _stats = fill_nodata(source, nodata)
     assert count == 0
     np.testing.assert_array_equal(filled, source)
 
@@ -378,7 +378,7 @@ def test_sea_is_filled_at_sea_level_not_interpolated():
     # The sea here is 80 cells wide, so the search distance is set below it: the
     # rule is "anything fillnodata can reach across is a hole", and a real
     # coastal window is thousands of cells of water, not eighty.
-    filled, count = fill_nodata(source, NODATA, max_search_distance=20.0)
+    filled, count, _stats = fill_nodata(source, NODATA, max_search_distance=20.0)
     assert count == int((source == NODATA).sum())
     sea = filled[:, 130:]
     assert np.allclose(sea, 0.0), "open water must be flat at sea level"
@@ -389,7 +389,7 @@ def test_sea_is_filled_at_sea_level_not_interpolated():
 def test_an_enclosed_hole_is_still_interpolated():
     source = np.full((60, 60), 20.0, dtype=np.float32)
     source[28:32, 28:32] = NODATA
-    filled, count = fill_nodata(source, NODATA)
+    filled, count, _stats = fill_nodata(source, NODATA)
     assert count == 16
     # Interpolated from its surroundings, not zeroed.
     assert np.allclose(filled[28:32, 28:32], 20.0)
@@ -399,7 +399,7 @@ def test_an_enclosed_hole_is_still_interpolated():
 def test_a_hole_and_the_sea_in_one_grid_get_different_treatment():
     source = coastal_source()
     source[10:14, 10:14] = NODATA  # a pond inland
-    filled, _count = fill_nodata(source, NODATA, max_search_distance=20.0)
+    filled, _count, _stats = fill_nodata(source, NODATA, max_search_distance=20.0)
     assert np.allclose(filled[:, 130:], 0.0)  # sea
     assert filled[10:14, 10:14].min() > 1.0  # the pond took its neighbours' height
 
@@ -414,7 +414,7 @@ def test_land_beyond_the_tile_set_is_refused_not_zeroed():
 
 def test_a_grid_with_no_nodata_is_returned_unchanged():
     source = np.full((20, 20), 12.0, dtype=np.float32)
-    filled, count = fill_nodata(source, NODATA)
+    filled, count, _stats = fill_nodata(source, NODATA)
     assert count == 0
     np.testing.assert_array_equal(filled, source)
 
@@ -426,7 +426,7 @@ def test_an_all_nodata_grid_is_refused():
 
 def test_the_sea_fill_survives_quantization_as_zero():
     """The written int16 grid must read 0 dm over water, not a nodata sentinel."""
-    filled, _count = fill_nodata(coastal_source(), NODATA, max_search_distance=20.0)
+    filled, _count, _stats = fill_nodata(coastal_source(), NODATA, max_search_distance=20.0)
     raw = quantize_decimeters(filled)
     assert raw[:, 130:].max() == 0 and raw[:, 130:].min() == 0
 
@@ -443,7 +443,7 @@ def test_a_one_pixel_edge_sliver_is_interpolated_not_classified():
     source = np.full((300, 300), 70.0, dtype=np.float32)
     source[0, :] = NODATA
     source[:, -2:] = NODATA
-    filled, count = fill_nodata(source, NODATA)
+    filled, count, _stats = fill_nodata(source, NODATA)
     assert count == 300 + 600 - 2
     assert np.allclose(filled, 70.0)
     assert not (filled == 0.0).any(), "an edge sliver must not be zeroed as if it were sea"
@@ -455,3 +455,31 @@ def test_a_wide_region_is_still_classified_even_when_edge_connected():
     source[:, 300:] = NODATA  # 300 cells wide: beyond any sane search distance
     with pytest.raises(ValueError, match="false flat horizon"):
         fill_nodata(source, NODATA, max_search_distance=200.0)
+
+
+def test_a_still_water_body_is_filled_flat_not_tented():
+    """An enclosed nodata region too wide to interpolate is a lake, not a hole.
+
+    `fillnodata` cannot reach the middle of it, and if it could it would tent
+    the surface upward. A ground model returns nothing over water; the surface
+    is flat at the height of the shore around it.
+    """
+    source = np.full((400, 400), 60.0, dtype=np.float32)
+    source[100:300, 100:300] = NODATA  # 200 cells across, enclosed by land at 60 m
+    filled, count, stats = fill_nodata(source, NODATA, max_search_distance=20.0)
+    assert count == 200 * 200
+    assert stats["stillWater"] == 200 * 200
+    assert stats["interpolated"] == 0
+    assert np.allclose(filled[100:300, 100:300], 60.0)
+    assert filled[200, 200] == pytest.approx(60.0)  # flat in the middle, not tented
+
+
+def test_the_repair_breakdown_separates_water_from_invention():
+    """The QA gate keys off `interpolated`: only that invents terrain."""
+    source = coastal_source()
+    source[10:14, 10:14] = NODATA
+    _filled, count, stats = fill_nodata(source, NODATA, max_search_distance=20.0)
+    assert stats["total"] == count
+    assert stats["seaFilled"] > 0
+    assert stats["interpolated"] == 16  # just the pond
+    assert stats["seaFilled"] + stats["stillWater"] + stats["interpolated"] == count

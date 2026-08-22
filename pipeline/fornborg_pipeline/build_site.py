@@ -37,7 +37,7 @@ from . import landcover, rampart, rings, water
 from .clip_dem import (
     LAYOUT_COG,
     VerticalDatumError,
-    build_grids,
+    build_grids_with_fill,
     dequantize,
     read_grid,
     sample_nearest,
@@ -198,16 +198,20 @@ def load_site(slug: str, out_dir: Path, registry_path: Path = REGISTRY_PATH) -> 
 # --------------------------------------------------------------------------- #
 
 
-def _grid_counts(grids: dict, source_cells: int) -> dict[str, tuple[int, int]]:
-    """(nodata cells repaired, cells they were repaired in) per grid.
+def _grid_counts(grids: dict, source_cells: int, fill_stats: dict) -> dict[str, tuple[int, int]]:
+    """(cells whose height was *invented*, cells they were invented in) per grid.
+
+    Only the interpolated ones count. Nodata repaired by filling at sea level or
+    at a still-water surface is not a guess about terrain — it is the truthful
+    reading of a ground model that has no returns over water, and a coastal site
+    can legitimately be most water. Counting those as "interpolated nodata" is
+    what made a Gotland site look 39 % invented when almost none of it was.
 
     `Grid.filled_cells` counts repairs in the **source mosaic**, and every grid
-    built from that mosaic carries the same number — so comparing it against the
-    grid's own 2000x2000 pixel count produced shares over 100 % for a 1 m source
-    (a Gotland site reported "core is 156.8 % interpolated nodata"). The
-    denominator is the mosaic.
+    built from it carries the same number, so the denominator is the mosaic too.
     """
-    return {name: (grid.filled_cells, source_cells) for name, grid in grids.items()}
+    invented = int(fill_stats.get("interpolated", 0)) if fill_stats else 0
+    return {name: (invented, source_cells) for name in grids}
 
 
 def build_grids_step(
@@ -222,7 +226,7 @@ def build_grids_step(
     cache_path, source_meta = fetch_source_mosaic(cfg, force=force_download)
     source, source_transform, nodata = read_source_mosaic(cache_path)
     source_cells = int(source.size)
-    grids = build_grids(source, source_transform, nodata, cfg)
+    grids, fill_stats = build_grids_with_fill(source, source_transform, nodata, cfg)
 
     for name, grid in grids.items():
         out_path = cfg.out_dir / grid.spec.path
@@ -245,7 +249,7 @@ def build_grids_step(
     manifest = build_manifest(cfg, grids, source_meta)
     write_manifest(cfg.out_dir / "manifest.json", manifest)
     write_data_licenses(cfg.out_dir / "DATA-LICENSES.md", cfg, source_meta)
-    return grids, source_meta, manifest, source_cells
+    return grids, source_meta, manifest, source_cells, fill_stats
 
 
 def drop_asset(manifest_path: Path, key: str) -> None:
@@ -401,8 +405,10 @@ def run(
 
     print("-- grids (fetch, clip, quantize)")
     try:
-        grids, _meta, manifest, source_cells = build_grids_step(cfg, force_download, archive_cogs)
-        filled = _grid_counts(grids, source_cells)
+        grids, _meta, manifest, source_cells, fill_stats = build_grids_step(
+            cfg, force_download, archive_cogs
+        )
+        filled = _grid_counts(grids, source_cells, fill_stats)
         result.steps.append(StepResult("grids", "ok"))
     except (FetchError, VerticalDatumError, ValueError, OSError, MemoryError) as exc:
         # The one path that used to return in silence. Without the grids there

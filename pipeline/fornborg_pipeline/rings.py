@@ -45,7 +45,7 @@ def build_ring(cfg: SiteConfig, spec: GridSpec, force: bool = False) -> tuple[Gr
     """Fetch one ring's mosaic and turn it into a finished output grid."""
     cache_path, meta = fetch_ring_mosaic(cfg, spec, force=force)
     source, transform, nodata = read_source_mosaic(cache_path)
-    filled, filled_cells = fill_nodata(source, nodata)
+    filled, filled_cells, fill_stats = fill_nodata(source, nodata)
     grid = build_grid(
         filled, transform, spec, cfg, filled_cells, source_resolution=spec.resolution
     )

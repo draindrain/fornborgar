@@ -549,3 +549,16 @@ def test_the_nodata_share_cannot_exceed_one():
     check = check_nodata_fill({"core": (6_270_000, source_cells)})
     assert 0.0 <= check.detail["shareByGrid"]["core"] <= 1.0
     assert check.severity == "fail"  # 39 % is still far too much
+
+
+def test_water_fill_does_not_count_as_invented_terrain():
+    """A coastal site can legitimately be mostly water; that is not 39 % invented.
+
+    The gate exists to catch terrain the pipeline made up. Filling at a water
+    surface is the truthful reading of a ground model with no returns there.
+    """
+    source_cells = 16_000_000
+    # 6.27 M cells repaired, of which only 12,000 were actually interpolated.
+    check = check_nodata_fill({"core": (12_000, source_cells)})
+    assert check.severity == "pass"
+    assert check.detail["shareByGrid"]["core"] < 0.001

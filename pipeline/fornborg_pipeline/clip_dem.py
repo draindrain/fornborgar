@@ -120,12 +120,12 @@ def fill_nodata(
     """
     array = np.asarray(array, dtype=np.float32)
     if nodata is None:
-        return array.copy(), 0
+        return array.copy(), 0, {"total": 0, "seaFilled": 0, "stillWater": 0, "interpolated": 0}
     invalid = np.isnan(array) if np.isnan(nodata) else (array == nodata)
     invalid |= ~np.isfinite(array)
     count = int(invalid.sum())
     if count == 0:
-        return array.copy(), 0
+        return array.copy(), 0, {"total": 0, "seaFilled": 0, "stillWater": 0, "interpolated": 0}
     if invalid.all():
         raise ValueError("cannot fill nodata: the whole array is nodata")
 
@@ -142,6 +142,7 @@ def fill_nodata(
     labels, _n = ndimage.label(invalid)
     reach = _reach(invalid)
     refused = []
+    lakes = []
     for region in _relabel(regions, labels, invalid):
         # Anything `fillnodata` can genuinely reach across is a hole, whatever
         # its boundary looks like. This is what keeps the one-pixel slivers a
@@ -153,6 +154,8 @@ def fill_nodata(
         verdict = classify_region(region["stats"])
         if verdict == "sea":
             sea |= region["mask"]
+        elif verdict == "gap":
+            lakes.append(region)
         elif verdict == "foreign-land":
             refused.append(region["stats"])
     if refused:
@@ -166,7 +169,23 @@ def fill_nodata(
 
     sea_cells = int(sea.sum())
     working[sea] = sea_level_m
+    lake_cells = 0
+    for region in lakes:
+        # An enclosed region too wide to interpolate across, in a ground model,
+        # bounded by land all round: a lake or a fjord arm with no returns. Its
+        # surface is flat at the height of the shore around it — which is what
+        # the boundary median measures. Interpolating instead would tent the
+        # middle upward, and `fillnodata` cannot reach it anyway.
+        level = region["stats"].get("boundaryMedianM")
+        if level is None:
+            continue
+        working[region["mask"]] = float(level)
+        lake_cells += int(region["mask"].sum())
+
     remaining = invalid & ~sea
+    if lake_cells:
+        for region in lakes:
+            remaining &= ~region["mask"]
     if remaining.any():
         working = fillnodata(
             working,
@@ -184,9 +203,14 @@ def fill_nodata(
             f"{int(still_invalid.sum())} nodata cells survived fillnodata "
             f"(max_search_distance={max_search_distance}); refusing to ship a grid with holes"
         )
-    if sea_cells:
-        print(f"  nodata: {sea_cells:,} cells filled at sea level, {count - sea_cells:,} interpolated")
-    return working, count
+    interpolated = count - sea_cells - lake_cells
+    if sea_cells or lake_cells:
+        print(
+            f"  nodata: {sea_cells:,} at sea level, {lake_cells:,} at still-water level, "
+            f"{interpolated:,} interpolated"
+        )
+    stats = {"total": count, "seaFilled": sea_cells, "stillWater": lake_cells, "interpolated": interpolated}
+    return working, count, stats
 
 
 def _reach(invalid: np.ndarray) -> np.ndarray:
@@ -432,11 +456,25 @@ def build_grids(
     source: np.ndarray, source_transform: Affine, nodata: float | None, cfg: SiteConfig
 ) -> dict[str, Grid]:
     """Full array path: fill nodata once, then derive every grid in the site config."""
-    filled, filled_cells = fill_nodata(source, nodata)
-    return {
+    return build_grids_with_fill(source, source_transform, nodata, cfg)[0]
+
+
+def build_grids_with_fill(
+    source: np.ndarray, source_transform: Affine, nodata: float | None, cfg: SiteConfig
+) -> tuple[dict, dict]:
+    """`build_grids`, plus how the nodata was repaired.
+
+    Split out rather than folded into `build_grids`'s return type because the
+    breakdown has exactly one consumer — the QA gate, which needs to know how
+    many cells had a height *invented* for them as opposed to filled at a water
+    surface. Everything else just wants the grids.
+    """
+    filled, filled_cells, fill_stats = fill_nodata(source, nodata)
+    grids = {
         spec.name: build_grid(filled, source_transform, spec, cfg, filled_cells)
         for spec in cfg.grids
     }
+    return grids, fill_stats
 
 
 def grid_bounds(shape: tuple[int, int], transform: Affine) -> tuple[float, float, float, float]:
