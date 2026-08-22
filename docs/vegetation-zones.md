@@ -409,8 +409,10 @@ gradient would be exactly the failure mode this document exists to prevent.
 | Wooded-pasture / reeds / fen classes | unchanged | unchanged | unchanged | unchanged |
 | Openness rules & radii | unchanged, disclosed (§3) | unchanged | unchanged, disclosed | see §5 — thin soil is the constraint, not grazing radius |
 
-Notes for the future finer-grained tree models (recording what §2 found, beyond
-what three forms can render):
+Notes for the finer-grained tree models — **a separate design track, pursued in
+parallel by owner decision (2026-08-22); not part of the 9c/9d follow-on work**.
+Recorded here because §2 is where the evidence lives (21 measured taxa against
+the renderer's three forms), not because this document's phase builds them:
 
 - Nemoral broadleaf should eventually distinguish an oak–lime–elm–ash component,
   a hazel understory (13.6 % of the pollen sum — hazel was a major landscape
