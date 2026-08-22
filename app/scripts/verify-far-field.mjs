@@ -87,12 +87,16 @@ record.after = await page.evaluate(() => ({
 }));
 
 if (OUT) {
+  // A software rasterizer pushing ~10⁵ instances saturates the main thread, and
+  // Playwright's capture waits on it (fonts, compositing) — give it minutes,
+  // not its 30 s default.
+  const shot = { timeout: 180000 };
   await page.evaluate(() => window.__app.setCamera([6500, 2600, 6500], [0, 0, 0]));
   await page.waitForTimeout(10000);
-  await page.screenshot({ path: `${OUT}/${SITE}_orbit.png` });
+  await page.screenshot({ ...shot, path: `${OUT}/${SITE}_orbit.png` });
   await page.evaluate(() => window.__app.setCamera([0, 30, 0], [-4000, 30, -3000]));
   await page.waitForTimeout(10000);
-  await page.screenshot({ path: `${OUT}/${SITE}_near.png` });
+  await page.screenshot({ ...shot, path: `${OUT}/${SITE}_near.png` });
   record.screenshots = [`${OUT}/${SITE}_orbit.png`, `${OUT}/${SITE}_near.png`];
 }
 
