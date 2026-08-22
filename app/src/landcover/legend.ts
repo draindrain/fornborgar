@@ -65,6 +65,54 @@ export interface LandcoverClass {
   [key: string]: unknown;
 }
 
+/**
+ * Contract §13 v1.6: the billboard a far-field class stands in with — one quad
+ * per sampled instance, drawn as the §10 type's silhouette. Optional per class.
+ */
+export interface FarFieldBillboard {
+  type: VegetationType;
+  /** Instances per hectare, > 0. Sampled, not planted: §13's stand-in fraction. */
+  densityPerHa: number;
+  [key: string]: unknown;
+}
+
+/**
+ * Contract §13 v1.6: one class of the far-field classifier, indexed by the
+ * per-ring `landcover_ring<N>.tif` rasters.
+ *
+ * Tint + optional billboard, and nothing else: the far field is fully static, so
+ * a far class carries no `vegetation` (that is the §9 engine's 3D instancing),
+ * no `dynamic` marker (far *water* stays §11's job) and no `areaFraction` (the
+ * rasters vary per ring, so no single fraction could be true).
+ */
+export interface FarFieldClass {
+  /** == the raw value in a ring's class raster (§13). Contiguous from 0. */
+  index: number;
+  /** Stable machine id, unique within the far-field block. */
+  id: string;
+  name: string;
+  /** Ring tint + legend swatch, sRGB `#rrggbb`. */
+  color: string;
+  /** The rule that produced this class — disclosed verbatim (§13). */
+  rule: string;
+  /** Absent = this class stands nothing up; it only tints. */
+  billboard?: FarFieldBillboard;
+  [key: string]: unknown;
+}
+
+/**
+ * Contract §13 v1.6: the optional far-field block. Absent = no far field, and
+ * every pre-v1.6 legend looks exactly like that.
+ */
+export interface FarFieldLegend {
+  /** One-paragraph derivation, methods panel, verbatim — §13 requires it to say
+   * that the far classifier is cruder than the §9 engine and to state the
+   * billboard sampling fraction in plain terms. */
+  method: string;
+  classes: FarFieldClass[];
+  [key: string]: unknown;
+}
+
 export interface LandcoverLegend {
   schemaVersion: number;
   site?: string;
@@ -80,6 +128,8 @@ export interface LandcoverLegend {
   calibration: string;
   source?: Record<string, unknown>;
   classes: LandcoverClass[];
+  /** v1.6 §13: the far-field classifier's own classes, or absent for no far field. */
+  farField?: FarFieldLegend;
   [key: string]: unknown;
 }
 
@@ -95,19 +145,19 @@ export const AREA_FRACTION_TOLERANCE = 0.001;
 
 const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
 
-function str(obj: Record<string, unknown>, key: string, path: string, where: string): string {
+function str(obj: Record<string, unknown>, key: string, path: string, where: string, section = '§10'): string {
   const v = obj[key];
   if (typeof v !== 'string' || v === '') {
-    throw new LandcoverError(`${path}: ${where}${key} must be a non-empty string (docs/data-formats.md §10).`);
+    throw new LandcoverError(`${path}: ${where}${key} must be a non-empty string (docs/data-formats.md ${section}).`);
   }
   return v;
 }
 
-function num(obj: Record<string, unknown>, key: string, path: string, where: string): number {
+function num(obj: Record<string, unknown>, key: string, path: string, where: string, section = '§10'): number {
   const v = obj[key];
   if (typeof v !== 'number' || !Number.isFinite(v)) {
     throw new LandcoverError(
-      `${path}: ${where}${key} must be a finite number (got ${JSON.stringify(v)}) (docs/data-formats.md §10).`,
+      `${path}: ${where}${key} must be a finite number (got ${JSON.stringify(v)}) (docs/data-formats.md ${section}).`,
     );
   }
   return v;
@@ -158,6 +208,114 @@ function validateDynamic(raw: unknown, path: string, where: string): DynamicSpec
     throw new LandcoverError(`${path}: ${where}dynamic.bandM is only allowed on kind "shore-band" (§10 v1.3).`);
   }
   return { ...(d as object), kind: kind as DynamicKind } as DynamicSpec;
+}
+
+/** Contract §13: what a far-field class may never carry, and why (see `FarFieldClass`). */
+const NEAR_FIELD_ONLY_KEYS: Record<string, string> = {
+  vegetation: 'far-field classes stand up billboards, not §9 instances',
+  dynamic: 'the far field is fully static — far water is §11\'s job',
+  areaFraction: 'the ring rasters vary, so no one fraction describes them',
+};
+
+function validateFarBillboard(raw: unknown, path: string, where: string): FarFieldBillboard | undefined {
+  if (raw === null || raw === undefined) return undefined;
+  if (typeof raw !== 'object' || Array.isArray(raw)) {
+    throw new LandcoverError(`${path}: ${where}billboard must be an object or absent (§13).`);
+  }
+  const b = raw as Record<string, unknown>;
+  const type = b['type'];
+  if (typeof type !== 'string' || !(VEGETATION_TYPES as readonly string[]).includes(type)) {
+    throw new LandcoverError(
+      `${path}: ${where}billboard.type ${JSON.stringify(type)} is not one of ` +
+        `${VEGETATION_TYPES.map((t) => JSON.stringify(t)).join(' | ')} (§13).`,
+    );
+  }
+  const densityPerHa = num(b, 'densityPerHa', path, `${where}billboard.`, '§13');
+  if (!(densityPerHa > 0)) {
+    throw new LandcoverError(`${path}: ${where}billboard.densityPerHa must be > 0 (got ${densityPerHa}) (§13).`);
+  }
+  return { ...(b as object), type: type as VegetationType, densityPerHa } as FarFieldBillboard;
+}
+
+/**
+ * Validate the optional v1.6 `farField` block, or `undefined` when the legend has
+ * none — which is what every pre-v1.6 legend has, and what "no far field" means
+ * everywhere downstream.
+ *
+ * The rules mirror §10's per-class ones (contiguous indices, unique ids, hex
+ * colours, verbatim rules) because they describe the same kind of thing; what is
+ * *not* mirrored is refused outright rather than ignored, since a far class
+ * carrying `vegetation` or `dynamic` is a pipeline that thinks it is writing the
+ * near field.
+ */
+function validateFarField(raw: unknown, path: string): FarFieldLegend | undefined {
+  if (raw === null || raw === undefined) return undefined;
+  if (typeof raw !== 'object' || Array.isArray(raw)) {
+    throw new LandcoverError(`${path}: farField must be an object or absent (docs/data-formats.md §13).`);
+  }
+  const f = raw as Record<string, unknown>;
+  // Same reason as the near field's `method`: a classifier the app cannot quote
+  // does not get to paint anything (PLAN §6.1).
+  const method = str(f, 'method', path, 'farField.', '§13');
+
+  const rawClasses = f['classes'];
+  if (!Array.isArray(rawClasses) || rawClasses.length === 0) {
+    throw new LandcoverError(`${path}: farField.classes must be a non-empty array (§13).`);
+  }
+  if (rawClasses.length > MAX_CLASSES) {
+    throw new LandcoverError(
+      `${path}: farField declares ${rawClasses.length} classes, which exceeds the ${MAX_CLASSES}-class ` +
+        'limit (docs/data-formats.md §13).',
+    );
+  }
+
+  const seen = new Set<string>();
+  const classes: FarFieldClass[] = rawClasses.map((entry, i) => {
+    if (typeof entry !== 'object' || entry === null || Array.isArray(entry)) {
+      throw new LandcoverError(`${path}: farField.classes[${i}] must be an object (§13).`);
+    }
+    const c = entry as Record<string, unknown>;
+    const where = `farField.classes[${i}].`;
+
+    const index = num(c, 'index', path, where, '§13');
+    if (index !== i) {
+      throw new LandcoverError(
+        `${path}: ${where}index is ${index} but classes are sorted and contiguous from 0, so it must be ${i} (§13).`,
+      );
+    }
+
+    const id = str(c, 'id', path, where, '§13');
+    if (seen.has(id)) throw new LandcoverError(`${path}: duplicate farField class id ${JSON.stringify(id)} (§13).`);
+    seen.add(id);
+
+    const name = str(c, 'name', path, where, '§13');
+    const color = str(c, 'color', path, where, '§13');
+    if (!HEX_COLOR.test(color)) {
+      throw new LandcoverError(`${path}: ${where}color ${JSON.stringify(color)} must be an "#rrggbb" sRGB hex (§13).`);
+    }
+    const rule = str(c, 'rule', path, where, '§13');
+
+    for (const [key, why] of Object.entries(NEAR_FIELD_ONLY_KEYS)) {
+      if (c[key] !== undefined) {
+        throw new LandcoverError(
+          `${path}: ${where}${key} is not allowed on a far-field class — ${why} (docs/data-formats.md §13).`,
+        );
+      }
+    }
+    const billboard = validateFarBillboard(c['billboard'], path, where);
+
+    return {
+      ...(c as object),
+      index: i,
+      id,
+      name,
+      color,
+      rule,
+      ...(billboard ? { billboard } : {}),
+    } as FarFieldClass;
+  });
+
+  return { ...(f as object), method, classes } as FarFieldLegend;
 }
 
 /**
@@ -282,7 +440,7 @@ export function validateLandcoverLegend(raw: unknown, path = 'landcover_legend.j
     }
   }
 
-  return {
+  const legend = {
     ...(file as object),
     schemaVersion: SUPPORTED_LANDCOVER_VERSION,
     referenceYearCE,
@@ -292,6 +450,14 @@ export function validateLandcoverLegend(raw: unknown, path = 'landcover_legend.j
     calibration,
     classes,
   } as LandcoverLegend;
+
+  // v1.6 §13: additive and optional, so an absent (or explicitly null) block
+  // leaves the legend exactly as a pre-v1.6 one — no far field, nothing to tint.
+  const farField = validateFarField(file['farField'], path);
+  if (farField) legend.farField = farField;
+  else delete legend.farField;
+
+  return legend;
 }
 
 /** The classes that carry vegetation, in index order. */
@@ -309,6 +475,18 @@ export function staticVegetationClasses(
   legend: LandcoverLegend,
 ): (LandcoverClass & { vegetation: VegetationSpec })[] {
   return vegetationClasses(legend).filter((c) => !c.dynamic);
+}
+
+/**
+ * The far-field classes that stand something up, in index order (§13) — the empty
+ * list when the legend declares no far field, so callers need no special case.
+ */
+export function farBillboardClasses(
+  legend: LandcoverLegend,
+): (FarFieldClass & { billboard: FarFieldBillboard })[] {
+  return (legend.farField?.classes ?? []).filter(
+    (c): c is FarFieldClass & { billboard: FarFieldBillboard } => c.billboard !== undefined,
+  );
 }
 
 /** The single class of the given dynamic kind, or null when the legend has none. */

@@ -593,6 +593,35 @@ export async function loadLandcoverLegend(siteId: string, manifest: SiteManifest
 }
 
 /**
+ * One band of class **indices** in, the `Uint8Array` a `LandcoverGrid` carries out.
+ *
+ * Shared by the §9 near-field raster and the §13 per-ring ones, because the check
+ * is the same one in both places: an index is a name for a legend entry, not a
+ * measurement, so it is never scaled by `encoding.scale` and every sample must
+ * address a class the legend actually declares. A value that does not is a
+ * pipeline/legend disagreement the app cannot paint its way out of.
+ */
+function decodeClassIndices(
+  band: ArrayLike<number>,
+  classCount: number,
+  path: string,
+  section: string,
+): Uint8Array {
+  const classes = new Uint8Array(band.length);
+  for (let i = 0; i < band.length; i++) {
+    const v = band[i];
+    if (!Number.isInteger(v) || v < 0 || v >= classCount) {
+      throw new Error(
+        `${path}: sample ${i} is ${v}, which is not a valid index into the legend's ${classCount} ` +
+          `classes (docs/data-formats.md ${section}).`,
+      );
+    }
+    classes[i] = v;
+  }
+  return classes;
+}
+
+/**
  * Fetch + decode the §9 land-cover class raster.
  *
  * Like `water_connect.tif` (§7), the file carries **no** manifest grid entry of its
@@ -622,17 +651,7 @@ export async function loadLandcoverGrid(
     'grids.context (authoritative for its geometry, docs/data-formats.md §9)',
   );
 
-  const classes = new Uint8Array(band.length);
-  for (let i = 0; i < band.length; i++) {
-    const v = band[i];
-    if (!Number.isInteger(v) || v < 0 || v >= classCount) {
-      throw new Error(
-        `${path}: sample ${i} is ${v}, which is not a valid index into the legend's ${classCount} ` +
-          'classes (docs/data-formats.md §9).',
-      );
-    }
-    classes[i] = v;
-  }
+  const classes = decodeClassIndices(band, classCount, path, '§9');
   onProgress(1);
 
   return {
@@ -685,4 +704,52 @@ export async function loadLandcoverAssets(
     );
     return null;
   }
+}
+
+// -------------------------------------- v1.6 §13: far-field land cover ------
+
+/**
+ * Fetch + decode one ring's §13 far-field class raster.
+ *
+ * Geometry comes from the **ring entry** — like the §11 connect grid, the file
+ * carries no manifest grid entry of its own, and §13 requires it to match that
+ * ring's DEM exactly — while the values are §9's class indices, here into
+ * `legend.farField.classes[]`, so `classCount` is the far-field class count and
+ * not the near-field one.
+ *
+ * Every ring is independent (§13, like the ring DEMs themselves): a throw here
+ * means *this* ring tints nothing, never that the site or its neighbours fail.
+ */
+export async function loadRingLandcover(
+  siteId: string,
+  manifest: SiteManifest,
+  index: number,
+  classCount: number,
+  onProgress: (f: number) => void = () => {},
+): Promise<LandcoverGrid> {
+  const ring = manifest.grids.rings?.[index];
+  if (!ring) throw new Error(`manifest.grids.rings[${index}] is not declared for this site.`);
+  const path = ring.landcover;
+  if (!path) throw new Error(`ring ${ring.path} declares no far-field land-cover raster (§13).`);
+
+  const url = `${siteDataUrl(siteId)}${path}`;
+  const band = await loadBand(
+    url,
+    path,
+    ring.width,
+    ring.height,
+    onProgress,
+    `the ${ring.path} ring entry (authoritative for its geometry, docs/data-formats.md §13)`,
+  );
+
+  const classes = decodeClassIndices(band, classCount, path, '§13');
+  onProgress(1);
+
+  return {
+    width: ring.width,
+    height: ring.height,
+    resolution: ring.resolution,
+    boundsLocal: ring.boundsLocal,
+    classes,
+  };
 }

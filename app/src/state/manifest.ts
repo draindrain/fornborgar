@@ -59,6 +59,13 @@ export interface GridManifest {
    * declared — it is ~10x smaller and reconstructs exactly.
    */
   waterConnectDelta?: string;
+  /**
+   * v1.6 §13, ring entries only: a far-field land-cover class raster on this
+   * ring's exact geometry, indices into `landcoverLegend.farField.classes[]`.
+   * Optional per ring (a ring without it renders untinted) and only meaningful
+   * when the site also ships the §9/§10 near-field pair.
+   */
+  landcover?: string;
 }
 
 /** v1.4 §11: the informational ladder-depth derivation, for the methods panel. */
@@ -175,6 +182,20 @@ function validateGrid(raw: unknown, path: string): GridManifest {
 }
 
 /**
+ * One optional per-ring asset reference — §11 `waterConnect`, §12
+ * `waterConnectDelta`, §13 `landcover` — or `undefined` when the ring declares
+ * none. Same path rule as `validateGrid`: relative, inside the bundle.
+ */
+function ringAssetPath(entry: unknown, key: string, name: string): string | undefined {
+  const value = (entry as Record<string, unknown>)[key];
+  if (value === undefined) return undefined;
+  if (typeof value !== 'string' || value.length === 0 || value.startsWith('/') || value.includes('..')) {
+    throw new ManifestError(`manifest.${name}.${key} must be a relative path with no ".."`);
+  }
+  return value;
+}
+
+/**
  * v1.4 §11: validate `grids.rings`. Throws on any violation; the caller catches,
  * warns and drops the whole array — a malformed optional asset must never take
  * the site down (the horizon guarantee is a data guarantee).
@@ -205,15 +226,17 @@ function validateRings(raw: unknown, context: GridManifest): GridManifest[] {
     // most one ring may (§11).
     let carriesFarWater = false;
     for (const key of ['waterConnect', 'waterConnectDelta'] as const) {
-      const connect = (entry as Record<string, unknown>)[key];
+      const connect = ringAssetPath(entry, key, name);
       if (connect === undefined) continue;
-      if (typeof connect !== 'string' || connect.length === 0 || connect.startsWith('/') || connect.includes('..')) {
-        throw new ManifestError(`manifest.${name}.${key} must be a relative path with no ".."`);
-      }
       ring[key] = connect;
       carriesFarWater = true;
     }
     if (carriesFarWater) waterConnects += 1;
+    // v1.6 §13: the optional far-field class raster, on this ring's own
+    // geometry. Any number of rings may carry one and each is independent — a
+    // ring without it simply renders untinted, exactly as before v1.6.
+    const landcover = ringAssetPath(entry, 'landcover', name);
+    if (landcover !== undefined) ring.landcover = landcover;
     previous = ring;
     previousName = name;
     return ring;
@@ -222,6 +245,30 @@ function validateRings(raw: unknown, context: GridManifest): GridManifest[] {
     throw new ManifestError('manifest.grids.rings: at most one ring may carry a far-water connect grid (§11)');
   }
   return rings;
+}
+
+/**
+ * v1.6 §13: the far field extends the §9/§10 modeled-landscape layer and shares
+ * its toggle, badge and first-toggle caveat, so a ring may only declare
+ * `landcover` when the site declares `assets.landcover` too. This is the one
+ * ring rule that needs the assets block, hence its home here rather than in
+ * `validateRings`. An unpaired declaration drops just those keys — the narrowest
+ * degradation: the rings still render (untinted), and the horizon guarantee with
+ * them.
+ */
+function dropUnpairedRingLandcover(manifest: SiteManifest): void {
+  const rings = manifest.grids.rings;
+  if (!rings) return;
+  const nearField = manifest.assets?.['landcover'];
+  if (typeof nearField === 'string' && nearField.length > 0) return;
+  const unpaired = rings.filter((ring) => ring.landcover !== undefined);
+  if (unpaired.length === 0) return;
+  for (const ring of unpaired) delete ring.landcover;
+  console.warn(
+    `[fornborg] far-field land cover dropped on ${unpaired.length} ring(s) — a ring may only declare ` +
+      '`landcover` when the site also declares assets.landcover (docs/data-formats.md §13); the rings ' +
+      'themselves still render.',
+  );
 }
 
 /** v1.4 §11: the informational horizon block, or null when absent/malformed. */
@@ -276,6 +323,7 @@ export function validateManifest(raw: unknown): SiteManifest {
   if (grids['rings'] !== undefined) {
     try {
       manifest.grids.rings = validateRings(grids['rings'], manifest.grids.context);
+      dropUnpairedRingLandcover(manifest);
     } catch (error) {
       delete manifest.grids.rings;
       console.warn(

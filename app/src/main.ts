@@ -14,6 +14,9 @@ import './style.css';
 import { CameraModes, type EnterOptions } from './camera/modes';
 import { createOrbitRig } from './camera/orbitCamera';
 import * as coords from './lib/coords';
+import { FarLandcoverTint } from './landcover/farTint';
+import { FarVegetationLayer } from './landcover/farVegetation';
+import type { LandcoverGrid } from './landcover/landcoverGrid';
 import { LandcoverTint } from './landcover/tint';
 import { VegetationLayer } from './landcover/vegetation';
 import { PalisadeLayer } from './overlays/palisade';
@@ -24,6 +27,7 @@ import {
   loadRampart,
   loadRingConnect,
   loadRingGrid,
+  loadRingLandcover,
   loadSites,
   loadSiteIndex,
   loadWaterAssets,
@@ -143,6 +147,9 @@ function applyWaterSettings(): void {
   // the slider, not the water toggle — the modelled landscape must stay consistent
   // with the century the viewer has chosen even with the water plane hidden.
   vegetation?.setWaterLevel(water.levelM);
+  // v1.6 (§13): the far-field billboards obey the same rule against the §11
+  // ring connect grid, where the site ships one.
+  farVegetation?.setWaterLevel(water.levelM);
   // v1.3 (§9/§10): and the two dynamic land-cover classes — the open sea's ground
   // tint and the shore reed belt — are derived at that same level, so scrubbing
   // leaves no stale water tint on drained seabed and no stranded reed belt.
@@ -193,6 +200,9 @@ function applyPalisadeSettings(): void {
  */
 let landcoverTint: LandcoverTint | null = null;
 let vegetation: VegetationLayer | null = null;
+/** v1.6 §13: the far half of the same layer — one toggle drives all four. */
+let farTint: FarLandcoverTint | null = null;
+let farVegetation: FarVegetationLayer | null = null;
 let landcoverReadout: { update(): void } | null = null;
 /** The legend's own one-line caveat, surfaced on first enable (PLAN §6.1). */
 let landcoverCaveat: { badge: string; text: string } | null = null;
@@ -204,6 +214,12 @@ function applyLandcoverSettings(): void {
   vegetation?.setParams({ seed: Math.round(s.seed), densityScale: s.density });
   vegetation?.setEnabled(s.show);
   landcoverTint?.setEnabled(s.show);
+  // The far field is part of the same "modeled landscape" layer (§13): same
+  // toggle, same seed contract. Its sampling is lazy — the first enable is
+  // what builds the billboard population.
+  farVegetation?.setSeed(Math.round(s.seed));
+  farVegetation?.setEnabled(s.show);
+  farTint?.setEnabled(s.show);
   landcoverReadout?.update();
   if (s.show && landcoverCaveat) {
     hud.showCaveatOnce('landcover', landcoverCaveat.badge, landcoverCaveat.text);
@@ -229,6 +245,7 @@ const { gui, state: controlState } = createControls(document.body, {
     sitesLayer?.refreshHeights();
     palisade?.refreshHeights(); // posts sit on the exaggerated ground, at true height
     vegetation?.refreshHeights(); // ...and so do the plants (contract §0/§9)
+    farVegetation?.refreshHeights(); // ...billboards included (v1.6 §13)
     refit();
   },
   onToggleFirstPerson: () => modes.toggle(groundAt, terrain.getExaggeration()),
@@ -404,6 +421,19 @@ async function start(): Promise<void> {
   if (landcover) {
     landcoverTint = new LandcoverTint(landcover.grid, landcover.legend, assets?.connect ?? null);
     for (const material of terrain.overlayMaterials) landcoverTint.attach(material);
+    // v1.6 §13: the far field exists only when the legend declares it. The tint
+    // attaches per ring as rings stream in (the §11 loop below); the billboards
+    // sample lazily on first enable.
+    if (landcover.legend.farField) {
+      farTint = new FarLandcoverTint(landcover.legend.farField.classes);
+      farVegetation = new FarVegetationLayer({
+        classes: landcover.legend.farField.classes,
+        seed: Math.round(controlState.landcover.seed),
+        contextHalfM: (contextExtent.maxX - contextExtent.minX) / 2,
+        getExaggeration: () => terrain.getExaggeration(),
+      });
+      scene.add(farVegetation.group);
+    }
   }
 
   // --- Phase 4: paleo-shoreline (optional assets; absent = feature off) -----
@@ -582,15 +612,51 @@ async function start(): Promise<void> {
     loaded: 0,
     done: manifest.grids.rings?.length ? false : true,
     farWater: false,
+    /** v1.6 §13: rings whose class raster loaded (tint + billboard source). */
+    farLandcover: 0,
   };
   async function loadRingsLazily(): Promise<void> {
     const rings = manifest.grids.rings;
     if (!rings?.length) return;
+    // The §13 fade band starts at the near field's edge; each ring populates
+    // billboards only outside the next-finer grid it wraps.
+    let innerHalfM = (contextExtent.maxX - contextExtent.minX) / 2;
     for (let i = 0; i < rings.length; i++) {
       let ringGrid: HeightGrid;
       try {
         ringGrid = await loadRingGrid(siteId, manifest, i);
+        // v1.6 §13: a ring's class raster loads before its meshes are built, so
+        // the tint's dedicated material exists when `setRing` binds materials.
+        // Any failure tints nothing and populates nothing — per-ring graceful,
+        // like the ring DEMs themselves.
+        let ringLandcover: LandcoverGrid | null = null;
+        if (rings[i].landcover && farTint && landcover) {
+          try {
+            ringLandcover = await loadRingLandcover(
+              siteId,
+              manifest,
+              i,
+              landcover.legend.farField?.classes.length ?? 0,
+            );
+            farTint.attachRing(terrain.farOverlayMaterial(i), ringLandcover);
+            ringsStatus.farLandcover += 1;
+          } catch (error) {
+            console.error(
+              `[fornborg] ${siteId}: ring ${i} land cover failed, ring renders untinted — ` +
+                (error instanceof Error ? error.message : String(error)),
+            );
+          }
+        }
         await terrain.setRing(i, ringGrid);
+        if (ringLandcover && farVegetation) {
+          farVegetation.addRing({
+            ringIndex: i,
+            landcover: ringLandcover,
+            heights: ringGrid,
+            innerHalfM,
+          });
+        }
+        innerHalfM = (ringGrid.boundsLocal.maxX - ringGrid.boundsLocal.minX) / 2;
         ringsStatus.loaded += 1;
         rig.setFarHorizon(terrain.outerHalfExtent());
         updateFog();
@@ -611,6 +677,10 @@ async function start(): Promise<void> {
         try {
           const farConnect = await loadRingConnect(siteId, rings[i], () => {}, ringGrid);
           water.setFarConnect(farConnect);
+          // §13: nothing stands in far water — the billboards suppress against
+          // this same grid, at the current slider level.
+          farVegetation?.setConnect((x, z) => connectAtLocal(farConnect, x, z));
+          farVegetation?.setWaterLevel(water.levelM);
           ringsStatus.farWater = true;
         } catch (error) {
           console.error(
@@ -735,6 +805,17 @@ async function start(): Promise<void> {
       },
       get bandCount() {
         return vegetation?.bandCount ?? 0;
+      },
+      // v1.6 §13, for headless checks of the far field. `farLayer: null` with a
+      // farField legend block means the wiring is broken; farField null means
+      // the site simply ships no far field.
+      farLayer: farVegetation,
+      farTint,
+      get farCount() {
+        return farVegetation?.total ?? 0;
+      },
+      get farField() {
+        return landcover?.legend.farField ?? null;
       },
       setEnabled(on: boolean) {
         controlState.landcover.show = on;

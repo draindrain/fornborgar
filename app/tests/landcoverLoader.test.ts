@@ -15,7 +15,7 @@ import { fileURLToPath } from 'node:url';
 import { writeArrayBuffer } from 'geotiff';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { loadLandcoverAssets, loadLandcoverGrid } from '../src/state/loader';
+import { loadLandcoverAssets, loadLandcoverGrid, loadRingLandcover } from '../src/state/loader';
 import { validateManifest, type SiteManifest } from '../src/state/manifest';
 import { classAtLocal } from '../src/landcover/landcoverGrid';
 
@@ -221,5 +221,110 @@ describe('land-cover loading (contract §9/§10)', () => {
     // §9 values are indices, not measurements: `encoding.scale` (0.1) must not touch them.
     expect(grid.classes.every((v) => Number.isInteger(v))).toBe(true);
     expect(grid.classes.some((v) => v > 0)).toBe(true);
+  });
+});
+
+// -------------------------------------- v1.6 §13: far-field land cover ------
+
+/**
+ * A ring's class raster, served against the committed `testsite-rings` bundle.
+ *
+ * That bundle is pre-v1.6 (no far field), so the far-field keys are injected into
+ * a clone of it here rather than committed to the fixture: what is being tested is
+ * the loader's contract, not the pipeline's current output. The raster itself is
+ * constructed at the ring entry's own dimensions — §13 requires exactly that.
+ */
+const RINGS_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'public', 'data', 'testsite-rings');
+const ringsDoc: Record<string, unknown> = JSON.parse(await readFile(join(RINGS_DIR, 'manifest.json'), 'utf8'));
+
+/** The rings manifest with the §13 keys a v1.6 bundle would ship. */
+function ringsManifest(ringLandcover: string | null = 'landcover_ring3.tif'): SiteManifest {
+  const doc = JSON.parse(JSON.stringify(ringsDoc)) as Record<string, unknown>;
+  const assets = (doc['assets'] ?? {}) as Record<string, string>;
+  assets['landcover'] = 'landcover.tif';
+  assets['landcoverLegend'] = 'landcover_legend.json';
+  doc['assets'] = assets;
+  const rings = (doc['grids'] as Record<string, unknown>)['rings'] as Record<string, unknown>[];
+  if (ringLandcover !== null) rings[0]['landcover'] = ringLandcover;
+  return validateManifest(doc);
+}
+
+/** Serve one constructed ring raster; anything else 404s (nothing else is fetched). */
+function stubRingFetch(body: Uint8Array | undefined) {
+  const fetchMock = vi.fn(async (_input: RequestInfo | URL) =>
+    body
+      ? new Response(body as BodyInit, { status: 200, headers: { 'content-type': 'image/tiff' } })
+      : new Response('not found', { status: 404, statusText: 'Not Found' }),
+  );
+  vi.stubGlobal('fetch', fetchMock);
+  return fetchMock;
+}
+
+describe('far-field ring land cover (contract §13)', () => {
+  const ringEntry = () => ringsManifest().grids.rings![0];
+
+  it('decodes a ring raster on the ring entry\'s own geometry', async () => {
+    const manifest = ringsManifest();
+    const ring = manifest.grids.rings![0];
+    stubRingFetch(uint8Tiff(ring.width, 2));
+
+    const grid = await loadRingLandcover('testsite-rings', manifest, 0, 4);
+    // The ring entry is authoritative for geometry, not grids.context (§13).
+    expect(grid.width).toBe(ring.width);
+    expect(grid.height).toBe(ring.height);
+    expect(grid.resolution).toBe(ring.resolution);
+    expect(grid.boundsLocal).toEqual(ring.boundsLocal);
+    expect(grid.classes).toBeInstanceOf(Uint8Array);
+    expect(grid.classes.length).toBe(ring.width * ring.height);
+    // Indices, never measurements: the ring's 0.5 m `encoding.scale` must not touch them.
+    expect(grid.classes.every((v) => v === 2)).toBe(true);
+  });
+
+  it('resolves the URL under the site data directory and reports progress', async () => {
+    const manifest = ringsManifest();
+    const fetchMock = stubRingFetch(uint8Tiff(ringEntry().width, 0));
+    const seen: number[] = [];
+    await loadRingLandcover('testsite-rings', manifest, 0, 1, (f) => seen.push(f));
+    const url = String(fetchMock.mock.calls[0][0]);
+    expect(url.endsWith('data/testsite-rings/landcover_ring3.tif')).toBe(true);
+    expect(url).not.toContain('..');
+    expect(seen[seen.length - 1]).toBe(1);
+  });
+
+  it('throws when the raster geometry disagrees with the ring entry', async () => {
+    const manifest = ringsManifest();
+    stubRingFetch(uint8Tiff(8, 0));
+    await expect(loadRingLandcover('testsite-rings', manifest, 0, 4)).rejects.toThrow(
+      /dem_ring3\.tif ring entry/,
+    );
+  });
+
+  it('throws when a raw value is not a legal far-field class index', async () => {
+    const manifest = ringsManifest();
+    stubRingFetch(uint8Tiff(ringEntry().width, 7));
+    await expect(loadRingLandcover('testsite-rings', manifest, 0, 4)).rejects.toThrow(
+      /not a valid index into the legend's 4 classes/,
+    );
+  });
+
+  it('throws — with no fetch — for a ring that declares none, and for a ring that is not there', async () => {
+    const manifest = ringsManifest(null);
+    const fetchMock = stubRingFetch(undefined);
+    await expect(loadRingLandcover('testsite-rings', manifest, 0, 4)).rejects.toThrow(
+      /declares no far-field land-cover raster/,
+    );
+    await expect(loadRingLandcover('testsite-rings', manifest, 9, 4)).rejects.toThrow(
+      /grids\.rings\[9\] is not declared/,
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('disables the ring tint rather than the site when the raster is missing', async () => {
+    const manifest = ringsManifest();
+    stubRingFetch(undefined);
+    // §13: per-ring graceful. The loader throws; the caller treats that as "this
+    // ring tints nothing", and the rings themselves are untouched.
+    await expect(loadRingLandcover('testsite-rings', manifest, 0, 4)).rejects.toThrow(/404/);
+    expect(manifest.grids.rings).toHaveLength(2);
   });
 });

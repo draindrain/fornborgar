@@ -4,7 +4,8 @@
 v1.2 (2026-08-21, additive — §9–§10), v1.3 (2026-08-21, additive — dynamic
 hydrology in §9–§10), v1.4 (2026-08-21, additive — far-field rings, §11),
 v1.5 (2026-08-22, additive — the §1a web grid layout and the §12 connectivity
-delta, the two Phase-9a encoding wins).** This
+delta, the two Phase-9a encoding wins), v1.6 (2026-08-22, additive — far-field
+land cover, §13).** This
 file and the `manifest.json` schema below are the single source of truth for what the
 Python pipeline writes under `app/public/data/<siteId>/` and what the TypeScript app
 reads. Derived from PLAN.md §1, §4.1–§4.6 (incl. the [phase-0 verified] corrections).
@@ -792,3 +793,108 @@ the delta by default and can be asked for the absolute form
 context grid (which it does first anyway) before the connectivity grid, and a
 ring's DEM before that ring's far-water grid. That ordering is the only behavioural
 change this amendment asks of a reader.
+
+---
+
+# v1.6 amendment (2026-08-22) — far-field land cover (§13)
+
+Additive per the versioning policy above; `schemaVersion` stays 1. One new optional
+per-ring asset reference (`landcover` on a `grids.rings` entry), one new optional
+block in `landcover_legend.json` (`farField`), and one relaxation of a §11 rendering
+rule scoped to exactly this feature. A bundle without them (every pre-v1.6 bundle)
+keeps working in every later app build; an app that predates this amendment ignores
+the keys entirely. Design and owner decisions: `docs/far-field-vegetation.md`;
+regional grounding: `docs/vegetation-zones.md`.
+
+**Why.** The modelled landscape (§9/§10) stops at the 4×4 km context edge while
+terrain runs to 64 km (§11): with the layer on, the world is Iron Age for 2 km and
+bare modern hillshade beyond — a hard seam in the first-person view the horizon
+guarantee is defined for. The far field cannot reuse the §9 engine (its evidence
+and soil inputs are unavailable and invisible at ring scale), so it gets a cruder,
+separately disclosed classifier whose output ships per ring.
+
+## 13. `landcover_ring<N>.tif` — far-field land-cover class rasters
+
+**File encoding.** Exactly §9's, on the ring's geometry: single band **uint8**,
+value = class **index** into `landcoverLegend.farField.classes[]`, no nodata,
+§1a container (plain deflate + predictor 2, no COG layout), EPSG:3006 horizontal
+only, north-up, geometry identical to that ring's DEM entry (same width, height,
+resolution, bounds — pipeline-validated the same way §9 validates against
+`grids.context`).
+
+**Manifest declaration.** A `grids.rings` entry gains an optional `landcover` key:
+
+```jsonc
+"rings": [
+  { "path": "dem_ring3.tif", …, "landcover": "landcover_ring3.tif" },
+  { "path": "dem_ring4.tif", …, "waterConnect": …, "landcover": "landcover_ring4.tif" },
+  …
+]
+```
+
+Rules: the key is optional per ring (a ring without it simply renders untinted, as
+today); it may only be present when the site also ships the §9/§10 pair (the far
+field extends the modelled-landscape layer and shares its toggle, badge and
+first-toggle caveat — it cannot exist without the near field); the pipeline ships
+it for every ring of a site it builds it for, but the app must treat each ring
+independently (graceful per-ring absence, like the ring DEMs themselves).
+
+**`landcoverLegend.farField` block** (optional; absent = no far field):
+
+```jsonc
+"farField": {
+  "method": "<one-paragraph derivation description, shown verbatim>",
+  "classes": [
+    { "index": 0, "id": "sea", "name": "Open sea (modern)", "color": "#2d4a5b",
+      "rule": "<verbatim threshold rule>" },
+    { "index": 3, "id": "forest_broadleaf", "name": "…", "color": "#4f7a3a",
+      "rule": "…", "billboard": { "type": "broadleaf", "densityPerHa": 10 } },
+    …
+  ]
+}
+```
+
+Rules, mirroring §10 where they overlap: indices contiguous `0 … N−1`, `N ≤ 32`;
+ids unique; colors `#rrggbb`; `rule` and `method` are non-empty strings rendered
+verbatim in the methods panel; `billboard` is optional per class — when present,
+`type` is one of the §10 vegetation types (the billboard renders that type's
+silhouette) and `densityPerHa > 0`. `farField` classes carry no `areaFraction`
+(the rasters vary per ring) and no `dynamic` marker — the far field is fully
+static; far *water* rendering remains §11's job. The `method` text MUST disclose
+that the far classifier is cruder than the §9 engine (terrain-derived, no soil or
+evidence inputs) and MUST state the billboard sampling fraction in plain terms
+(e.g. "roughly one tree in ten as a stand-in for the stand").
+
+**Rendering contract (app side):**
+
+- **Same layer, same honesty machinery.** Far-field tint and billboards are part
+  of the "modeled landscape (rule-based)" layer: same toggle, `model` badge, and
+  first-toggle caveat; the `farField.method` and per-class rules join the methods
+  panel. Nothing renders when the layer is off.
+- **Ring tint.** §11's rule that ring meshes take none of the overlay layers
+  gains exactly one exception: a ring whose entry declares `landcover` takes the
+  far-field class tint (NearestFilter — indices never interpolate) when the
+  layer is on. Viewshed and submerged-ground shading remain core/context-only.
+- **Billboards.** One quad per sampled instance, sampled from ring class rasters
+  (classes carrying `billboard`) with the site seed — deterministic, zero new
+  bytes — only outside the context extent and only within 8 km of the origin
+  (rings 3–4; farther out a tree is sub-pixel, `docs/far-field-vegetation.md`
+  §1). Orientation: **camera-facing about the vertical axis** (cylindrical
+  billboarding in the vertex shader; owner-delegated decision 2026-08-22 —
+  side-on quads vanish edge-on in orbit mode). A hard cap
+  (`FAR_MAX_INSTANCES`, app-side) scales the whole far population
+  proportionally and logs the fact, exactly like §9's near-field cap; the near
+  budget is never reduced by the far field.
+- **Nothing stands in far water.** Where the site ships a §11 ring
+  `waterConnect`, billboard instances are suppressed at
+  `connect ≤ current level` (§7 semantics) at the current slider level. Where
+  it ships none there is no modelled far water and no suppression — terrain
+  elevation is never a stand-in (§2b.5's uplift-gradient honesty rule).
+- **Seam.** Across a ~200 m band at the context edge, near-field 3D instances
+  fade out and billboards fade in, so the transition is a cross-fade rather
+  than a line.
+
+**Compatibility.** Pre-v1.6 bundles (no `farField`, no ring `landcover`) render
+exactly as before; a v1.6 bundle in a pre-v1.6 app renders its near field
+exactly as before (unknown keys ignored, §2 rules). A ring raster whose fetch
+fails tints nothing and suppresses nothing — per-ring graceful, like ring DEMs.

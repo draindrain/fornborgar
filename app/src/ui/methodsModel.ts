@@ -146,6 +146,16 @@ function landcoverParagraphs(legend: LandcoverLegend): string[] {
     landcoverAppBehaviour(legend),
     `Class rules, verbatim: ${rules.join(' | ')}`,
     legend.calibration,
+    // v1.6 §13: the far field is a cruder, separately disclosed classifier —
+    // its method paragraph and rules join the panel in the data's own words.
+    ...(legend.farField
+      ? [
+          legend.farField.method,
+          `Far-field class rules, verbatim: ${legend.farField.classes
+            .map((c) => `${c.name} — ${c.rule}`)
+            .join(' | ')}`,
+        ]
+      : []),
     legend.caveat,
     ...(product
       ? [

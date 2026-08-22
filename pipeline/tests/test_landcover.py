@@ -31,6 +31,7 @@ from fornborg_pipeline.fetch_soils import (
     soil_code,
 )
 from fornborg_pipeline.landcover import (
+    CLASS_ALVAR,
     CLASS_BROADLEAF,
     CLASS_CLEARED,
     CLASS_CONIFER,
@@ -50,6 +51,7 @@ from fornborg_pipeline.landcover import (
     GROUP_NONE,
     GROUP_OTHER,
     GROUP_PEAT,
+    GROUP_SEDIMENTARY,
     GROUP_TILL,
     GROUP_WATER,
     LEVEL_EPSILON,
@@ -74,6 +76,9 @@ from fornborg_pipeline.landcover import (
     validate_legend,
     write_legend,
 )
+from fornborg_pipeline.landcover import SiteContext
+from fornborg_pipeline.reveals import RevealsAnchor
+from fornborg_pipeline.zones import ZoneAssignment
 
 # The fixture grid: 40x40 cells at 2 m over E 0..80 / N 0..80, north-up. Small
 # enough to reason about cell by cell, same shape of problem as the real 2000x2000.
@@ -731,7 +736,7 @@ def test_classify_rejects_inputs_that_disagree_on_shape(rule_inputs):
 def test_area_fractions_sum_to_one(rule_inputs):
     classes = run_rules(rule_inputs)
     fractions = area_fractions(classes, len(landcover_classes(REFERENCE_LEVEL)))
-    assert len(fractions) == 10
+    assert len(fractions) == 11
     assert sum(fractions) == pytest.approx(1.0)
     assert fractions[CLASS_WATER] == pytest.approx(4.0 / SIZE)
     # The runtime-only reed belt holds no cells, by construction.
@@ -791,8 +796,8 @@ def test_legend_matches_the_contract_shape(legend, fake_site):
     assert legend["referenceYearCE"] == REFERENCE_YEAR_CE == 500
     assert legend["referenceLevelM"] == REFERENCE_LEVEL
     assert legend["source"]["api"] == SOILS_META["api"]
-    assert [entry["index"] for entry in legend["classes"]] == list(range(10))
-    assert len({entry["id"] for entry in legend["classes"]}) == 10
+    assert [entry["index"] for entry in legend["classes"]] == list(range(11))
+    assert len({entry["id"] for entry in legend["classes"]}) == 11
     assert all(entry["color"].startswith("#") for entry in legend["classes"])
     assert sum(entry["areaFraction"] for entry in legend["classes"]) == pytest.approx(1.0, abs=1e-3)
 
@@ -856,9 +861,13 @@ def test_vegetation_is_declared_only_where_the_app_should_instance_it(legend):
 
 
 def test_calibration_reports_measured_numbers_and_refuses_to_invent_an_anchor(legend):
+    # The fixture legend carries no SiteContext, so there is no zone paragraph and
+    # no REVEALS anchor — and the text must say the anchor is absent rather than
+    # invent one (the 9d successor of the old "no Uppland figure" disclosure).
     text = legend["calibration"]
-    assert "Hultberg" in text and "90–97 %" in text and "Scania" in text
-    assert "No quantified (REVEALS-type) openness figure for Iron Age Uppland" in text
+    assert "Githumbi" in text
+    assert "no estimate for this site's 1°×1° grid cell" in text
+    assert "none has been invented" in text
     assert "not force-fitted" in text
     # The percentages are the ones actually measured on this raster.
     forest = sum(
@@ -1027,12 +1036,15 @@ def test_missing_inputs_name_the_command_that_produces_them(tmp_path, fake_site,
         load_inputs(fake_site)
 
     (out_dir / fake_site.context.path).touch()
-    with pytest.raises(LandcoverError, match=r"fornborg_pipeline\.water --site testsite"):
+    with pytest.raises(LandcoverError, match=r"fornborg_pipeline\.fetch_sites --site testsite"):
         load_inputs(fake_site)
 
-    (out_dir / "water_connect.tif").touch()
+    # A complete absence of the water pair is a dry site (scale-out §4.3), not an
+    # error — but *half* a pair is a broken build and still names the water step.
+    (out_dir / "sites.json").touch()
+    (out_dir / "manifest.json").touch()
     (out_dir / "shoreline.json").touch()
-    with pytest.raises(LandcoverError, match=r"fornborg_pipeline\.fetch_sites --site testsite"):
+    with pytest.raises(LandcoverError, match=r"half a water pair.*fornborg_pipeline\.water"):
         load_inputs(fake_site)
 
 
@@ -1056,3 +1068,181 @@ def test_class_raster_matches_the_context_grids_geometry(tmp_path, fake_site, fa
     moved = write_class_grid(tmp_path / "moved.tif", classes, shifted)
     with pytest.raises(LandcoverError, match="does not match"):
         _check_context_profile(reference, moved)
+
+
+# --------------------------------------------------------------------------- #
+# Phase 9d — national soil classes, the alvar, zones and the dry-site path
+# --------------------------------------------------------------------------- #
+
+# Zone assignments constructed directly rather than via zones.assign_zone: these
+# tests exercise what landcover does WITH a zone, and test_zones.py owns how a
+# zone is derived. Values mirror real sites (Borgen/Västernorrland; Eketorp).
+S_BOREAL = ZoneAssignment(
+    zone="s_boreal", zone_name="southern boreal", lat=62.27, lon=17.4,
+    island=False, effective_lat=62.5, spruce_present=True,
+)
+ISLAND_NO_SPRUCE = ZoneAssignment(
+    zone="boreonemoral", zone_name="boreonemoral (hemiboreal)", lat=56.30, lon=16.5,
+    island=True, effective_lat=56.5, spruce_present=False,
+)
+
+
+def island_jordarter() -> list[dict]:
+    """The island-pilot soil picture in bands (docs/vegetation-zones.md §5.1):
+    limestone pavement, clayey till, svallgrus — the classes that fell through to
+    GROUP_OTHER before the 9d table extension."""
+    return [
+        ground_feature(0, 16, 0, SIZE, 886, "Sedimentärt berg"),
+        ground_feature(16, 24, 0, SIZE, 96, "Lerig morän"),
+        ground_feature(24, 28, 0, SIZE, 51, "Svallsediment, grus"),
+        ground_feature(28, 32, 0, SIZE, 97, "Morängrovlera"),
+        ground_feature(32, 36, 0, SIZE, 30, "Bleke och kalkgyttja"),
+        ground_feature(36, 40, 0, SIZE, 92, "Sten--block"),
+    ]
+
+
+def test_island_soil_classes_are_all_mapped_and_limestone_is_its_own_group():
+    """The measured island classes must not fall to GROUP_OTHER (§5.2's defect)."""
+    group, _peat, unmatched, coverage = rasterize_soils(island_jordarter(), SHAPE, TRANSFORM)
+    assert unmatched == {} and coverage == 1.0
+    assert (group[0:16] == GROUP_SEDIMENTARY).all()
+    assert (group[16:24] == GROUP_TILL).all()      # Lerig morän is cultivable till
+    assert (group[24:28] == GROUP_GRAVEL).all()    # svallgrus drains like Klapper
+    assert (group[28:32] == GROUP_TILL).all()      # Morängrovlera
+    assert (group[32:36] == GROUP_PEAT).all()      # calcareous marl is fen ground
+    assert (group[36:40] == GROUP_BEDROCK).all()   # boulder fields are rocky ground
+
+
+def island_rule_inputs():
+    group, peat_surface, _u, _c = rasterize_soils(island_jordarter(), SHAPE, TRANSFORM)
+    connect = np.full(SHAPE, 50.0)          # everything stands far above the sea
+    slope = np.zeros(SHAPE)
+    slope[8:12] = 25.0                      # a klint face inside the limestone band
+    distance = np.full(SHAPE, 5000.0)
+    distance[16:32] = 100.0                 # settlement evidence on the till plain
+    inf = np.full(SHAPE, np.inf)
+    return connect, group, peat_surface, slope, distance, inf.copy(), inf.copy(), inf.copy()
+
+
+def test_limestone_pavement_is_open_alvar_not_conifer_forest():
+    """§5.2: before this rule, ~90 % of an island extent rendered as dense conifer."""
+    connect, group, peat, slope, distance, monument, cultivation, road = island_rule_inputs()
+    classes = classify(
+        connect, group, peat, slope, distance, monument, cultivation, road,
+        REFERENCE_LEVEL, RESOLUTION, DEFAULT_PARAMS,
+    )
+    assert (classes[0:16] == CLASS_ALVAR).all()     # klint face included: rows 8-12
+    assert CLASS_CONIFER not in set(np.unique(classes[0:16]))
+    # The till plain behaves exactly like mainland till: grazed near the evidence.
+    assert (classes[16:24] == CLASS_WOOD_PASTURE).all()
+    assert (classes[24:28] == CLASS_DRY_CORRIDOR).all()
+    assert (classes[32:36] == CLASS_PEAT_FEN).all()
+    assert (classes[36:40] == CLASS_CONIFER).all()  # Sten--block stays rocky ground
+
+
+def test_monuments_and_mapped_fields_beat_the_alvar():
+    """A registered footprint on the pavement keeps its own class (§5.3)."""
+    connect, group, peat, slope, distance, monument, cultivation, road = island_rule_inputs()
+    monument[0:4] = 0.0        # a fort on the alvar (Eketorp's situation)
+    cultivation[4:6] = 0.0     # a mapped fossil field on the pavement
+    classes = classify(
+        connect, group, peat, slope, distance, monument, cultivation, road,
+        REFERENCE_LEVEL, RESOLUTION, DEFAULT_PARAMS,
+    )
+    assert (classes[0:4] == CLASS_CLEARED).all()
+    assert (classes[4:6] == CLASS_FARMLAND).all()
+    assert (classes[6:8] == CLASS_ALVAR).all()
+
+
+def test_dry_site_runs_without_a_water_pair(rule_inputs):
+    """Scale-out §4.3: no shoreline model means the sea tests are vacuous, not fatal."""
+    _connect, group, peat, slope, distance, monument, cultivation, road = rule_inputs
+    classes = classify(
+        None, group, peat, slope, distance, monument, cultivation, road,
+        None, RESOLUTION, DEFAULT_PARAMS,
+    )
+    # With no modelled sea nothing is freshly drained: the fine band near the
+    # settlement ploughs entirely, where the wet run keeps its low rows as meadow.
+    assert (classes[24:32] == CLASS_FARMLAND).all()
+    assert (classes[36:40] == CLASS_WATER).all()  # SGU 'Vatten' still maps as water
+
+
+def test_half_a_water_pair_is_an_error_not_a_dry_site(rule_inputs):
+    _connect, group, peat, slope, distance, monument, cultivation, road = rule_inputs
+    with pytest.raises(LandcoverError, match="together"):
+        classify(
+            None, group, peat, slope, distance, monument, cultivation, road,
+            REFERENCE_LEVEL, RESOLUTION, DEFAULT_PARAMS,
+        )
+
+
+def test_zone_none_reproduces_the_pre_9d_taxonomy():
+    """Legacy callers and the committed Broborg semantics: no override fires."""
+    taxonomy = landcover_classes(REFERENCE_LEVEL)
+    assert taxonomy[CLASS_BROADLEAF].name == "Broadleaf forest"
+    assert taxonomy[CLASS_BROADLEAF].vegetation == {"type": "broadleaf", "densityPerHa": 90}
+    assert taxonomy[CLASS_CONIFER].name == "Conifer forest / rocky ground"
+    assert taxonomy[CLASS_ALVAR].vegetation is None
+    assert taxonomy[CLASS_ALVAR].id == "alvar"
+
+
+def test_s_boreal_till_forest_renders_conifer_at_unchanged_density():
+    """docs/vegetation-zones.md §4: identity changes, density never does."""
+    taxonomy = landcover_classes(REFERENCE_LEVEL, context=SiteContext(zone=S_BOREAL))
+    till = taxonomy[CLASS_BROADLEAF]
+    assert till.vegetation == {"type": "conifer", "densityPerHa": 90}
+    assert "conifer-dominated" in till.name
+    assert "§2.3" in till.rule
+    # spruce_present is True in the southern boreal, so the conifer class keeps
+    # its national name — spruce genuinely belongs in it there.
+    assert taxonomy[CLASS_CONIFER].name == "Conifer forest / rocky ground"
+
+
+def test_no_spruce_zones_rename_the_conifer_class_to_pine():
+    taxonomy = landcover_classes(REFERENCE_LEVEL, context=SiteContext(zone=ISLAND_NO_SPRUCE))
+    conifer = taxonomy[CLASS_CONIFER]
+    assert conifer.name == "Pine forest / rocky ground"
+    assert "spruce front" in conifer.rule
+    # Density and colour are untouched: the form is the same cone either way.
+    assert conifer.vegetation == {"type": "conifer", "densityPerHa": 120}
+
+
+def test_dry_site_taxonomy_drops_the_dynamic_promises():
+    """A legend must not promise slider behaviour a dry site cannot drive."""
+    taxonomy = landcover_classes(0.0, context=SiteContext(has_shoreline=False))
+    assert taxonomy[CLASS_WATER].dynamic is None
+    assert taxonomy[CLASS_SHORE_REEDS].dynamic is None
+    assert "no shoreline model" in taxonomy[CLASS_WATER].rule
+    assert "the class is empty" in taxonomy[CLASS_SHORE_REEDS].rule
+    # And the farmland rule stops citing a water line that does not exist.
+    assert "no modelled water line" in taxonomy[CLASS_FARMLAND].rule
+
+
+def test_calibration_quotes_the_reveals_cell_without_fitting_it():
+    fractions = [0.0] * 11
+    fractions[CLASS_CONIFER] = 0.6
+    fractions[CLASS_ALVAR] = 0.4
+    anchor = RevealsAnchor(cell_lon=16.5, cell_lat=56.5, open_land_pct=43.4, open_land_se_pct=7.1)
+    text = calibration_text(
+        fractions, context=SiteContext(zone=ISLAND_NO_SPRUCE, anchor=anchor)
+    )
+    assert "43 ± 7 % open land" in text
+    assert "quoted as context, not fitted" in text
+    assert "40.0 % open alvar limestone heath" in text
+    # The alvar counts as open ground in the ratio.
+    assert "60:40" in text
+    assert "boreonemoral" in text
+    # The valley-specific citations stay with the Broborg pair only.
+    assert "Långhundraleden" not in text
+
+
+def test_local_pollen_anchors_are_reserved_for_the_broborg_pair():
+    fractions = [0.0] * 11
+    fractions[CLASS_BROADLEAF] = 1.0
+    with_local = calibration_text(fractions, context=SiteContext(local_pollen_anchors=True))
+    without = calibration_text(fractions, context=SiteContext())
+    assert "Långhundraleden" in with_local
+    assert "Långhundraleden" not in without
+    # Both disclose the absent anchor the same way.
+    for text in (with_local, without):
+        assert "no estimate for this site's 1°×1° grid cell" in text

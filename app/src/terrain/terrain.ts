@@ -124,8 +124,12 @@ export class Terrain {
   private readonly skirtMaterial = createSkirtMaterial();
   // Rings get their own material so the ground-space overlays (viewshed wash,
   // land-cover tint, submerged-ground shading) never touch far terrain — those
-  // are core/context features by contract (§11).
+  // are core/context features by contract (§11). The one contractual exception
+  // (v1.6 §13, the far-field class tint) gets a *separate per-ring clone* via
+  // `farOverlayMaterial()`, so nothing injected here can ever leak onto a ring
+  // by accident and vice versa.
   private readonly ringMaterial = createContextMaterial();
+  private readonly farMaterials = new Map<number, THREE.Material>();
 
   private tint: ElevationTint = new ElevationTint(0, 1);
   private exaggeration = 1;
@@ -153,6 +157,22 @@ export class Terrain {
    */
   get overlayMaterials(): THREE.Material[] {
     return [this.coreMaterial, this.contextMaterial];
+  }
+
+  /**
+   * The v1.6 §13 exception surface: a dedicated material for one ring's band
+   * meshes, created on demand for the far-field class tint and used by
+   * `setRing` in place of the shared ring material. Call (and inject into)
+   * **before** `setRing(index, …)` — meshes bind their material at build time.
+   * Rings without one keep the shared, never-injected ring material.
+   */
+  farOverlayMaterial(index: number): THREE.Material {
+    let material = this.farMaterials.get(index);
+    if (!material) {
+      material = createContextMaterial();
+      this.farMaterials.set(index, material);
+    }
+    return material;
   }
 
   setExaggeration(value: number): void {
@@ -229,9 +249,10 @@ export class Terrain {
     const cutout = coreCutoutQuads(inner, display);
     const ranges = contextRingRanges(display, cutout);
 
+    const bandMaterial = this.farMaterials.get(index) ?? this.ringMaterial;
     let done = 0;
     for (const range of ranges) {
-      const mesh = new THREE.Mesh(buildDecimatedPatch(display, range, step, this.tint), this.ringMaterial);
+      const mesh = new THREE.Mesh(buildDecimatedPatch(display, range, step, this.tint), bandMaterial);
       mesh.name = `ring-${index}-band`;
       this.ringGroup.add(mesh);
       onProgress((++done / (ranges.length + 1)) * 0.95);
@@ -303,5 +324,7 @@ export class Terrain {
     this.contextMaterial.dispose();
     this.skirtMaterial.dispose();
     this.ringMaterial.dispose();
+    for (const material of this.farMaterials.values()) material.dispose();
+    this.farMaterials.clear();
   }
 }
