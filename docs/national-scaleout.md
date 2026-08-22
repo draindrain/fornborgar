@@ -384,6 +384,15 @@ pilot is **52.8 km**, inside ring 6's 32 km half-extent extended to ring 7's
 **Revised national projection:** 1,304 × 7.0 MB ≈ **~9 GB**, against §2b's ~12 GB
 estimate — still ≈ $0.03/month on R2 past the free tier.
 
+**CORS, as configured and verified 2026-08-22.** The bucket answers
+`Access-Control-Allow-Origin` for the Pages origin, allows `GET`/`HEAD` with a
+`range` request header, and — the one that is easy to miss — exposes
+`content-length, content-range, etag, accept-ranges`. geotiff.js issues range
+requests, so without that last header the grids fail to decode with no obvious
+cause. Confirmed live: `GET …/index.json` → 200 with `max-age=300`;
+`GET …/dem_core.tif` with `Range:` → **206** with `Content-Range` and
+`max-age=31536000, immutable`; `OPTIONS` preflight → 204.
+
 ### 7.2 What the pilot changed, and what it is honest about
 
 Running arbitrary registry sites found nine defects that no amount of reading

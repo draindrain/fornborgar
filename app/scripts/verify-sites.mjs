@@ -36,7 +36,24 @@ if (SITES.length === 0) {
   process.exit(2);
 }
 
-const browser = await chromium.launch({ executablePath: EXECUTABLE });
+// Chromium does not inherit HTTPS_PROXY the way curl and node do, so hand it the
+// proxy explicitly when one is set, bypassing localhost so the page itself still
+// comes from the local preview server. The proxy CA is already in the browser
+// NSS store, so TLS verification stays on.
+//
+// Note for anyone debugging a failure here: in a sandbox that denies the browser
+// outbound network entirely, every external host fails as ERR_CONNECTION_RESET
+// with or without this setting — including hosts the session can reach with
+// curl. That is the sandbox, not the object host or its CORS policy, and the
+// way to tell them apart is to curl the same URL.
+const PROXY = process.env.HTTPS_PROXY ?? process.env.https_proxy ?? '';
+const launchOptions = { executablePath: EXECUTABLE };
+if (PROXY) {
+  launchOptions.proxy = { server: PROXY, bypass: 'localhost,127.0.0.1,::1' };
+  console.error(`(routing browser traffic through ${PROXY}, bypassing localhost)`);
+}
+
+const browser = await chromium.launch(launchOptions);
 const results = [];
 
 for (const site of SITES) {
