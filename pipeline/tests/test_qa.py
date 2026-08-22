@@ -19,6 +19,7 @@ from fornborg_pipeline.qa import (
     check_nodata_fill,
     check_required_files,
     check_sea_fill,
+    check_steps,
     check_water_pair,
     run_gates,
     sea_filled_cells,
@@ -248,3 +249,49 @@ def test_water_mask_is_the_contract_test():
 
     connect = np.array([[5.0, 12.0], [8.0, 9.5]])
     np.testing.assert_array_equal(water_mask_at(connect, 9.0), [[True, False], [True, False]])
+
+
+# --------------------------------- steps gate --------------------------------
+
+
+def _steps(**statuses):
+    return [{"name": name, "status": status} for name, status in statuses.items()]
+
+
+def test_steps_gate_passes_a_clean_build():
+    check = check_steps(_steps(grids="ok", sites="ok", water="ok"))
+    assert check.severity == "pass"
+
+
+def test_a_skipped_optional_step_is_not_a_problem():
+    """The contract's own rule: a missing asset means feature off, not failure."""
+    check = check_steps(_steps(grids="ok", sites="ok", water="skipped", rampart="skipped"))
+    assert check.severity == "pass"
+
+
+def test_a_failed_required_step_blocks_the_bundle():
+    check = check_steps(_steps(grids="ok", sites="failed"))
+    assert check.severity == "fail"
+    assert "sites" in check.message
+
+
+def test_a_failed_optional_step_only_warns():
+    check = check_steps(_steps(grids="ok", sites="ok", thumbnail="failed"))
+    assert check.severity == "warn"
+    assert "thumbnail" in check.message
+
+
+def test_steps_gate_accepts_dataclass_step_results():
+    from fornborg_pipeline.build_site import StepResult
+
+    check = check_steps([StepResult("grids", "ok"), StepResult("sites", "failed", "boom")])
+    assert check.severity == "fail"
+
+
+def test_run_gates_includes_the_steps_check_when_given_steps(tmp_path, manifest):
+    report = run_gates(
+        "l1943-7827", tmp_path, manifest, BAND, {"context": (0, 4_000_000)}, False,
+        steps=_steps(grids="ok", sites="failed"),
+    )
+    assert "required-steps" in {c.id for c in report.checks}
+    assert not report.passed

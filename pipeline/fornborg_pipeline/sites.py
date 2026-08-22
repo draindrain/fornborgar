@@ -77,6 +77,12 @@ class SiteConfig:
     # grid specs above, and the KMR extent bbox the preset was chosen from.
     extent_preset: str = "standard"
     county: str = ""
+    # True for a site built from `registry.json` rather than configured by hand
+    # here. It is what tells the KMR extract step that the *national* GeoPackage
+    # is required: the Uppsala county file is a legitimate fallback for the
+    # hand-configured Uppland sites and would silently return an empty overlay
+    # for a fort anywhere else in the country.
+    from_registry: bool = False
 
     @property
     def grids(self) -> tuple[GridSpec, ...]:

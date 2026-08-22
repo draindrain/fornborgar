@@ -10,14 +10,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import numpy as np
 import pytest
 
 from fornborg_pipeline.build_site import (
     BuildResult,
     BuildSiteError,
     StepResult,
-    core_window_of_context,
     evict_scratch,
     load_site,
     site_config,
@@ -140,24 +138,6 @@ def test_load_site_does_not_disturb_the_hand_written_broborg(tmp_path):
         SITES.pop("l5555-5555", None)
 
 
-# ---------------------------- the thumbnail window ---------------------------
-
-
-@pytest.mark.parametrize("preset", ["standard", "large"])
-def test_core_covers_the_central_half_of_the_context(tmp_path, preset):
-    cfg = site_config(entry(preset=preset), tmp_path)
-    rows, cols = core_window_of_context((2000, 2000), cfg)
-    assert (rows.start, rows.stop) == (500, 1500)
-    assert (cols.start, cols.stop) == (500, 1500)
-
-
-def test_core_window_rejects_a_core_wider_than_its_context(tmp_path):
-    cfg = site_config(entry(), tmp_path)
-    broken = type(cfg)(**{**cfg.__dict__, "core": cfg.context, "context": cfg.core})
-    with pytest.raises(ValueError, match="not inside"):
-        core_window_of_context((2000, 2000), broken)
-
-
 # --------------------------------- reporting ---------------------------------
 
 
@@ -221,3 +201,34 @@ def test_evict_scratch_removes_a_built_bundle(tmp_path):
     evict_scratch(bundle)
     assert not bundle.exists()
     evict_scratch(bundle)  # idempotent: a batch retry must not trip on this
+
+
+# ------------------------- manifest honesty on failure -----------------------
+
+
+def test_drop_asset_removes_an_entry_whose_file_was_never_written(tmp_path):
+    """A manifest that names a missing file is a promise the bundle cannot keep."""
+    from fornborg_pipeline.build_site import drop_asset
+
+    path = tmp_path / "manifest.json"
+    path.write_text(
+        '{"schemaVersion": 1, "site": {"id": "x", "name": "X"}, '
+        '"assets": {"sites": "sites.json", "shoreline": "shoreline.json"}}',
+        encoding="utf-8",
+    )
+    drop_asset(path, "sites")
+    import json
+
+    assets = json.loads(path.read_text(encoding="utf-8"))["assets"]
+    assert "sites" not in assets
+    assert assets["shoreline"] == "shoreline.json"
+
+
+def test_drop_asset_is_a_no_op_when_the_entry_is_absent(tmp_path):
+    from fornborg_pipeline.build_site import drop_asset
+
+    path = tmp_path / "manifest.json"
+    path.write_text('{"assets": {}}', encoding="utf-8")
+    drop_asset(path, "sites")
+    drop_asset(tmp_path / "absent.json", "sites")  # and when there is no manifest at all
+    assert path.read_text(encoding="utf-8") == '{"assets": {}}'

@@ -382,8 +382,15 @@ def read_all_layers(cfg: SiteConfig, force_download: bool = False) -> dict[str, 
 
     The riket extract wins when it is cached: it covers every county, so a
     registry site anywhere in Sweden works with no per-county download, and it
-    reads without a GDAL binary. Falling back to the Uppsala county file keeps
-    the original Broborg path working exactly as before.
+    reads without a GDAL binary.
+
+    The Uppsala county file is a fallback **only for the hand-configured Uppland
+    sites**. For a registry site it would be worse than no data: `ogr2ogr -spat`
+    over a bbox the file does not cover returns zero features and no error, so a
+    fort on Gotland would ship a perfectly valid `sites.json` saying there is
+    nothing near it — and its rampart derivation, which needs the site's own
+    extent polygon, would silently skip. That is a wrong answer wearing a
+    right answer's clothes, so it is refused outright.
     """
     bounds = cfg.bounds3006(cfg.context.half_extent)
     national = national_gpkg_path()
@@ -394,6 +401,15 @@ def read_all_layers(cfg: SiteConfig, force_download: bool = False) -> dict[str, 
             raise SitesError(f"{national.name} has no {sorted(missing)} layer(s)")
         print(f"  source: {national.name} (riket, R*Tree bbox query)")
         return {kind: read_layer_bbox_national(national, layers[kind], bounds) for kind in layers}
+
+    if cfg.from_registry:
+        raise SitesError(
+            f"{cfg.id} is a registry site, so its KMR extract needs the national "
+            f"GeoPackage ({national.name}), which is not in data-cache/. Run "
+            f"`python3 -m fornborg_pipeline.registry --fetch` first. (The "
+            f"{RAA_GPKG} fallback covers Uppsala only and would return an empty "
+            f"extract for a site outside it — without saying so.)"
+        )
 
     print(f"  source: {RAA_GPKG} (Uppsala county, via ogr2ogr)")
     gpkg = download_gpkg(force=force_download)

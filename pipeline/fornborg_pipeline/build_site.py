@@ -32,7 +32,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import click
-import numpy as np
 
 from . import landcover, rampart, rings, water
 from .clip_dem import (
@@ -173,6 +172,7 @@ def site_config(entry: dict, out_dir: Path) -> SiteConfig:
         out_dir_override=out_dir,
         extent_preset=preset_name,
         county=entry.get("county", ""),
+        from_registry=True,
     )
 
 
@@ -224,64 +224,45 @@ def build_grids_step(cfg: SiteConfig, force_download: bool, archive_cogs: bool) 
     return grids, source_meta, manifest
 
 
-def core_window_of_context(context_shape: tuple[int, int], cfg: SiteConfig) -> tuple[slice, slice]:
-    """Slices of the context grid that the core window covers.
+def drop_asset(manifest_path: Path, key: str) -> None:
+    """Remove an `assets` entry whose file a failed step never wrote.
 
-    Both presets put the core's half-extent at exactly half the context's, and
-    both grids are the same pixel count, so the core always covers the *central
-    half* of the context grid in each dimension. Derived from the configured
-    extents rather than assumed, so a future preset that breaks the relation
-    fails here instead of silently mis-tinting every thumbnail.
+    A manifest that names a missing file is a promise the bundle cannot keep;
+    "feature off" is the contract's own way of saying the same thing truthfully.
     """
-    rows, cols = context_shape
-    share = cfg.core.half_extent / cfg.context.half_extent
-    if not 0.0 < share <= 1.0:
-        raise ValueError(
-            f"core half-extent {cfg.core.half_extent} m is not inside the context's "
-            f"{cfg.context.half_extent} m"
-        )
-    margin_rows = int(round(rows * (1.0 - share) / 2.0))
-    margin_cols = int(round(cols * (1.0 - share) / 2.0))
-    return (slice(margin_rows, rows - margin_rows), slice(margin_cols, cols - margin_cols))
-
-
-def water_mask_for_core(cfg: SiteConfig, core_shape: tuple[int, int], level_m: float) -> np.ndarray:
-    """The §7 wet set at `level_m`, resampled from the context grid onto the core grid.
-
-    Nearest-neighbour upsampling by an integer factor: the context grid is
-    coarser than the core grid by exactly `context.resolution / core.resolution`
-    (2x in both presets), and a thumbnail is a few hundred pixels wide, so
-    anything fancier would be invisible.
-    """
-    context_dm, _transform, _bounds = read_grid(cfg.out_dir / cfg.context.path)
-    connect_dm, _path = read_connect_grid(cfg.out_dir, context_dm)
-    connect_m = dequantize(connect_dm, cfg.context.quant_scale)
-
-    rows, cols = core_window_of_context(context_dm.shape, cfg)
-    wet = water_mask_at(connect_m, level_m)[rows, cols]
-
-    factor = int(round(cfg.context.resolution / cfg.core.resolution))
-    if factor < 1:
-        raise ValueError(
-            f"context resolution {cfg.context.resolution} m is finer than the core's "
-            f"{cfg.core.resolution} m"
-        )
-    upsampled = np.repeat(np.repeat(wet, factor, axis=0), factor, axis=1)
-    return upsampled[: core_shape[0], : core_shape[1]]
+    if not manifest_path.exists():
+        return
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if manifest.get("assets", {}).pop(key, None) is None:
+        return
+    # Written without `write_manifest`'s validation on purpose: this runs on the
+    # failure path, and a validation error here would replace a clear "the KMR
+    # fetch failed" with an obscure schema complaint about the manifest we were
+    # in the middle of repairing. The QA gates validate the finished bundle, and
+    # every later step re-validates anyway.
+    manifest_path.write_text(
+        json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+    )
+    print(f"  dropped assets.{key} from the manifest — the step that writes it failed")
 
 
 def render_site_thumbnail(cfg: SiteConfig, size: int = DEFAULT_SIZE) -> str:
-    """Hillshade the core grid, tinting the modelled water when the site has any.
+    """Hillshade the site for the §4.4 contact sheet, tinting the modelled water.
 
-    The water tint is what makes a contact sheet worth sweeping for a coastal
-    site: a fort whose paleo-shoreline came out wrong is obvious at 320 px and
-    invisible in a table of numbers. A site with no water assets simply gets the
-    greyscale relief — and a tint that cannot be derived is dropped with a note,
-    never faked, because a thumbnail showing water that was not modelled would
-    be the QA sweep lying to its reader.
+    Rendered from the **context** grid, not the core one. At 320 px a 2 km window
+    and a 4 km window draw a 300 m fort at much the same size — neither resolves a
+    rampart — but the wider window shows the landform the fort sits in and, at a
+    coastal site, the water. Water is the thing a sweep is actually looking for:
+    at Broborg the 500 CE level leaves only 0.8 % of the *core* window wet (the
+    fort is on a hill) against 2.2 % of the context window and the whole
+    Långhundraleden inlet beyond it. It also means no resampling at all — the §7
+    connect grid is already on this exact geometry.
+
+    A tint that cannot be derived is dropped with a note, never faked: a thumbnail
+    showing water nobody modelled would be the QA sweep lying to its reader.
     """
-    core_dm, _transform, _bounds = read_grid(cfg.out_dir / cfg.core.path)
-    heights = dequantize(core_dm, cfg.core.quant_scale)
+    context_dm, _transform, _bounds = read_grid(cfg.out_dir / cfg.context.path)
+    heights = dequantize(context_dm, cfg.context.quant_scale)
 
     mask = None
     shoreline_path = cfg.out_dir / SHORELINE_PATH
@@ -289,13 +270,14 @@ def render_site_thumbnail(cfg: SiteConfig, size: int = DEFAULT_SIZE) -> str:
         try:
             table = json.loads(shoreline_path.read_text(encoding="utf-8"))
             level = float(interpolate_level(table["steps"], THUMBNAIL_YEAR_CE))
-            mask = water_mask_for_core(cfg, core_dm.shape, level)
+            connect_dm, _path = read_connect_grid(cfg.out_dir, context_dm)
+            mask = water_mask_at(dequantize(connect_dm, cfg.context.quant_scale), level)
         except (KeyError, ValueError, OSError) as exc:
             print(f"  thumbnail water tint skipped: {type(exc).__name__}: {exc}")
             mask = None
 
     render_thumbnail(
-        cfg.out_dir / THUMBNAIL_PATH, heights, cfg.core.resolution, size=size, water_mask=mask
+        cfg.out_dir / THUMBNAIL_PATH, heights, cfg.context.resolution, size=size, water_mask=mask
     )
     return THUMBNAIL_PATH
 
@@ -340,6 +322,12 @@ def run(
         result.steps.append(StepResult("sites", "ok"))
     except (SitesError, OSError, RuntimeError) as exc:
         result.steps.append(StepResult("sites", "failed", f"{type(exc).__name__}: {exc}"))
+        # `build_manifest` declared `assets.sites` optimistically. Leaving it
+        # there would make the bundle claim a file it does not have, which is a
+        # worse failure than the fetch itself: the app would report a broken
+        # asset instead of the honest "this layer is off". The step failure is
+        # what `check_steps` refuses to ship on.
+        drop_asset(cfg.out_dir / "manifest.json", "sites")
 
     if skip_rings:
         result.steps.append(StepResult("rings", "skipped", "--skip-rings"))
@@ -400,7 +388,9 @@ def run(
 
     print("-- QA gates (scale-out §4.4)")
     result.manifest = manifest
-    result.qa = run_gates(slug, out_dir, manifest, cfg.elevation_range, filled, coastal)
+    result.qa = run_gates(
+        slug, out_dir, manifest, cfg.elevation_range, filled, coastal, steps=result.steps
+    )
     for check in result.qa.checks:
         print(f"  [{check.severity:4}] {check.id}: {check.message}")
 

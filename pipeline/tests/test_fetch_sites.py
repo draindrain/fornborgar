@@ -145,3 +145,75 @@ class TestValidation:
         doc["sites"][0]["provenance"] = "conjecture"
         with pytest.raises(SitesError, match="measured"):
             validate_sites(doc)
+
+
+# ------------------- national vs. county source selection --------------------
+
+
+def test_a_registry_site_refuses_the_uppsala_fallback(tmp_path, monkeypatch):
+    """A county file that does not cover the site returns zero features, not an error.
+
+    `ogr2ogr -spat` over a bbox outside the file's extent succeeds and yields
+    nothing, so a Gotland fort would ship a valid-looking `sites.json` claiming
+    there is nothing near it — and its rampart step, which needs the site's own
+    extent polygon out of that file, would "skip" for a reason that is not true.
+    """
+    from fornborg_pipeline.fetch_sites import SitesError, read_all_layers
+    from fornborg_pipeline.sites import GridSpec, SiteConfig
+
+    monkeypatch.setattr(
+        "fornborg_pipeline.fetch_sites.national_gpkg_path", lambda: tmp_path / "absent.gpkg"
+    )
+    cfg = SiteConfig(
+        id="l1976-4254",
+        name="Torsburgen",
+        center_e=700000.0,
+        center_n=6380000.0,
+        core=GridSpec("core", 1000.0, 1.0, "dem_core.tif"),
+        context=GridSpec("context", 2000.0, 2.0, "dem_context.tif"),
+        from_registry=True,
+    )
+    with pytest.raises(SitesError, match="national GeoPackage"):
+        read_all_layers(cfg)
+
+
+def test_a_hand_configured_site_still_uses_the_county_file(tmp_path, monkeypatch):
+    """Broborg's original path is untouched when the riket file is absent."""
+    from fornborg_pipeline.fetch_sites import read_all_layers
+    from fornborg_pipeline.sites import BROBORG
+
+    monkeypatch.setattr(
+        "fornborg_pipeline.fetch_sites.national_gpkg_path", lambda: tmp_path / "absent.gpkg"
+    )
+    calls = []
+    monkeypatch.setattr("fornborg_pipeline.fetch_sites.download_gpkg", lambda force=False: tmp_path / "uppsala.gpkg")
+    monkeypatch.setattr(
+        "fornborg_pipeline.fetch_sites.read_layer_bbox",
+        lambda gpkg, layer, bounds: calls.append(layer) or [],
+    )
+    read_all_layers(BROBORG)
+    assert [c.rsplit("_", 1)[-1] for c in calls] == ["polygon", "linestring", "point"]
+
+
+def test_the_national_file_is_preferred_when_present(tmp_path, monkeypatch):
+    from fornborg_pipeline.fetch_sites import read_all_layers
+    from fornborg_pipeline.sites import BROBORG
+
+    national = tmp_path / "lamningar_sverige.gpkg"
+    national.write_bytes(b"")
+    monkeypatch.setattr("fornborg_pipeline.fetch_sites.national_gpkg_path", lambda: national)
+    monkeypatch.setattr(
+        "fornborg_pipeline.fetch_sites.national_layers",
+        lambda path: {k: f"lamningar_sverige_{k}" for k in ("polygon", "linestring", "point")},
+    )
+    seen = []
+    monkeypatch.setattr(
+        "fornborg_pipeline.fetch_sites.read_layer_bbox_national",
+        lambda gpkg, layer, bounds: seen.append(layer) or [],
+    )
+    monkeypatch.setattr(
+        "fornborg_pipeline.fetch_sites.download_gpkg",
+        lambda force=False: pytest.fail("the county file must not be downloaded"),
+    )
+    read_all_layers(BROBORG)
+    assert len(seen) == 3

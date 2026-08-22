@@ -271,6 +271,41 @@ def check_water_pair(manifest: dict) -> Check:
     return Check("water-pair", "pass", f"shoreline + connectivity as {encoding}")
 
 
+#: Steps whose failure makes a bundle unshippable, whatever else passed.
+#: `grids` is the site; `sites` is the KMR overlay, which is a headline feature
+#: and — unlike water or the rampart — has no honest "this site simply has none"
+#: reading: every fort is in the register we just read it from. Everything else
+#: is allowed to be absent, per the contract's "missing asset = feature off".
+REQUIRED_STEPS = ("grids", "sites")
+
+
+def check_steps(steps: list, required: tuple[str, ...] = REQUIRED_STEPS) -> Check:
+    """A step that *failed* is different from one that was skipped.
+
+    Skipping is the contract's own feature-off rule and is normal across 1,300
+    heterogeneous sites. Failing means something broke — and for a required step
+    that is not a bundle to publish, even if every other gate is green.
+    """
+    by_name = {getattr(s, "name", None) or s.get("name"): (getattr(s, "status", None) or s.get("status")) for s in steps}
+    broken = sorted(name for name in required if by_name.get(name) == "failed")
+    if broken:
+        return Check(
+            "required-steps",
+            "fail",
+            f"required step(s) failed: {', '.join(broken)}",
+            {"failed": broken, "steps": by_name},
+        )
+    other = sorted(name for name, status in by_name.items() if status == "failed")
+    if other:
+        return Check(
+            "required-steps",
+            "warn",
+            f"optional step(s) failed: {', '.join(other)}",
+            {"failed": other, "steps": by_name},
+        )
+    return Check("required-steps", "pass", "every required step completed", {"steps": by_name})
+
+
 def check_required_files(out_dir: Path, manifest: dict) -> Check:
     """Every path the manifest names actually exists in the bundle."""
     referenced = [manifest["grids"]["core"]["path"], manifest["grids"]["context"]["path"]]
@@ -303,11 +338,13 @@ def run_gates(
     band: tuple[float, float],
     filled_by_grid: dict[str, tuple[int, int]],
     coastal: bool,
+    steps: list | None = None,
 ) -> QAReport:
     """Every gate, in one pass. Never raises on a gate result — that is the report."""
     return QAReport(
         slug=slug,
         checks=[
+            *( [check_steps(steps)] if steps is not None else [] ),
             check_required_files(out_dir, manifest),
             check_elevation_band(manifest, band),
             check_nodata_fill(filled_by_grid),
