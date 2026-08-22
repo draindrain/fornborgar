@@ -37,6 +37,13 @@
  *     (species, variant). Reeds keep their cross-quads. Every mesh keeps the old
  *     cone's instancing contract (unit height, base at y = 0), so scale-as-size,
  *     suppression and exaggeration semantics are untouched.
+ *   • **Contact shadows.** A tree with nothing under it floats, and the renderer runs
+ *     with no shadow map at all (a real one would cost a depth pass over 100k
+ *     instances to buy detail the model does not claim). So each **mesh-tier** tree
+ *     gets a soft dark disc laid flat on the ground beneath it — see
+ *     `contactDiscGeometry` and `refreshMatrices`. It is a grounding cue, not a
+ *     light simulation: no sun direction, no cast geometry, nothing to mistake for
+ *     evidence about how the site was lit.
  *
  * Four invariants, all easy to break later:
  *
@@ -633,6 +640,105 @@ function geometryFor(type: VegetationType): THREE.BufferGeometry {
   return reedsGeometry();
 }
 
+// ------------------------------------------------------- contact shadows ----
+
+/**
+ * Disc diameter as a fraction of the instance's crown width.
+ *
+ * Under 1, deliberately: a crown is wider than the patch of ground a tree actually
+ * darkens, and a disc as wide as the canopy reads as a painted circle rather than as
+ * contact. Symmetric in XZ — the disc is not a projected silhouette, it is the hint
+ * that the trunk meets the ground here.
+ */
+export const CONTACT_DISC_WIDTH_RATIO = 0.55;
+
+/**
+ * How far above the ground the disc floats, in metres of *rendered* height.
+ *
+ * The disc is coplanar with a terrain surface that is itself an interpolated grid, so
+ * without a lift it z-fights; with too much lift it detaches and hovers on a slope.
+ * A few centimetres plus the material's polygon offset covers both — and because the
+ * lift is applied after the exaggeration multiply, it stays a constant screen-space
+ * nudge instead of growing with the slider (contract §0: exaggeration is render-only).
+ */
+export const CONTACT_DISC_LIFT_M = 0.06;
+
+/**
+ * The shared unit disc: diameter 1, centred on the origin, lying in the XZ plane with
+ * a +Y normal, so an instance's XZ scale *is* the disc's diameter in metres — the same
+ * scale-as-size contract every other geometry in this module keeps.
+ *
+ * `CircleGeometry` is built in XY with a +Z normal and UVs radiating from (0.5, 0.5),
+ * which is exactly what the falloff texture wants; rotating it flat keeps those UVs.
+ * Twelve segments: at the disc's on-screen size the silhouette is a soft gradient
+ * edge, so more segments would be triangles nobody can see.
+ */
+function contactDiscGeometry(): THREE.BufferGeometry {
+  const geometry = new THREE.CircleGeometry(0.5, 12);
+  geometry.rotateX(-Math.PI / 2);
+  return geometry;
+}
+
+/**
+ * A 64² radial gradient, black with alpha 1 → 0, as the disc's opacity falloff.
+ *
+ * A texture rather than vertex alpha because it survives `MeshBasicMaterial`
+ * untouched — no custom shader, no `onBeforeCompile` to keep in step with the three
+ * injectors already chained onto the terrain materials (`tint.ts`) — and because a
+ * 12-gon's vertices can only give a linear ramp, which reads as a cone, not a shadow.
+ *
+ * Returns `null` when there is no DOM (the vitest node environment): the layer then
+ * builds untextured discs, which is the wrong *look* but the right *transform*, and
+ * the transforms are all the headless tests can see anyway.
+ */
+function contactDiscTexture(): THREE.Texture | null {
+  if (typeof document === 'undefined') return null;
+  const size = 64;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+  const half = size / 2;
+  const gradient = ctx.createRadialGradient(half, half, 0, half, half, half);
+  // Held near-opaque through the middle, then dropped away: a shadow is darkest under
+  // the trunk and has no edge, so the falloff spends most of its range at the rim.
+  gradient.addColorStop(0, 'rgba(0, 0, 0, 1)');
+  gradient.addColorStop(0.45, 'rgba(0, 0, 0, 0.82)');
+  gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, size, size);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.wrapS = THREE.ClampToEdgeWrapping;
+  texture.wrapT = THREE.ClampToEdgeWrapping;
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.needsUpdate = true;
+  return texture;
+}
+
+/**
+ * The disc material. Black, blended, and writing no depth, so discs never occlude each
+ * other where two crowns overlap and never need sorting against the trees.
+ *
+ * `polygonOffset` pulls the disc towards the camera in depth only — belt and braces
+ * with `CONTACT_DISC_LIFT_M` against z-fighting on the terrain, at no cost to where
+ * the disc actually sits in the world.
+ */
+function contactDiscMaterial(map: THREE.Texture | null): THREE.Material {
+  const material = new THREE.MeshBasicMaterial({
+    color: 0x000000,
+    map,
+    transparent: true,
+    depthWrite: false,
+    opacity: 0.35,
+    polygonOffset: true,
+    polygonOffsetFactor: -2,
+    polygonOffsetUnits: -2,
+  });
+  material.name = 'vegetation-contact-disc';
+  return material;
+}
+
 /**
  * The **base** colour of one legend class's plants: the class colour a shade darker and
  * duller, because the ground wash already carries the class colour at full strength and
@@ -732,6 +838,16 @@ interface Batch {
    * the same trick suppression uses.
    */
   impostors: (THREE.InstancedMesh | null)[];
+  /**
+   * Contact shadow discs for this batch, one instance per *batch* instance at
+   * capacity `sample.x.length` — or `null` for reeds, which have no trunk to ground.
+   *
+   * Deliberately **not** partitioned like `meshes`/`impostors`: every disc is the same
+   * geometry and the same material, so one `InstancedMesh` covers the whole batch and
+   * the disc of instance `i` lives at slot `i`. That keeps the indexing trivial and
+   * costs one extra draw call per batch rather than one per archetype.
+   */
+  discs: THREE.InstancedMesh | null;
   subOf: Uint8Array;
   slotOf: Uint32Array;
 }
@@ -763,6 +879,14 @@ export class VegetationLayer {
    * material per archetype row — same lifetime as the archetype geometries. */
   private impostorAtlasFor: ImpostorAtlas | null = null;
   private readonly impostorMaterials = new Map<number, THREE.Material>();
+  /**
+   * The contact discs' shared geometry, material and falloff texture (§6.1 grounding).
+   * Seed-independent — unlike the archetypes, a disc is a disc — so they are built
+   * once on first use and live until `dispose()`, across any number of rebuilds.
+   */
+  private discGeometry: THREE.BufferGeometry | null = null;
+  private discMaterial: THREE.Material | null = null;
+  private discTexture: THREE.Texture | null = null;
   /** Camera position of the last tier rebin; `null` = everything mesh tier. */
   private cameraX: number | null = null;
   private cameraZ = 0;
@@ -1028,6 +1152,22 @@ export class VegetationLayer {
     return target;
   }
 
+  /**
+   * The contact-shadow matrix of `type` instance `index` (§6.1 grounding), or `null`
+   * when the instance has no disc (reeds). Mirrors `impostorInstanceMatrix`: tests and
+   * dev hooks read it to check that a disc shows for exactly the mesh-tier, unsuppressed
+   * instances and is zero-scaled everywhere else.
+   */
+  discInstanceMatrix(type: VegetationType, index: number, target = new THREE.Matrix4()): THREE.Matrix4 | null {
+    const batch = this.batchOf(type);
+    if (index < 0 || index >= batch.sample.x.length) {
+      throw new RangeError(`vegetation: no ${type} instance at index ${index} (count ${batch.sample.x.length})`);
+    }
+    if (!batch.discs) return null;
+    batch.discs.getMatrixAt(index, target);
+    return target;
+  }
+
   dispose(): void {
     this.disposeMeshes();
     for (const geometry of this.geometries.values()) geometry.dispose();
@@ -1038,6 +1178,14 @@ export class VegetationLayer {
     this.archetypeGeometries.clear();
     this.archetypeMaterial?.dispose();
     this.archetypeMaterial = null;
+    // The discs' shared trio outlives individual rebuilds, so it is released here and
+    // not in `disposeMeshes` — the texture last, since the material holds it.
+    this.discGeometry?.dispose();
+    this.discGeometry = null;
+    this.discMaterial?.dispose();
+    this.discMaterial = null;
+    this.discTexture?.dispose();
+    this.discTexture = null;
     this.disposeImpostorMaterials();
     // The atlas itself is the caller's (it holds the render targets).
     this.impostorAtlasFor = null;
@@ -1062,6 +1210,12 @@ export class VegetationLayer {
         // attribute), so they are owned here, not by a shared cache.
         impostor.geometry.dispose();
         impostor.dispose();
+      }
+      if (batch.discs) {
+        // Only the instance buffers are owned here: geometry, material and texture are
+        // shared across batches and released in `dispose()`.
+        this.group.remove(batch.discs);
+        batch.discs.dispose();
       }
     }
     this.batches = [];
@@ -1135,6 +1289,30 @@ export class VegetationLayer {
       this.impostorMaterials.set(row, material);
     }
     return material;
+  }
+
+  /**
+   * One contact-disc `InstancedMesh` at `count` capacity for a tree batch (§6.1
+   * grounding). The geometry/material/texture behind it are built on first use, so a
+   * legend with no tree forms — or a headless run that never gets here — never touches
+   * a canvas at all.
+   */
+  private buildDiscMesh(type: VegetationType, count: number): THREE.InstancedMesh {
+    if (!this.discGeometry) this.discGeometry = contactDiscGeometry();
+    if (!this.discMaterial) {
+      this.discTexture = contactDiscTexture();
+      this.discMaterial = contactDiscMaterial(this.discTexture);
+    }
+    const discs = new THREE.InstancedMesh(this.discGeometry, this.discMaterial, count);
+    discs.name = `vegetation-${type}-contact`;
+    discs.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    discs.castShadow = false;
+    discs.receiveShadow = false;
+    // Drawn after the opaque trees (the material is transparent), which is what we
+    // want: with depthWrite off the discs blend onto the terrain and are depth-tested
+    // out wherever a trunk stands in front of one.
+    discs.renderOrder = 1;
+    return discs;
   }
 
   private disposeImpostorMaterials(): void {
@@ -1336,6 +1514,12 @@ export class VegetationLayer {
         this.group.add(impostor);
       }
 
+      // One disc per tree instance, indexed by instance rather than by slot — reeds
+      // get none (nothing to ground, and the belt is dense enough that discs would
+      // read as a mud flat). `refreshMatrices` decides which are actually visible.
+      const discs = isReeds ? null : this.buildDiscMesh(typeSample.type, n);
+      if (discs) this.group.add(discs);
+
       this.batches.push({
         type: typeSample.type,
         sample: typeSample,
@@ -1349,6 +1533,7 @@ export class VegetationLayer {
         leanZ,
         meshes,
         impostors,
+        discs,
         subOf,
         slotOf,
       });
@@ -1467,6 +1652,27 @@ export class VegetationLayer {
           else this.scale.set(batch.width[i], batch.height[i], batch.width[i]);
           impostor.setMatrixAt(slot, this.matrix.compose(this.position, IDENTITY_QUATERNION, this.scale));
         }
+        if (batch.discs) {
+          // The contact disc follows the MESH tier exactly — same `wet || !meshTier`
+          // test the mesh above uses, so a tree and its shadow can never disagree
+          // about whether they are there. Impostor-tier trees get none: at >320 m the
+          // disc is sub-pixel, and the baked quad already carries its own ground
+          // contact. Never rotated (the disc is symmetric and lies flat, so yaw and
+          // lean would only shear the falloff), and lifted clear of the surface after
+          // the exaggeration multiply.
+          if (wet || !meshTier) this.scale.set(0, 0, 0);
+          else {
+            const diameter = batch.width[i] * CONTACT_DISC_WIDTH_RATIO;
+            this.scale.set(diameter, 1, diameter);
+          }
+          this.position.y = batch.ground[i] * exaggeration + CONTACT_DISC_LIFT_M;
+          // Discs are indexed by instance, not by (sub, slot) — one mesh per batch.
+          batch.discs.setMatrixAt(i, this.matrix.compose(this.position, IDENTITY_QUATERNION, this.scale));
+        }
+      }
+      if (batch.discs) {
+        batch.discs.instanceMatrix.needsUpdate = true;
+        batch.discs.computeBoundingSphere();
       }
       for (const mesh of batch.meshes) {
         mesh.instanceMatrix.needsUpdate = true;

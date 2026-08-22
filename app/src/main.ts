@@ -526,7 +526,8 @@ async function start(): Promise<void> {
   // -------------------------------------------------------------------------
 
   // --- Phase 7 (second half): vegetation + the landscape controls -----------
-  // Instanced cones and reed billboards sampled from the §9 raster. Like the
+  // Instanced species archetype meshes (baked impostors beyond the near field) and
+  // reed cross-quads, sampled from the §9 raster. Like the
   // palisade this goes in the SCENE, not in `terrain.group`: plants stand on the
   // exaggerated ground while keeping their true metric size (contract §0/§9). The
   // §7 connect grid, if this site ships one, decides which instances are under
