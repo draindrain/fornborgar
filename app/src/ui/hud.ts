@@ -30,6 +30,7 @@ export class Hud {
   private readonly modeHintEl: HTMLElement;
   private readonly caveatEl: HTMLElement;
   private readonly footerEl: HTMLElement;
+  private readonly pickerButton: HTMLButtonElement;
   private readonly caveatsShown = new Set<string>();
   private caveatTimer = 0;
 
@@ -39,7 +40,12 @@ export class Hud {
     const header = el('header', 'hud-header');
     this.titleEl = el('h1', 'hud-title', 'Fornborg Explorer');
     this.subtitleEl = el('p', 'hud-subtitle', 'Loading site…');
-    header.append(this.titleEl, this.subtitleEl);
+    // Phase 9 §6: only rendered once a site index exists to pick from, so a
+    // repo-relative build (two fixtures, nothing to choose) shows no button.
+    this.pickerButton = el('button', 'hud-picker-button', 'Browse forts');
+    this.pickerButton.type = 'button';
+    this.pickerButton.hidden = true;
+    header.append(this.titleEl, this.subtitleEl, this.pickerButton);
 
     this.exaggerationEl = el('div', 'hud-exaggeration');
     this.exaggerationEl.hidden = true;
@@ -101,6 +107,12 @@ export class Hud {
   }
 
   /** Camera-mode key hint just above the footer. Empty string hides it. */
+  /** Phase 9 §6: reveal the picker toggle, wired to `handler`. */
+  setSitePickerToggle(handler: () => void): void {
+    this.pickerButton.hidden = false;
+    this.pickerButton.addEventListener('click', handler);
+  }
+
   setModeHint(text: string): void {
     this.modeHintEl.hidden = text === '';
     this.modeHintEl.textContent = text;

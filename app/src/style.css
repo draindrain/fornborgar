@@ -585,3 +585,155 @@ body {
     width: 200px;
   }
 }
+
+/* --- Phase 9 §6: the national site picker ---------------------------------
+   Shown only when a build has a site index to read (VITE_DATA_BASE_URL); a
+   repo-relative build ships two fixtures and never renders any of this. */
+
+.hud-picker-button {
+  margin-top: 0.5rem;
+  padding: 0.3rem 0.7rem;
+  font: inherit;
+  font-size: 0.8rem;
+  color: var(--ink);
+  background: rgba(233, 230, 223, 0.08);
+  border: 1px solid var(--edge);
+  border-radius: 4px;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.hud-picker-button:hover {
+  background: rgba(233, 230, 223, 0.16);
+}
+
+.site-picker {
+  position: fixed;
+  top: 1rem;
+  left: 1rem;
+  z-index: 20;
+  width: min(21rem, calc(100vw - 2rem));
+  max-height: calc(100vh - 2rem);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.85rem;
+  background: var(--panel);
+  border: 1px solid var(--edge);
+  border-radius: 6px;
+  backdrop-filter: blur(8px);
+  pointer-events: auto;
+}
+
+.site-picker[hidden] {
+  display: none;
+}
+
+.site-picker-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.site-picker-title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.site-picker-close {
+  padding: 0 0.3rem;
+  font-size: 1.1rem;
+  line-height: 1;
+  color: var(--ink-dim);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.site-picker-search {
+  padding: 0.35rem 0.5rem;
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--ink);
+  background: rgba(11, 13, 12, 0.6);
+  border: 1px solid var(--edge);
+  border-radius: 4px;
+}
+
+.site-picker-map {
+  width: 100%;
+  max-height: 40vh;
+  /* The dot map is decoration around the list on a short screen; the list is
+     what actually gets someone to a fort. */
+  flex: 0 1 auto;
+}
+
+.site-dot {
+  fill: #7fb2ff;
+  fill-opacity: 0.75;
+  cursor: pointer;
+}
+
+.site-dot:hover {
+  fill: #ffffff;
+  fill-opacity: 1;
+}
+
+.site-dot-current {
+  fill: #ffd479;
+  fill-opacity: 1;
+}
+
+.site-dot-dim {
+  fill-opacity: 0.12;
+  cursor: default;
+}
+
+.site-picker-count {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--ink-dim);
+}
+
+.site-picker-list {
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.site-picker-entry {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  width: 100%;
+  padding: 0.35rem 0.4rem;
+  text-align: left;
+  font: inherit;
+  color: var(--ink);
+  background: none;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.site-picker-entry:hover {
+  background: rgba(233, 230, 223, 0.1);
+}
+
+.site-picker-entry-current {
+  background: rgba(255, 212, 121, 0.12);
+}
+
+.site-picker-name {
+  font-size: 0.85rem;
+}
+
+.site-picker-badge {
+  font-size: 0.72rem;
+  color: var(--ink-dim);
+}

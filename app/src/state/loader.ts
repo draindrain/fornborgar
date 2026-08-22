@@ -6,7 +6,10 @@
  *
  * URL rule (docs/data-formats.md §0): every data URL is resolved against
  * `import.meta.env.BASE_URL` as `data/<siteId>/<path>` — never a leading slash —
- * so the app works from a GitHub Pages project subpath.
+ * so the app works from a GitHub Pages project subpath. Since Phase 9 a build
+ * may instead point `VITE_DATA_BASE_URL` at an object host, in which case the
+ * same paths resolve under `<base>/<siteId>/` (scale-out §3). One code path
+ * either way: the only thing that changes is what `siteDataUrl` returns.
  *
  * Optional assets follow the versioning policy in the contract preamble: a
  * missing `assets` entry always means "feature off", never an error.
@@ -20,6 +23,7 @@ import type { ConnectGrid } from '../water/connectGrid';
 import { validateShoreline, type ShorelineTable } from '../water/shoreline';
 import { validateSites, type SitesFile } from '../overlays/sites';
 import { validateRampart, type RampartFile } from '../overlays/palisade';
+import { validateSiteIndex, type SiteIndex } from './siteIndex';
 import type { LandcoverGrid } from '../landcover/landcoverGrid';
 import { validateLandcoverLegend, type LandcoverLegend } from '../landcover/legend';
 
@@ -35,13 +39,69 @@ export function siteIdFromLocation(search: string = window.location.search): str
   return raw;
 }
 
-/** Base URL for a site's data directory, always ending in "/". */
-export function siteDataUrl(siteId: string, base: string = import.meta.env.BASE_URL): string {
+/**
+ * The root every bundle hangs off, always ending in "/".
+ *
+ * Unset `VITE_DATA_BASE_URL` (local dev, and the GitHub Pages build as it
+ * shipped through Phase 8) means repo-relative `data/` under the app's own base
+ * URL — byte-for-byte the behaviour of every earlier build. Set, it is the
+ * object host's versioned prefix (`https://…/v1`), and bundles come from there
+ * instead. There is deliberately no third mode and no per-site override: a site
+ * that resolved differently from its neighbours would be untestable.
+ */
+export function dataBaseUrl(
+  base: string = import.meta.env.BASE_URL,
+  configured: string | undefined = import.meta.env.VITE_DATA_BASE_URL,
+): string {
+  const external = (configured ?? '').trim();
+  if (external) return external.endsWith('/') ? external : `${external}/`;
   const b = base.endsWith('/') ? base : `${base}/`;
-  return `${b}data/${siteId}/`;
+  return `${b}data/`;
+}
+
+/** Base URL for a site's data directory, always ending in "/". */
+export function siteDataUrl(
+  siteId: string,
+  base: string = import.meta.env.BASE_URL,
+  configured: string | undefined = import.meta.env.VITE_DATA_BASE_URL,
+): string {
+  return `${dataBaseUrl(base, configured)}${siteId}/`;
+}
+
+/** URL of the national site index (§6.1). Only meaningful with a data base URL set. */
+export function siteIndexUrl(
+  base: string = import.meta.env.BASE_URL,
+  configured: string | undefined = import.meta.env.VITE_DATA_BASE_URL,
+): string {
+  return `${dataBaseUrl(base, configured)}index.json`;
 }
 
 export type ProgressFn = (stage: string, fraction: number) => void;
+
+/**
+ * Fetch the national site index (§6.1), or `null` when there isn't one.
+ *
+ * "No index" is a first-class answer, not an error: a repo-relative build ships
+ * `testsite` and `broborg` and nothing else, so there is nothing to pick
+ * between and the picker stays off — exactly the pre-Phase-9 experience. A
+ * *broken* index is also non-fatal for the same reason the optional assets are:
+ * the site the user asked for must still load.
+ */
+export async function loadSiteIndex(): Promise<SiteIndex | null> {
+  const url = siteIndexUrl();
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const text = await res.text();
+    return validateSiteIndex(JSON.parse(text));
+  } catch (error) {
+    console.warn(
+      `[fornborg] site picker unavailable — ${url}: ` +
+        (error instanceof Error ? error.message : String(error)),
+    );
+    return null;
+  }
+}
 
 async function fetchWithProgress(url: string, onProgress: (f: number) => void): Promise<ArrayBuffer> {
   const res = await fetch(url);
@@ -80,10 +140,12 @@ export async function loadManifest(siteId: string): Promise<SiteManifest> {
   const url = `${siteDataUrl(siteId)}manifest.json`;
   const res = await fetch(url);
   if (!res.ok) {
-    throw new Error(
-      `Could not load ${url} (${res.status} ${res.statusText}). ` +
-        `Has the pipeline written app/public/data/${siteId}/ yet?`,
-    );
+    // The remedy differs by where bundles come from, so say which one applies
+    // rather than pointing at a directory this build never reads.
+    const hint = (import.meta.env.VITE_DATA_BASE_URL ?? '').trim()
+      ? `Is ${siteId} published to ${dataBaseUrl()} yet?`
+      : `Has the pipeline written app/public/data/${siteId}/ yet?`;
+    throw new Error(`Could not load ${url} (${res.status} ${res.statusText}). ${hint}`);
   }
   const text = await res.text();
   let parsed: unknown;
@@ -94,7 +156,7 @@ export async function loadManifest(siteId: string): Promise<SiteManifest> {
     // missing file, so say what actually happened instead of "unexpected token <".
     throw new Error(
       `${url} did not return JSON (got ${res.headers.get('content-type') ?? 'unknown content type'}). ` +
-        `The site directory app/public/data/${siteId}/ is probably missing.`,
+        `The bundle at ${siteDataUrl(siteId)} is probably missing.`,
     );
   }
   return validateManifest(parsed);
