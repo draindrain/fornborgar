@@ -45,6 +45,19 @@ LADDER_CAP_RADIUS_M = max(spec.half_extent for spec in RING_LADDER)
 #: Lantmäteriet tile set and got filled with sea at 0 m (contract §11).
 SEA_FILL_PATTERN = re.compile(r"(\w+): (\d+) cells outside tile coverage sea-filled")
 
+#: A region of uncovered cells is treated as **open sea** when the Swedish land
+#: it borders sits at or below this height (m RH 2000). Sweden's Baltic and
+#: Kattegat coastlines meet the water at ~0 m by construction, so a shore-like
+#: boundary is a strong signal that filling at 0 m tells the truth. A land
+#: border — Norwegian fjäll, the Finnish frontier — is bounded by terrain well
+#: above this, and filling *that* at 0 m would render a false flat horizon,
+#: which is the one dishonest thing this project must not ship (§2b).
+#:
+#: The threshold is deliberately generous: a coastal cell block-averaged at 32 m
+#: mixes water with the first slope behind it, so a genuine coastline reads a
+#: few metres up rather than exactly zero.
+SEA_BOUNDARY_MAX_M = 20.0
+
 
 @dataclass
 class Check:
@@ -222,35 +235,131 @@ def sea_filled_cells(manifest: dict) -> dict[str, int]:
     return found
 
 
-def check_sea_fill(manifest: dict, coastal: bool) -> Check:
+def classify_uncovered(covered: np.ndarray, heights_m: np.ndarray) -> list[dict]:
+    """Describe each connected region of cells no source tile covered.
+
+    Returns one dict per region: its size, whether it reaches the grid edge, and
+    the height of the Swedish land along its boundary. Those three facts are
+    what separate the three very different things a coverage hole can be:
+
+      * **enclosed** — a real gap in the tile set, surrounded by data;
+      * **edge-connected, shore-like boundary** — open sea, where filling at
+        0 m is simply true;
+      * **edge-connected, high boundary** — land in another country, where
+        filling at 0 m invents a flat horizon that is not there.
+
+    Pure array work, so the judgement is testable without a network or a fetch.
+    """
+    from scipy import ndimage
+
+    covered = np.asarray(covered, dtype=bool)
+    heights = np.asarray(heights_m, dtype=np.float64)
+    uncovered = ~covered
+    if not uncovered.any():
+        return []
+
+    labels, count = ndimage.label(uncovered)
+    edge_labels = set(labels[0, :]) | set(labels[-1, :]) | set(labels[:, 0]) | set(labels[:, -1])
+    edge_labels.discard(0)
+
+    regions = []
+    for index in range(1, count + 1):
+        mask = labels == index
+        # The covered cells immediately around this region: its shoreline, or
+        # its border with whatever country the tile set stops at.
+        boundary = ndimage.binary_dilation(mask) & covered
+        boundary_heights = heights[boundary]
+        regions.append(
+            {
+                "cells": int(mask.sum()),
+                "touchesEdge": index in edge_labels,
+                "boundaryCells": int(boundary.size and boundary.sum()),
+                "boundaryMedianM": round(float(np.median(boundary_heights)), 1)
+                if boundary_heights.size
+                else None,
+                "boundaryP90M": round(float(np.percentile(boundary_heights, 90)), 1)
+                if boundary_heights.size
+                else None,
+            }
+        )
+    regions.sort(key=lambda r: -r["cells"])
+    return regions
+
+
+def classify_region(region: dict) -> str:
+    """One region -> "gap" | "sea" | "foreign-land"."""
+    if not region["touchesEdge"]:
+        return "gap"
+    median = region.get("boundaryMedianM")
+    if median is None:
+        # No Swedish land borders it at all — the ring is essentially all
+        # outside coverage. Cannot be called sea on this evidence.
+        return "foreign-land"
+    return "sea" if median <= SEA_BOUNDARY_MAX_M else "foreign-land"
+
+
+def check_sea_fill(regions_by_ring: dict[str, list[dict]]) -> Check:
     """Cells no Lantmäteriet tile covered (contract §11 coverage seam).
 
-    For a site whose rings reach open Baltic this is correct and expected — the
-    sea *is* at 0 m. For an interior site it means one of two things, and we
-    cannot tell which from here: a gap in the tile set, or terrain outside
-    Sweden (Norway, Finland, Åland) that Copernicus GLO-30 was meant to fill and
-    has not. Either way the render is a **false flat horizon**, which is the one
-    dishonest thing this project must not ship. So: `fail`, and go look.
+    Three verdicts, from `classify_region`:
+
+      * **sea** — the region reaches the grid edge and the Swedish land around
+        it is at shore height. Filling at 0 m is true; ship it, and say how much
+        of the ring it was so the contact sheet gets a look.
+      * **gap** — a hole *enclosed* by covered data. That is a missing tile, and
+        it renders as a flat plate in the middle of real terrain. Fail.
+      * **foreign-land** — the region reaches the edge but is bounded by high
+        ground, i.e. terrain in Norway, Finland or Åland that the tile set
+        stops at. Filling that at 0 m is a **false flat horizon**, which §2b
+        says must be Copernicus GLO-30 filled instead. Fail, loudly, with the
+        numbers — the fix is a pipeline feature, not a retry.
     """
-    filled = sea_filled_cells(manifest)
-    total = sum(filled.values())
-    if total == 0:
+    if not regions_by_ring:
         return Check("sea-fill", "pass", "no cells outside tile coverage")
-    if coastal:
+
+    verdicts: dict[str, list[tuple[str, dict]]] = {}
+    for ring, regions in regions_by_ring.items():
+        for region in regions:
+            verdicts.setdefault(classify_region(region), []).append((ring, region))
+
+    detail = {
+        kind: [
+            {"ring": ring, "cells": r["cells"], "boundaryMedianM": r.get("boundaryMedianM")}
+            for ring, r in items
+        ]
+        for kind, items in verdicts.items()
+    }
+
+    if "foreign-land" in verdicts:
+        worst = max(verdicts["foreign-land"], key=lambda item: item[1]["cells"])
+        ring, region = worst
         return Check(
             "sea-fill",
-            "warn",
-            f"{total:,} ring cells sea-filled at 0 m — expected for a coastal site, "
-            f"but confirm the thumbnail shows sea there",
-            {"byRing": filled, "coastal": True},
+            "fail",
+            f"{ring}: {region['cells']:,} cells outside tile coverage are bounded by land at "
+            f"{region.get('boundaryMedianM')} m, not by a shoreline — this looks like terrain "
+            f"beyond the Swedish border, and filling it at 0 m would render a false flat "
+            f"horizon. Needs the Copernicus GLO-30 fill (§2b); do not ship this site",
+            detail,
         )
+    if "gap" in verdicts:
+        worst = max(verdicts["gap"], key=lambda item: item[1]["cells"])
+        ring, region = worst
+        return Check(
+            "sea-fill",
+            "fail",
+            f"{ring}: {region['cells']:,} uncovered cells are enclosed by covered data — "
+            f"a hole in the tile set, which renders as a flat plate inside real terrain",
+            detail,
+        )
+
+    total = sum(r["cells"] for items in verdicts.values() for _ring, r in items)
     return Check(
         "sea-fill",
-        "fail",
-        f"{total:,} ring cells outside tile coverage on an interior site "
-        f"({filled}) — a coverage gap or un-filled non-Swedish land would render "
-        f"a false flat horizon; investigate before shipping",
-        {"byRing": filled, "coastal": False},
+        "warn",
+        f"{total:,} ring cells sea-filled at 0 m, all bounded by shoreline — open sea, "
+        f"correctly flat; confirm on the contact sheet",
+        detail,
     )
 
 
@@ -274,9 +383,7 @@ def ring_context_offset(
     Returns None when the overlap is too small to say anything. Both grids are
     north-up and axis-aligned in EPSG:3006, so the overlap is found by
     arithmetic on the bounds — no resampling, no reprojection, nothing that
-    could itself introduce the shift we are looking for. Ring cells are compared
-    against the *mean* of the context cells they cover, which is what a
-    block-averaged read should reproduce.
+    could itself introduce the shift we are looking for.
     """
     r_min_e, r_min_n, r_max_e, r_max_n = ring_bounds
     c_min_e, c_min_n, c_max_e, c_max_n = context_bounds
@@ -425,7 +532,7 @@ def run_gates(
     manifest: dict,
     band: tuple[float, float],
     filled_by_grid: dict[str, tuple[int, int]],
-    coastal: bool,
+    uncovered_by_ring: dict[str, list[dict]] | None = None,
     steps: list | None = None,
     ring_offsets: dict[str, float | None] | None = None,
 ) -> QAReport:
@@ -439,7 +546,7 @@ def run_gates(
             check_nodata_fill(filled_by_grid),
             check_ladder(manifest),
             check_ring_agreement(ring_offsets or {}),
-            check_sea_fill(manifest, coastal),
+            check_sea_fill(uncovered_by_ring or {}),
             check_water_pair(manifest),
         ],
     )

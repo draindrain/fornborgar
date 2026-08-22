@@ -36,6 +36,7 @@ from rasterio.errors import RasterioIOError
 from rasterio.transform import from_origin
 from rasterio.windows import from_bounds
 
+from .qa import classify_uncovered
 from .sites import DTM_COLLECTION, DTM_NODATA, EPSG_HORIZONTAL, STAC_ROOT, SiteConfig
 
 USER_AGENT = "fornborg-pipeline/0.1 (+https://github.com/; hobby project)"
@@ -491,6 +492,10 @@ def fetch_ring_mosaic(cfg: SiteConfig, spec, force: bool = False) -> tuple[Path,
 
     sea_filled = ~covered
     sea_filled_cells = int(sea_filled.sum())
+    # Classify BEFORE the fill, while the covered mask and the real heights are
+    # both still here: afterwards every uncovered cell reads 0.0 and there is no
+    # way left to tell open Baltic from Norwegian fjäll (contract §11, §2b).
+    uncovered_regions = classify_uncovered(covered, np.where(covered, mosaic, 0.0))
     mosaic[sea_filled] = 0.0
     nodata_cells = int((mosaic == DTM_NODATA).sum())
     valid = mosaic[mosaic != DTM_NODATA]
@@ -498,6 +503,12 @@ def fetch_ring_mosaic(cfg: SiteConfig, spec, force: bool = False) -> tuple[Path,
         f"{spec.name} mosaic {size}x{size} @ {res} m | sea-filled {sea_filled_cells} | "
         f"nodata {nodata_cells} | z {valid.min():.2f}..{valid.max():.2f} m"
     )
+    for region in uncovered_regions[:3]:
+        print(
+            f"  uncovered region: {region['cells']:,} cells, "
+            f"{'edge-connected' if region['touchesEdge'] else 'ENCLOSED'}, "
+            f"bounded by land at {region['boundaryMedianM']} m (p90 {region['boundaryP90M']} m)"
+        )
 
     cache_path = cfg.ring_cache_path(spec)
     cache_path.parent.mkdir(parents=True, exist_ok=True)
@@ -529,6 +540,10 @@ def fetch_ring_mosaic(cfg: SiteConfig, spec, force: bool = False) -> tuple[Path,
         "resolution": res,
         "nodataCells": nodata_cells,
         "seaFilledCells": sea_filled_cells,
+        # What the uncovered cells actually are (§11 coverage seam). The QA gate
+        # reads this rather than a bare count: a count cannot tell open sea from
+        # foreign land, and those need opposite outcomes.
+        "uncoveredRegions": uncovered_regions,
     }
     cfg.ring_cache_meta_path(spec).write_text(
         json.dumps(meta, indent=2, ensure_ascii=False) + "\n"

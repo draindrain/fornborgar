@@ -25,6 +25,8 @@ from fornborg_pipeline.qa import (
     check_required_files,
     check_sea_fill,
     check_steps,
+    classify_region,
+    classify_uncovered,
     check_water_pair,
     run_gates,
     sea_filled_cells,
@@ -157,6 +159,16 @@ def test_ladder_warns_on_a_ringless_site(manifest):
 # ----------------------------------- sea fill --------------------------------
 
 
+def region(cells=1000, edge=True, boundary=0.5, p90=None):
+    return {
+        "cells": cells,
+        "touchesEdge": edge,
+        "boundaryCells": 500,
+        "boundaryMedianM": boundary,
+        "boundaryP90M": p90 if p90 is not None else boundary + 2.0,
+    }
+
+
 def test_sea_filled_cells_parses_the_provenance_lines(manifest):
     manifest["provenance"]["processing"] += [
         "ring6: 12345 cells outside tile coverage sea-filled at 0 m",
@@ -165,25 +177,112 @@ def test_sea_filled_cells_parses_the_provenance_lines(manifest):
     assert sea_filled_cells(manifest) == {"ring6": 12345, "ring5": 7}
 
 
-def test_sea_fill_passes_when_coverage_is_complete(manifest):
-    assert check_sea_fill(manifest, coastal=False).severity == "pass"
+def test_sea_fill_passes_when_coverage_is_complete():
+    assert check_sea_fill({}).severity == "pass"
 
 
-def test_sea_fill_fails_for_an_interior_site(manifest):
-    """A hole in interior Sweden is a coverage gap, not a lake — never ship it."""
-    manifest["provenance"]["processing"].append(
-        "ring6: 900 cells outside tile coverage sea-filled at 0 m"
-    )
-    check = check_sea_fill(manifest, coastal=False)
+def test_open_sea_only_warns():
+    """A ring reaching the Baltic is bounded by shoreline; 0 m there is simply true."""
+    check = check_sea_fill({"ring6": [region(cells=1_490_140, edge=True, boundary=1.2)]})
+    assert check.severity == "warn"
+    assert "open sea" in check.message
+
+
+def test_an_enclosed_hole_fails():
+    """A gap surrounded by real data renders as a flat plate inside the terrain."""
+    check = check_sea_fill({"ring5": [region(cells=900, edge=False, boundary=45.0)]})
     assert check.severity == "fail"
+    assert "enclosed" in check.message
+
+
+def test_land_beyond_the_border_fails_and_names_copernicus():
+    """§2b: filling Norwegian fjäll at 0 m is the false flat horizon we must not ship."""
+    check = check_sea_fill({"ring6": [region(cells=500_000, edge=True, boundary=320.0)]})
+    assert check.severity == "fail"
+    assert "Copernicus" in check.message
     assert "false flat horizon" in check.message
 
 
-def test_sea_fill_only_warns_for_a_coastal_site(manifest):
-    manifest["provenance"]["processing"].append(
-        "ring6: 900000 cells outside tile coverage sea-filled at 0 m"
+def test_foreign_land_outranks_a_mere_gap_in_the_message():
+    check = check_sea_fill(
+        {
+            "ring5": [region(cells=900, edge=False, boundary=40.0)],
+            "ring6": [region(cells=5000, edge=True, boundary=300.0)],
+        }
     )
-    assert check_sea_fill(manifest, coastal=True).severity == "warn"
+    assert check.severity == "fail"
+    assert "Copernicus" in check.message
+
+
+def test_a_region_with_no_swedish_neighbour_is_not_called_sea():
+    """If nothing Swedish borders it, there is no evidence it is water."""
+    orphan = {"cells": 4_000_000, "touchesEdge": True, "boundaryCells": 0,
+              "boundaryMedianM": None, "boundaryP90M": None}
+    assert classify_region(orphan) == "foreign-land"
+
+
+@pytest.mark.parametrize(
+    ("boundary", "expected"),
+    [(0.0, "sea"), (5.0, "sea"), (20.0, "sea"), (20.1, "foreign-land"), (300.0, "foreign-land")],
+)
+def test_the_shoreline_threshold(boundary, expected):
+    assert classify_region(region(boundary=boundary)) == expected
+
+
+def test_an_enclosed_region_is_a_gap_however_low_its_boundary():
+    assert classify_region(region(edge=False, boundary=0.0)) == "gap"
+
+
+# ------------------------- classifying a real mask ---------------------------
+
+
+def test_classify_finds_an_enclosed_hole():
+    covered = np.ones((40, 40), dtype=bool)
+    covered[18:22, 18:22] = False
+    heights = np.full((40, 40), 50.0)
+    regions = classify_uncovered(covered, heights)
+    assert len(regions) == 1
+    assert regions[0]["cells"] == 16
+    assert regions[0]["touchesEdge"] is False
+    assert regions[0]["boundaryMedianM"] == 50.0
+    assert classify_region(regions[0]) == "gap"
+
+
+def test_classify_finds_an_edge_region_and_measures_its_shoreline():
+    covered = np.ones((40, 40), dtype=bool)
+    covered[:, 30:] = False  # the eastern third is outside the tile set
+    heights = np.full((40, 40), 60.0)
+    heights[:, 27:30] = 1.0  # ...and the land beside it is at shore height
+    regions = classify_uncovered(covered, heights)
+    assert len(regions) == 1
+    assert regions[0]["touchesEdge"] is True
+    assert regions[0]["boundaryMedianM"] == 1.0
+    assert classify_region(regions[0]) == "sea"
+
+
+def test_classify_reads_a_high_border_as_foreign_land():
+    covered = np.ones((40, 40), dtype=bool)
+    covered[:, 30:] = False
+    heights = np.full((40, 40), 60.0)
+    heights[:, 27:30] = 420.0  # a mountain border, not a coastline
+    regions = classify_uncovered(covered, heights)
+    assert classify_region(regions[0]) == "foreign-land"
+
+
+def test_classify_separates_two_regions():
+    covered = np.ones((40, 40), dtype=bool)
+    covered[:, 36:] = False  # edge-connected
+    covered[10:14, 10:14] = False  # enclosed
+    heights = np.full((40, 40), 30.0)
+    regions = classify_uncovered(covered, heights)
+    assert len(regions) == 2
+    assert {r["touchesEdge"] for r in regions} == {True, False}
+    # Sorted biggest first, so a report leads with what matters most.
+    assert regions[0]["cells"] >= regions[1]["cells"]
+
+
+def test_classify_on_full_coverage_finds_nothing():
+    assert classify_uncovered(np.ones((10, 10), dtype=bool), np.zeros((10, 10))) == []
 
 
 # ---------------------------------- water pair -------------------------------

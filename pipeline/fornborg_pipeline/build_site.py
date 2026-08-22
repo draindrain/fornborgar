@@ -56,6 +56,7 @@ from .rings import RingsError
 from .shoreline import SHORELINE_PATH, ShorelineError, interpolate_level
 from .sites import (
     CACHE_DIR,
+    RING_LADDER,
     EXTENT_PRESETS,
     NATIONAL_ELEVATION_RANGE,
     SiteConfig,
@@ -245,6 +246,31 @@ def drop_asset(manifest_path: Path, key: str) -> None:
     print(f"  dropped assets.{key} from the manifest — the step that writes it failed")
 
 
+def uncovered_regions(cfg: SiteConfig, manifest: dict) -> dict[str, list[dict]]:
+    """Per ring, what the cells outside the tile set actually are (§11).
+
+    Read from the ring cache metadata the fetch step wrote, because that is the
+    only place the covered mask and the real heights existed together — after
+    the sea fill every such cell reads 0.0 and open Baltic is indistinguishable
+    from a Norwegian mountainside.
+    """
+    found: dict[str, list[dict]] = {}
+    for spec in RING_LADDER:
+        if not any(ring.get("path") == spec.path for ring in manifest.get("grids", {}).get("rings") or []):
+            continue
+        meta_path = cfg.ring_cache_meta_path(spec)
+        if not meta_path.exists():
+            continue
+        try:
+            meta = json.loads(meta_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            continue
+        regions = meta.get("uncoveredRegions")
+        if regions:
+            found[spec.name] = regions
+    return found
+
+
 def measure_ring_offsets(cfg: SiteConfig, manifest: dict) -> dict[str, float | None]:
     """Median (ring - context) height per ring, for `qa.check_ring_agreement`.
 
@@ -374,15 +400,16 @@ def run(
         except (RingsError, FetchError, VerticalDatumError, ValueError, OSError) as exc:
             result.steps.append(StepResult("rings", "failed", f"{type(exc).__name__}: {exc}"))
 
-    coastal = False
     if skip_water:
         result.steps.append(StepResult("water", "skipped", "--skip-water"))
     else:
         print("-- water (contract §6/§7/§12)")
         try:
             manifest = water.run(cfg.id, force_download=force_download)
-            coastal = "shoreline" in manifest.get("assets", {})
-            result.steps.append(StepResult("water", "ok" if coastal else "skipped", "" if coastal else "no SGU coverage"))
+            has_water = "shoreline" in manifest.get("assets", {})
+            result.steps.append(
+                StepResult("water", "ok" if has_water else "skipped", "" if has_water else "no SGU coverage")
+            )
         except ShorelineError as exc:
             # An inland site the shoreline model does not cover is the contract's
             # "missing asset = feature off", not a build failure.
@@ -429,7 +456,7 @@ def run(
         manifest,
         cfg.elevation_range,
         filled,
-        coastal,
+        uncovered_by_ring=uncovered_regions(cfg, manifest),
         steps=result.steps,
         ring_offsets=measure_ring_offsets(cfg, manifest),
     )
