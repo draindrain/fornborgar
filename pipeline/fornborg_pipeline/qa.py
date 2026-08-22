@@ -235,18 +235,32 @@ def sea_filled_cells(manifest: dict) -> dict[str, int]:
     return found
 
 
-def classify_uncovered(covered: np.ndarray, heights_m: np.ndarray) -> list[dict]:
+#: A boundary this sparsely covered by *valid ground data* is read as water.
+#: The Lantmäteriet DTM is a ground model: over the sea and over lakes its tiles
+#: exist but carry nodata, because there is no ground to return. So a region of
+#: no-tile-at-all whose edge is nodata is surrounded by water — the absence of
+#: data is the evidence, not an obstacle to it. A land border is the opposite:
+#: Swedish terrain runs right up to it with valid heights all the way.
+SEA_BOUNDARY_MAX_VALID_SHARE = 0.10
+
+
+def classify_uncovered(
+    covered: np.ndarray, heights_m: np.ndarray, nodata: float = -9999.0
+) -> list[dict]:
     """Describe each connected region of cells no source tile covered.
 
-    Returns one dict per region: its size, whether it reaches the grid edge, and
-    the height of the Swedish land along its boundary. Those three facts are
-    what separate the three very different things a coverage hole can be:
+    Returns one dict per region: its size, whether it reaches the grid edge, how
+    much of its boundary carries *valid ground data*, and how high that data is.
+    Those facts separate the four things a coverage hole can be:
 
       * **enclosed** — a real gap in the tile set, surrounded by data;
-      * **edge-connected, shore-like boundary** — open sea, where filling at
-        0 m is simply true;
-      * **edge-connected, high boundary** — land in another country, where
-        filling at 0 m invents a flat horizon that is not there.
+      * **edge-connected, boundary is nodata** — the tiles reach out over water
+        and find no ground: open sea, where filling at 0 m is simply true;
+      * **edge-connected, valid boundary at shore height** — a coastline, same
+        conclusion;
+      * **edge-connected, valid boundary well above sea level** — Swedish
+        terrain running up to a land border, with another country beyond it.
+        Filling that at 0 m invents a flat horizon that is not there.
 
     Pure array work, so the judgement is testable without a network or a fetch.
     """
@@ -254,6 +268,10 @@ def classify_uncovered(covered: np.ndarray, heights_m: np.ndarray) -> list[dict]
 
     covered = np.asarray(covered, dtype=bool)
     heights = np.asarray(heights_m, dtype=np.float64)
+    # A cell can be covered by a tile and still hold no data — that is exactly
+    # what the sea looks like in a ground model, so it must not be averaged in
+    # as if it were an elevation.
+    valid = covered & (heights > nodata + 1.0) & np.isfinite(heights)
     uncovered = ~covered
     if not uncovered.any():
         return []
@@ -268,17 +286,23 @@ def classify_uncovered(covered: np.ndarray, heights_m: np.ndarray) -> list[dict]
         # The covered cells immediately around this region: its shoreline, or
         # its border with whatever country the tile set stops at.
         boundary = ndimage.binary_dilation(mask) & covered
-        boundary_heights = heights[boundary]
+        boundary_valid = boundary & valid
+        heights_there = heights[boundary_valid]
+        boundary_cells = int(boundary.sum())
         regions.append(
             {
                 "cells": int(mask.sum()),
                 "touchesEdge": index in edge_labels,
-                "boundaryCells": int(boundary.size and boundary.sum()),
-                "boundaryMedianM": round(float(np.median(boundary_heights)), 1)
-                if boundary_heights.size
+                "boundaryCells": boundary_cells,
+                "boundaryValidCells": int(boundary_valid.sum()),
+                "boundaryValidShare": round(
+                    float(boundary_valid.sum() / boundary_cells) if boundary_cells else 0.0, 3
+                ),
+                "boundaryMedianM": round(float(np.median(heights_there)), 1)
+                if heights_there.size
                 else None,
-                "boundaryP90M": round(float(np.percentile(boundary_heights, 90)), 1)
-                if boundary_heights.size
+                "boundaryP90M": round(float(np.percentile(heights_there, 90)), 1)
+                if heights_there.size
                 else None,
             }
         )
@@ -290,11 +314,16 @@ def classify_region(region: dict) -> str:
     """One region -> "gap" | "sea" | "foreign-land"."""
     if not region["touchesEdge"]:
         return "gap"
+    # A boundary that is mostly nodata means the tiles reach out over water and
+    # find no ground: this is sea, and the missing data is what says so.
+    share = region.get("boundaryValidShare")
+    if share is not None and share <= SEA_BOUNDARY_MAX_VALID_SHARE:
+        return "sea"
     median = region.get("boundaryMedianM")
     if median is None:
-        # No Swedish land borders it at all — the ring is essentially all
-        # outside coverage. Cannot be called sea on this evidence.
-        return "foreign-land"
+        # Edge-connected, and nothing valid anywhere on its boundary to judge
+        # by. Older records without the share field land here; do not guess.
+        return "sea" if share is not None else "foreign-land"
     return "sea" if median <= SEA_BOUNDARY_MAX_M else "foreign-land"
 
 
@@ -341,7 +370,12 @@ def check_sea_fill(
 
     detail = {
         kind: [
-            {"ring": ring, "cells": r["cells"], "boundaryMedianM": r.get("boundaryMedianM")}
+            {
+                "ring": ring,
+                "cells": r["cells"],
+                "boundaryMedianM": r.get("boundaryMedianM"),
+                "boundaryValidShare": r.get("boundaryValidShare"),
+            }
             for ring, r in items
         ]
         for kind, items in verdicts.items()
@@ -354,7 +388,9 @@ def check_sea_fill(
             "sea-fill",
             "fail",
             f"{ring}: {region['cells']:,} cells outside tile coverage are bounded by land at "
-            f"{region.get('boundaryMedianM')} m, not by a shoreline — this looks like terrain "
+            f"{region.get('boundaryMedianM')} m over "
+            f"{100 * (region.get('boundaryValidShare') or 0):.0f} % of their boundary, not by "
+            f"water — this looks like terrain "
             f"beyond the Swedish border, and filling it at 0 m would render a false flat "
             f"horizon. Needs the Copernicus GLO-30 fill (§2b); do not ship this site",
             detail,

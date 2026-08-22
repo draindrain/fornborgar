@@ -159,13 +159,15 @@ def test_ladder_warns_on_a_ringless_site(manifest):
 # ----------------------------------- sea fill --------------------------------
 
 
-def region(cells=1000, edge=True, boundary=0.5, p90=None):
+def region(cells=1000, edge=True, boundary=0.5, p90=None, valid_share=0.9):
     return {
         "cells": cells,
         "touchesEdge": edge,
         "boundaryCells": 500,
+        "boundaryValidCells": int(500 * valid_share),
+        "boundaryValidShare": valid_share,
         "boundaryMedianM": boundary,
-        "boundaryP90M": p90 if p90 is not None else boundary + 2.0,
+        "boundaryP90M": p90 if p90 is not None else (boundary + 2.0 if boundary is not None else None),
     }
 
 
@@ -214,8 +216,27 @@ def test_foreign_land_outranks_a_mere_gap_in_the_message():
     assert "Copernicus" in check.message
 
 
-def test_a_region_with_no_swedish_neighbour_is_not_called_sea():
-    """If nothing Swedish borders it, there is no evidence it is water."""
+def test_a_nodata_boundary_reads_as_water():
+    """The DTM is a ground model: no ground return over the sea is the evidence.
+
+    This is the real Öland case — tiles reach out over the Baltic, hold nodata
+    there, and the uncovered region beyond them is bounded by that nodata.
+    """
+    assert classify_region(region(valid_share=0.0, boundary=None)) == "sea"
+    assert classify_region(region(valid_share=0.05, boundary=None)) == "sea"
+
+
+def test_a_nodata_boundary_wins_over_a_stray_high_sample():
+    """A handful of valid cells on an otherwise-water boundary is not a border."""
+    assert classify_region(region(valid_share=0.02, boundary=300.0)) == "sea"
+
+
+def test_a_fully_valid_high_boundary_is_still_foreign_land():
+    assert classify_region(region(valid_share=1.0, boundary=300.0)) == "foreign-land"
+
+
+def test_an_old_record_without_the_share_field_is_not_guessed_at():
+    """Pre-fix metadata carries no share; refuse to call it sea on nothing."""
     orphan = {"cells": 4_000_000, "touchesEdge": True, "boundaryCells": 0,
               "boundaryMedianM": None, "boundaryP90M": None}
     assert classify_region(orphan) == "foreign-land"
@@ -257,15 +278,43 @@ def test_classify_finds_an_edge_region_and_measures_its_shoreline():
     assert len(regions) == 1
     assert regions[0]["touchesEdge"] is True
     assert regions[0]["boundaryMedianM"] == 1.0
+    assert regions[0]["boundaryValidShare"] == 1.0
+    assert classify_region(regions[0]) == "sea"
+
+
+def test_nodata_boundary_cells_are_excluded_from_the_height_statistic():
+    """A ground model holds nodata over water; averaging -9999 in would be nonsense."""
+    covered = np.ones((40, 40), dtype=bool)
+    covered[:, 30:] = False
+    heights = np.full((40, 40), 60.0)
+    heights[:, 25:30] = -9999.0  # the tiles cover open water and return nothing
+    regions = classify_uncovered(covered, heights, nodata=-9999.0)
+    assert regions[0]["boundaryValidShare"] == 0.0
+    assert regions[0]["boundaryMedianM"] is None  # not -9999, and not 0 either
+    assert classify_region(regions[0]) == "sea"
+
+
+def test_a_partly_wet_coastline_still_reads_as_sea():
+    covered = np.ones((40, 40), dtype=bool)
+    covered[:, 30:] = False
+    heights = np.full((40, 40), 60.0)
+    heights[:20, 27:30] = -9999.0
+    heights[20:, 27:30] = 2.0
+    regions = classify_uncovered(covered, heights, nodata=-9999.0)
+    assert 0.0 < regions[0]["boundaryValidShare"] < 1.0
+    assert regions[0]["boundaryMedianM"] == 2.0
     assert classify_region(regions[0]) == "sea"
 
 
 def test_classify_reads_a_high_border_as_foreign_land():
+    """The Värmland case: Swedish terrain with valid data runs up to the border."""
     covered = np.ones((40, 40), dtype=bool)
     covered[:, 30:] = False
     heights = np.full((40, 40), 60.0)
     heights[:, 27:30] = 420.0  # a mountain border, not a coastline
-    regions = classify_uncovered(covered, heights)
+    regions = classify_uncovered(covered, heights, nodata=-9999.0)
+    assert regions[0]["boundaryValidShare"] == 1.0
+    assert regions[0]["boundaryMedianM"] == 420.0
     assert classify_region(regions[0]) == "foreign-land"
 
 

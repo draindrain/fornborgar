@@ -495,7 +495,7 @@ def fetch_ring_mosaic(cfg: SiteConfig, spec, force: bool = False) -> tuple[Path,
     # Classify BEFORE the fill, while the covered mask and the real heights are
     # both still here: afterwards every uncovered cell reads 0.0 and there is no
     # way left to tell open Baltic from Norwegian fjäll (contract §11, §2b).
-    uncovered_regions = classify_uncovered(covered, np.where(covered, mosaic, 0.0))
+    uncovered_regions = classify_uncovered(covered, mosaic, nodata=DTM_NODATA)
     mosaic[sea_filled] = 0.0
     nodata_cells = int((mosaic == DTM_NODATA).sum())
     valid = mosaic[mosaic != DTM_NODATA]
@@ -506,8 +506,13 @@ def fetch_ring_mosaic(cfg: SiteConfig, spec, force: bool = False) -> tuple[Path,
     for region in uncovered_regions[:3]:
         print(
             f"  uncovered region: {region['cells']:,} cells, "
-            f"{'edge-connected' if region['touchesEdge'] else 'ENCLOSED'}, "
-            f"bounded by land at {region['boundaryMedianM']} m (p90 {region['boundaryP90M']} m)"
+            f"{'edge-connected' if region['touchesEdge'] else 'ENCLOSED'}, boundary "
+            f"{100 * region['boundaryValidShare']:.0f} % valid ground"
+            + (
+                f" at {region['boundaryMedianM']} m (p90 {region['boundaryP90M']} m)"
+                if region["boundaryMedianM"] is not None
+                else " (all nodata — water)"
+            )
         )
 
     cache_path = cfg.ring_cache_path(spec)
