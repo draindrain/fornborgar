@@ -493,6 +493,16 @@ The fix needs **no new dataset** — only table and rule work, in Phase-9d code:
    conifer fraction must collapse from ~90 % to a residual; on Broborg, the
    raster must be byte-identical to today's.
 
+**As built (2026-08-22, same session).** All three items are implemented
+(`landcover.SOIL_GROUPS`, `GROUP_SEDIMENTARY`, the `alvar` class) and the smoke
+run against the published R2 bundles measured: Eketorp 28.1 % alvar (soil said
+28.4 %), Ismantorp 1.7 % (soil: 1.7 %), Torsburgen 62.4 % — the phantom conifer
+forest is gone from all three. The tripwire immediately caught **five further
+spelling-variant classes** at Torsburgen and Tarsta berg — `Flygsand`,
+`Moränlera`, `Mossetorv`, `Svämsediment, grovsilt--finsand`, `Svämsediment,
+sand` — now mapped in the table with their provenance commented; expect the 9c
+county fill to surface more, which is the tripwire working, not failing.
+
 ## 6. The repeatable procedure (all 1,304 sites, no hand-tuning)
 
 **Inputs** (all already fetched or computed per site by the existing pipeline):
@@ -517,8 +527,15 @@ sites extract.
 **Checks** (batch QA gates + the contact sheet, per scale-out §4.4):
 
 - **Broborg control:** boreonemoral parameters ≡ today's parameters; the
-  committed Broborg `landcover.tif` and legend must be reproduced byte-identically
-  by the zone-aware pipeline. If a refactor moves them, the refactor is wrong.
+  zone-aware pipeline must reproduce the committed Broborg `landcover.tif`
+  **cell for cell**, and the legend's every semantic field (indices, colors,
+  vegetation specs, area fractions, reference level) unchanged — legend *text*
+  may gain the zone and anchor disclosures, reviewed in the diff. Byte-level
+  identity applies to the cell values, not the file container: the committed
+  bundle is deliberately the pre-v1.5 COG back-compat fixture, and the v1.5
+  writer's own profile gate refuses to regenerate it in place. **Verified
+  2026-08-22: 4,000,000 of 4,000,000 cells identical, every class census
+  equal, zero alvar cells.** If a refactor moves them, the refactor is wrong.
 - Zone census printed by the batch (expect 22 / 1,261 / 21 ± the altitude term);
   any site whose zone changes between runs fails loudly.
 - Per-zone class-fraction sanity on the pilot: alvar class present at the four

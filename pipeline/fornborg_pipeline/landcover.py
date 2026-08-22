@@ -27,7 +27,9 @@ What the engine actually knows, per 2 m cell of the 4x4 km context extent:
      itself* and the reed belt at its edge are no longer raster classes — they are
      exact functions of this grid and the level the app is showing, so the app
      derives them per century (§9's v1.3 carve-out) instead of reading a frozen
-     copy of the reference century's shoreline;
+     copy of the reference century's shoreline. Since Phase 9d the pair is
+     optional *as a pair*: an inland site ships neither half (scale-out §4.3),
+     the one sea test is then vacuous, and the legend says so;
   4. **settlement proximity** — Euclidean distance to the nearest registered
      grave/settlement record in `sites.json` (§3), the cultivation proxy and the
      grazing radius;
@@ -88,8 +90,11 @@ from .manifest import (
     write_data_licenses,
     write_manifest,
 )
+from .reveals import CITATION as REVEALS_CITATION
+from .reveals import RevealsAnchor, openness_anchor
 from .shoreline import SHORELINE_PATH, interpolate_level
 from .sites import SITES, SiteConfig, get_site
+from .zones import ZoneAssignment, assign_zone
 
 LANDCOVER_PATH = "landcover.tif"
 LANDCOVER_LEGEND_PATH = "landcover_legend.json"
@@ -133,35 +138,72 @@ GROUP_FINE = 3  # postglacial fine sediments — the cultivable ground
 GROUP_CLAY = 4  # glacial clay and modern fill — heavy, wet, uncultivated here
 GROUP_GRAVEL = 5  # glaciofluvial / beach gravels — dry, well drained
 GROUP_TILL = 6
-GROUP_BEDROCK = 7
+GROUP_BEDROCK = 7  # crystalline bedrock (Urberg) — the rocky conifer ground
 GROUP_OTHER = 8  # mapped by SGU, but a class this table does not name
+#: Sedimentary bedrock is its own group, not folded into GROUP_BEDROCK, because
+#: it produces a different landscape: on Öland and Gotland "Sedimentärt berg" is
+#: the limestone pavement of the alvar — centimetres of soil, no closed forest —
+#: measured at 28–84 % of the island pilot extents (docs/vegetation-zones.md §5).
+GROUP_SEDIMENTARY = 9
 
 #: `jg2_tx` / `jy1_tx` strings exactly as the API spells them — note the double
 #: hyphen in "Svämsediment, ler--silt", which is the product's own spelling and
 #: not a typo to be tidied away here. Classes absent from this table fall to
 #: `GROUP_OTHER` and are listed in the run log rather than silently absorbed.
+#:
+#: The table was written against the Broborg extract and extended 2026-08-22
+#: with the classes the four island pilot extents actually return
+#: (docs/vegetation-zones.md §5.1–§5.2) — before that extension, 89–95 % of
+#: those extents fell through to `GROUP_OTHER` and would have rendered as dense
+#: conifer forest on the alvar. The run-log tripwire stays: whatever class the
+#: next county surprises us with is logged, never silently absorbed.
 SOIL_GROUPS: dict[str, int] = {
     "Vatten": GROUP_WATER,
     "Kärrtorv": GROUP_PEAT,
     "Mosstorv": GROUP_PEAT,
+    # The product uses both spellings; measured at the Tarsta berg extent.
+    "Mossetorv": GROUP_PEAT,
     "Torv": GROUP_PEAT,
     "Gyttja": GROUP_PEAT,
+    # Calcareous lake marl / gyttja — a wet basin deposit; classes with it read
+    # as fen ground like the other gyttja variants.
+    "Bleke och kalkgyttja": GROUP_PEAT,
     "Postglacial lera": GROUP_FINE,
     "Gyttjelera (eller lergyttja)": GROUP_FINE,
     "Svämsediment, ler--silt": GROUP_FINE,
+    "Svämsediment, grovsilt--finsand": GROUP_FINE,
+    "Svämsediment, sand": GROUP_FINE,
     "Postglacial sand": GROUP_FINE,
     "Postglacial silt": GROUP_FINE,
+    "Postglacial finsand": GROUP_FINE,
+    # Aeolian dune sand — the sandy-sediment family, measured at the Torsburgen
+    # and Tarsta berg extents (2026-08-22 smoke run).
+    "Flygsand": GROUP_FINE,
     "Glacial lera": GROUP_CLAY,
     "Glacial silt": GROUP_CLAY,
     "Fyllning": GROUP_CLAY,
     "Isälvssediment": GROUP_GRAVEL,
     "Klapper": GROUP_GRAVEL,
+    # Wave-washed beach gravel (svallsediment): the same well-drained shoreline
+    # deposit family as Klapper, spelled as the island extracts return it.
+    "Svallsediment, grus": GROUP_GRAVEL,
     "Sandig morän": GROUP_TILL,
     "Morän": GROUP_TILL,
     "Grusig morän": GROUP_TILL,
     "Moränlera eller lermorän": GROUP_TILL,
+    # The clayey-till spellings the island extracts return; same ground as the
+    # "Moränlera eller lermorän" already above — Öland's cultivable till plains.
+    "Lerig morän": GROUP_TILL,
+    "Moränlera": GROUP_TILL,
+    "Moränlera eller lerig morän": GROUP_TILL,
+    "Morängrovlera": GROUP_TILL,
     "Urberg": GROUP_BEDROCK,
     "Berg": GROUP_BEDROCK,
+    # Boulder fields read as rocky ground, not as a plantable or plowable class.
+    "Sten--block": GROUP_BEDROCK,
+    # Limestone pavement — the alvar driver; deliberately NOT GROUP_BEDROCK,
+    # see the group comment above.
+    "Sedimentärt berg": GROUP_SEDIMENTARY,
 }
 
 #: The one soil class the *surface* layer contributes: peat over mineral ground.
@@ -287,6 +329,40 @@ DEFAULT_PARAMS = LandcoverParams()
 
 
 @dataclass(frozen=True)
+class SiteContext:
+    """What the legend text needs to know about *where* this site is (Phase 9d).
+
+    The defaults reproduce the pre-9d behaviour — a wet boreonemoral site with no
+    zone disclosure — so every earlier caller and test reads exactly as before.
+    `landcover.run` always fills it in from the zone assignment, the REVEALS
+    lookup and the presence of the §6/§7 water pair.
+    """
+
+    #: The vegetation-zone assignment (docs/vegetation-zones.md §1.2), or None
+    #: for callers that predate zones; None writes no zone text and applies no
+    #: zone override, which is the boreonemoral spruce-present behaviour.
+    zone: ZoneAssignment | None = None
+    #: The REVEALS open-land figure for the site's 1° grid cell, or None when
+    #: the cell is absent from the product — a measured absence the calibration
+    #: text discloses (docs/vegetation-zones.md §3.1).
+    anchor: RevealsAnchor | None = None
+    #: False for a dry site: no shoreline.json, no connect grid (scale-out
+    #: §4.3 — inland forts ship no water pair). The sea-related rule clauses
+    #: and the two dynamic classes are then vacuous and the text says so.
+    has_shoreline: bool = True
+    #: True only for the Broborg pair (the hand-configured reference site and
+    #: its registry twin l1943-7827): the Långhundraleden pollen literature is a
+    #: genuine local anchor *there* and nowhere else — quoting it nationally
+    #: would repeat the §7.2 shoreline-sentence defect.
+    local_pollen_anchors: bool = False
+
+
+#: The registry twin carries the same fort as the hand-configured reference
+#: site, so both keep the valley-specific pollen citations in their legends.
+LOCAL_POLLEN_ANCHOR_SITES = frozenset({"broborg", "l1943-7827"})
+
+
+@dataclass(frozen=True)
 class LandcoverClass:
     """One legend row (contract §10). `index` is the raw value in the raster."""
 
@@ -349,7 +425,8 @@ _RULES = (
         {"type": "reeds", "densityPerHa": 500},
         None,
         "Not water, and either SGU's ground layer maps peat or gyttja (Kärrtorv, "
-        "Mosstorv, Torv, Gyttja) or its surface layer maps a peat veneer over another "
+        "Mosstorv, Torv, Gyttja, Bleke och kalkgyttja) or its surface layer maps a "
+        "peat veneer over another "
         "soil. Mapped soil is what defines this class, which is why it is static and "
         "does not move with the slider: a fen stranded inland by the falling sea is "
         "still a fen.",
@@ -368,9 +445,9 @@ _RULES = (
         "proximity heuristic and no soil test is applied to it. Otherwise, proximity: "
         "all four of: SGU maps a postglacial fine sediment "
         "(Postglacial lera, Gyttjelera (eller lergyttja), Svämsediment, ler--silt, "
-        "Postglacial sand) or the margin of a till unit within {margin:.0f} m of one; "
-        "the ground stands more than {fresh:.1f} m above the {year} CE water line "
-        "(seabed drained more recently than that is too wet to plough); the slope is "
+        "Postglacial sand, silt and finsand) or the margin of a till unit within "
+        "{margin:.0f} m of one; "
+        "{fresh_clause}the slope is "
         "under {farm_slope:.0f}°; and a registered grave or settlement site — "
         "{proxy_types} — lies within {radius:.0f} m. Away from the mapped field "
         "remains, proximity to burial and settlement evidence is the only cultivation "
@@ -474,6 +551,61 @@ _RULES = (
         "deliberately tighter than the farmland rule's {radius:.0f} m: the infield's "
         "grazed fringe, while closed forest persists on the outland till.",
     ),
+    (
+        "alvar",
+        "Alvar / open limestone heath",
+        "#b9bd9e",
+        None,
+        None,
+        "SGU maps the ground as 'Sedimentärt berg' — on Öland and Gotland the "
+        "limestone pavement of the alvar, carrying centimetres of soil at most. "
+        "Ground that cannot hold closed forest is modelled as open grass heath "
+        "whatever its slope, klint faces included: bare rock and thin grass, not "
+        "wood. The palaeoecological record holds the great alvar grasslands open "
+        "through the Iron Age under grazing (Königsson 1968; "
+        "docs/vegetation-zones.md §5). Applied after the water, fen, settled-ground, "
+        "road and mapped-field rules, so a registered monument or fossil field on "
+        "the alvar keeps its own class. Scattered juniper is characteristic of the "
+        "real alvar, but the model's three tree forms have no honest shrub, so the "
+        "class ships treeless rather than dressing junipers as full-height trees.",
+    ),
+)
+
+
+#: Rule text for the two water-tied classes on a *dry* site (no §6/§7 water
+#: pair, scale-out §4.3): the wet rules describe slider behaviour the app can
+#: only provide with a connect grid, so shipping them on a dry site would
+#: disclose a method that never runs. Neither entry is marked `dynamic`.
+_DRY_WATER_RULE = (
+    "SGU maps the present ground as 'Vatten' — the lakes and watercourses that "
+    "hold water whatever the sea is doing. This site ships no shoreline model "
+    "(the SGU strandförskjutning polygons do not reach its extent in the era "
+    "range, which is the normal case for an inland fort), so there is no "
+    "modelled sea and no water-level slider here: the raster's water cells are "
+    "all the water the model shows."
+)
+_DRY_REEDS_RULE = (
+    "Defined only for sites with a modelled shoreline: the reed belt is the "
+    "strip just above the sea's edge, derived from the sea-connectivity grid at "
+    "the level being shown. This site has no shoreline model, so the class is "
+    "empty and holds no cells."
+)
+
+#: Appended to the conifer class's rule where the measured 500 CE spruce front
+#: (docs/vegetation-zones.md §2.4) says Norway spruce had not arrived.
+_NO_SPRUCE_NOTE = (
+    " At 500 CE Norway spruce had not yet colonized this region — the measured "
+    "spruce front runs north and east of here (docs/vegetation-zones.md §2.4) — "
+    "so the conifer forms in this class represent pine."
+)
+
+#: The southern boreal override for the till-forest class: same ground, same
+#: density, different measured identity (docs/vegetation-zones.md §2.3).
+_BOREAL_TILL_NOTE = (
+    " In the southern boreal zone the pollen record for ~500 CE shows the till "
+    "forest as pine, birch and spruce rather than oak-hazel woodland "
+    "(docs/vegetation-zones.md §2.3), so this class renders conifer forms here, "
+    "at the same 90 stems per hectare."
 )
 
 
@@ -483,6 +615,7 @@ def landcover_classes(
     reference_year_ce: int = REFERENCE_YEAR_CE,
     sea_fraction: float = 0.0,
     band_fraction: float = 0.0,
+    context: SiteContext = SiteContext(),
 ) -> tuple[LandcoverClass, ...]:
     """The taxonomy with its names and rule text filled in from the thresholds used.
 
@@ -490,12 +623,26 @@ def landcover_classes(
     reference level (see `run()`): the two dynamic classes hold no raster cells, so
     their share of the extent has to be quoted from that measurement instead of from
     the class fractions the legend reports.
+
+    `context` (Phase 9d) carries the zone assignment and water availability. The
+    default reproduces the pre-9d taxonomy exactly; a zone changes only what
+    docs/vegetation-zones.md §4 licenses — the *identity* of the forest classes,
+    never a density or a radius.
     """
+    fresh_clause = (
+        f"the ground stands more than {params.fresh_land_m:.1f} m above the "
+        f"{reference_year_ce} CE water line (seabed drained more recently than "
+        f"that is too wet to plough); "
+        if context.has_shoreline
+        else "there is no modelled water line here, so the freshly-drained-seabed "
+        "test does not apply; "
+    )
     fields = {
         "year": reference_year_ce,
         "level": reference_level_m,
         "band": params.shore_band_m,
         "fresh": params.fresh_land_m,
+        "fresh_clause": fresh_clause,
         "margin": params.till_margin_m,
         "radius": params.farmland_radius_m,
         "pasture": params.pasture_radius_m,
@@ -512,7 +659,7 @@ def landcover_classes(
         "water": {"kind": "water"},
         "shore-band": {"kind": "shore-band", "bandM": float(params.shore_band_m)},
     }
-    return tuple(
+    taxonomy = [
         LandcoverClass(
             index=index,
             id=class_id,
@@ -523,7 +670,36 @@ def landcover_classes(
             dynamic=dynamic_specs[kind] if kind else None,
         )
         for index, (class_id, name, color, vegetation, kind, rule) in enumerate(_RULES)
-    )
+    ]
+
+    if not context.has_shoreline:
+        # Dry site: no dynamic classes, and rule text that does not promise a
+        # slider the site cannot drive (the app already treats a legend without
+        # `dynamic` keys as fully static, contract §10 v1.3).
+        taxonomy[CLASS_WATER] = replace(
+            taxonomy[CLASS_WATER], rule=_DRY_WATER_RULE, dynamic=None
+        )
+        taxonomy[CLASS_SHORE_REEDS] = replace(
+            taxonomy[CLASS_SHORE_REEDS], rule=_DRY_REEDS_RULE, dynamic=None
+        )
+
+    if context.zone is not None:
+        if context.zone.zone == "s_boreal":
+            # Same class, same ground, same density — different measured identity.
+            taxonomy[CLASS_BROADLEAF] = replace(
+                taxonomy[CLASS_BROADLEAF],
+                name="Mixed boreal forest (conifer-dominated)",
+                vegetation={"type": "conifer", "densityPerHa": 90},
+                rule=taxonomy[CLASS_BROADLEAF].rule + _BOREAL_TILL_NOTE,
+            )
+        if not context.zone.spruce_present:
+            taxonomy[CLASS_CONIFER] = replace(
+                taxonomy[CLASS_CONIFER],
+                name="Pine forest / rocky ground",
+                rule=taxonomy[CLASS_CONIFER].rule + _NO_SPRUCE_NOTE,
+            )
+
+    return tuple(taxonomy)
 
 
 CLASS_WATER = 0
@@ -544,6 +720,10 @@ CLASS_CLEARED = 7
 CLASS_SHORE_REEDS = 8
 #: Appended in v1.3, applied between the gravel corridors and the broadleaf wood.
 CLASS_WOOD_PASTURE = 9
+#: Appended in Phase 9d for the island sites: sedimentary bedrock (limestone
+#: alvar) is open heath, not conifer/rocky ground. Every legend lists it; its
+#: area fraction is simply 0 wherever SGU maps no 'Sedimentärt berg'.
+CLASS_ALVAR = 10
 
 
 # --------------------------------------------------------------------------- #
@@ -722,7 +902,7 @@ def slope_degrees(heights_m: np.ndarray, resolution: float) -> np.ndarray:
 
 
 def classify(
-    connect_m: np.ndarray,
+    connect_m: np.ndarray | None,
     soil_group: np.ndarray,
     peat_surface: np.ndarray,
     slope_deg: np.ndarray,
@@ -730,7 +910,7 @@ def classify(
     monument_distance_m: np.ndarray,
     cultivation_distance_m: np.ndarray,
     road_distance_m: np.ndarray,
-    reference_level_m: float,
+    reference_level_m: float | None,
     cell_size_m: float,
     params: LandcoverParams = DEFAULT_PARAMS,
 ) -> np.ndarray:
@@ -747,9 +927,17 @@ def classify(
     ago to plough. The sea itself and the reed belt above it are `dynamic` legend
     classes (§9/§10 v1.3) the app derives at the level it is showing, so this
     function never writes `CLASS_SHORE_REEDS` and never calls sea-connected ground
-    water.
+    water. A dry site (scale-out §4.3: no water pair) passes `connect_m=None` and
+    `reference_level_m=None` together — the one sea test is then vacuous, since
+    with no modelled sea nothing recently drained out of it.
     """
-    shapes = {a.shape for a in (connect_m, soil_group, peat_surface, slope_deg)}
+    if (connect_m is None) != (reference_level_m is None):
+        raise LandcoverError(
+            "connect_m and reference_level_m must be given together (wet site) or "
+            "both be None (dry site)"
+        )
+    water_grids = (connect_m,) if connect_m is not None else ()
+    shapes = {a.shape for a in (*water_grids, soil_group, peat_surface, slope_deg)}
     if len(shapes) != 1:
         raise LandcoverError(f"rule inputs disagree on shape: {sorted(shapes)}")
     for label, grid in (
@@ -758,9 +946,9 @@ def classify(
         ("cultivation", cultivation_distance_m),
         ("road", road_distance_m),
     ):
-        if grid.shape != connect_m.shape:
+        if grid.shape != soil_group.shape:
             raise LandcoverError(
-                f"{label} distance grid is {grid.shape}, expected {connect_m.shape}"
+                f"{label} distance grid is {grid.shape}, expected {soil_group.shape}"
             )
 
     # 1. water — only what SGU maps as water today. The reference century's sea is
@@ -809,10 +997,17 @@ def classify(
     fine = soil_group == GROUP_FINE
     to_fine = distance_meters(fine, cell_size_m)
     till_margin = (soil_group == GROUP_TILL) & (to_fine <= params.till_margin_m)
+    # Dry site: with no modelled sea, no ground is freshly drained seabed, so the
+    # test passes everywhere rather than blocking the plough nationwide.
+    long_drained = (
+        connect_m > reference_level_m + params.fresh_land_m - LEVEL_EPSILON
+        if connect_m is not None
+        else np.ones(soil_group.shape, dtype=bool)
+    )
     farmland = (
         ~taken
         & (fine | till_margin)
-        & (connect_m > reference_level_m + params.fresh_land_m - LEVEL_EPSILON)
+        & long_drained
         & (slope_deg <= params.farmland_max_slope_deg)
         & (settlement_distance_m <= params.farmland_radius_m)
     )
@@ -828,6 +1023,15 @@ def classify(
     corridor = ~taken & (soil_group == GROUP_GRAVEL)
     classes[corridor] = CLASS_DRY_CORRIDOR
     taken |= corridor
+
+    # 8b. alvar — sedimentary bedrock (Öland/Gotland limestone pavement): ground
+    #     that cannot carry closed forest is open heath whatever its slope, klint
+    #     faces included; treeless grass beats forested cliffs for honesty.
+    #     After the evidence rules, so a monument or mapped field on the alvar
+    #     keeps its own class (Phase 9d, docs/vegetation-zones.md §5.3).
+    alvar = ~taken & (soil_group == GROUP_SEDIMENTARY)
+    classes[alvar] = CLASS_ALVAR
+    taken |= alvar
 
     # 9. wooded pasture — till within the grazing radius: half-open woodland,
     #    not closed wood. Tighter than the farmland radius on purpose — with the
@@ -873,14 +1077,12 @@ CAVEAT = (
 
 METHOD = (
     "Every 2 m cell of the {extent:.0f}×{extent:.0f} km context extent was classified once, "
-    "for {year} CE, by a rule engine reading seven inputs: the SGU Jordarter polygons "
+    "for {year} CE, by a rule engine reading {input_count} inputs: the SGU Jordarter polygons "
     "({collections}) rasterized onto the grid, with any cell no polygon covered "
     "({coverage:.1f} % of the extent here) taking its nearest neighbour's class and the "
     "surface layer's peat veneer carried as a separate flag; slope in degrees from the "
-    "committed LiDAR DEM (np.gradient); the sea-connectivity grid (water_connect.tif) "
-    "against the {year} CE water level of {level:.1f} m RH 2000 interpolated from "
-    "shoreline.json, read for one test only — whether the ground drained long enough ago to "
-    "plough; the Euclidean distance to the nearest of the {proxies} registered grave or "
+    "committed LiDAR DEM (np.gradient); {water_input}"
+    "the Euclidean distance to the nearest of the {proxies} registered grave or "
     "settlement records in sites.json, used as the cultivation proxy and the grazing radius; "
     "the distance to the registered footprints of the era's occupied remains (the fornborg "
     "extent plus those same grave and settlement records), whose ground is modelled as kept "
@@ -890,46 +1092,136 @@ METHOD = (
     "records, whose line is kept as an open corridor. The rules are applied in a fixed "
     "precedence — mapped water first, then peat fen, then the occupied footprints, then the "
     "road corridors, then farmland (mapped evidence before the proximity heuristic), then "
-    "the remaining open ground, then wooded pasture and forest — and each class's rule text "
-    "below states its own branch verbatim. Two classes are deliberately not in the raster: "
+    "the remaining open ground (the alvar among it), then wooded pasture and forest — and "
+    "each class's rule text "
+    "below states its own branch verbatim. {dynamic_note}"
+    "Every other class was classified once, for {year} CE. SGU maps the present-day "
+    "soil surface; treating it as the ground of {year} CE is the model's central assumption. "
+    "The raster answers only 'what might this landscape have looked like around {year} CE?'."
+    "{zone_note}"
+)
+
+#: The water-input clause of METHOD for a site with the §6/§7 pair, verbatim as
+#: it read before the dry-site variant existed.
+_METHOD_WATER_WET = (
+    "the sea-connectivity grid (water_connect.tif) "
+    "against the {year} CE water level of {level:.1f} m RH 2000 interpolated from "
+    "shoreline.json, read for one test only — whether the ground drained long enough ago to "
+    "plough; "
+)
+_METHOD_WATER_DRY = (
+    "no water input: this site ships no shoreline model or connectivity grid "
+    "(the strandförskjutning polygons do not reach its extent in the era range, "
+    "the normal case inland), so the freshly-drained-seabed test does not apply; "
+)
+_METHOD_DYNAMIC_WET = (
+    "Two classes are deliberately not in the raster: "
     "the open sea and the {band:.1f} m shore reed band above it are exact functions of the "
     "connectivity grid and the water level, so the app draws them for whatever century the "
     "slider shows instead of reading a frozen {year} CE copy — contract §9's v1.3 carve-out, "
     "using the same data and the same 'connect ≤ level' semantics as the §7 water rendering. "
-    "Every other class was classified once, for {year} CE. SGU maps the present-day "
-    "soil surface; treating it as the ground of {year} CE is the model's central assumption. "
-    "The raster answers only 'what might this landscape have looked like around {year} CE?'."
+)
+_METHOD_DYNAMIC_DRY = (
+    "With no water pair there are no dynamic classes here: the water class holds "
+    "only SGU-mapped modern water and the shore reed class is empty. "
+)
+#: The Phase-9d zone disclosure appended to METHOD. Everything the zone does is
+#: named; everything it does not do is named too.
+_METHOD_ZONE = (
+    " The parameter set is the {zone_name} zone's — assignment by latitude "
+    "({lat:.2f}°N) with the altitude term and the Öland/Gotland carve-out "
+    "(docs/vegetation-zones.md §1.2, a documented modelling choice, not a "
+    "surveyed boundary). Norway spruce is {spruce} the {year} CE conifer mix "
+    "here (the measured spruce front, docs/vegetation-zones.md §2.4). The zone "
+    "changes only the identity of the forest classes; every threshold, radius "
+    "and density is identical in every zone (docs/vegetation-zones.md §4)."
 )
 
-CALIBRATION = (
+CALIBRATION_MEASURED = (
     "Measured on this raster: {forest:.1f} % closed forest ({broadleaf:.1f} % broadleaf, "
     "{conifer:.1f} % conifer), {open_land:.1f} % open ground ({farmland:.1f} % farmland, "
     "{meadow:.1f} % wet meadow/pasture, {corridor:.1f} % dry gravel corridor, "
-    "{cleared:.1f} % settled ground kept clear), and {pasture:.1f} % wooded pasture — grazed "
+    "{cleared:.1f} % settled ground kept clear{alvar_clause}), and {pasture:.1f} % wooded "
+    "pasture — grazed "
     "and half-open, so it is reported as its own term and counted with the open ground in the "
     "ratio below, not with the forest. Then "
-    "{marsh:.1f} % peat fen and {water:.1f} % modern (SGU 'Vatten') water. The sea is not in "
+    "{marsh:.1f} % peat fen and {water:.1f} % modern (SGU 'Vatten') water. {sea_note}Counting "
+    "only dry land, the forest-to-open ratio is {forest_land:.0f}:{open_land_dry:.0f}. "
+)
+
+_SEA_NOTE_WET = (
+    "The sea is not in "
     "the raster: at the {year} CE level the sea additionally covers {sea:.1f} % of the extent "
     "and the shore reed belt {bandpct:.1f} %, both re-derived by the app for the century it "
-    "is showing. Counting "
-    "only dry land, the forest-to-open ratio is {forest_land:.0f}:{open_land_dry:.0f}. No "
-    "quantified (REVEALS-type) openness figure for Iron Age Uppland has been found (PLAN.md "
-    "§2.5 records this as open), so there is no local number to calibrate against and none "
-    "has been fitted. The nearest published benchmark — Hultberg et al. (2019), REVEALS "
-    "openness of 90–97 % for agrarian Scania — is cited as methodological context only: it "
-    "describes a different region and a later, far more intensively cleared agrarian "
-    "landscape, and this model does not aim at it. The pollen records that do cover this "
-    "valley (Karlsson 1999 for the Arlanda–Knivsta area; the Stockholm University thesis on "
-    "shore displacement and paleoenvironment along Långhundraleden) are qualitative here: "
-    "they describe an Iron Age landscape opening around settlement and waterway while forest "
-    "persisted on till and bedrock, which is the pattern this classification reproduces. The "
-    "ratio is reported, not force-fitted (PLAN.md §4.7)."
+    "is showing. "
+)
+_SEA_NOTE_DRY = (
+    "There is no modelled sea here — the site ships no shoreline model — so the "
+    "water share above is all the water the model shows. "
+)
+
+#: The regional pollen picture per zone, from the assemblages computed for this
+#: phase (docs/vegetation-zones.md §2). Qualitative on purpose: raw pollen
+#: percentages are not vegetation percentages and are never quoted as cover.
+_ZONE_CALIBRATION = {
+    "nemoral": (
+        "The regional pollen record for the nemoral zone at ~500 CE "
+        "(docs/vegetation-zones.md §2, computed from 13 Neotoma pollen sites) shows a "
+        "broadleaf landscape — birch, alder, hazel and oak dominant, beech present but "
+        "far from its later dominance — carrying the strongest agrarian signal in the "
+        "country, opened district by district rather than uniformly. The model's "
+        "opening around settlement evidence is consistent with that picture. "
+    ),
+    "boreonemoral": (
+        "The regional pollen record for the boreonemoral zone at ~500 CE "
+        "(docs/vegetation-zones.md §2, computed from 23 Neotoma pollen sites) shows the "
+        "classic mixed picture — birch, pine, alder, oak and hazel, with opening "
+        "concentrated around settlement while forest persisted on the till — which is "
+        "the pattern the evidence-radius rules reproduce. "
+    ),
+    "s_boreal": (
+        "The regional pollen record for the southern boreal zone at ~500 CE "
+        "(docs/vegetation-zones.md §2, six Neotoma pollen sites) shows closed "
+        "conifer-dominated forest — pine and birch with spruce as a stand-former — and "
+        "agrarian indicators at trace level; the sparser KMR evidence around most "
+        "sites here keeps the modelled landscape correspondingly closed. "
+    ),
+}
+
+_ANCHOR_COVERED = (
+    "For regional context, the pollen-based REVEALS reconstruction estimates "
+    "{ol:.0f} ± {se} % open land for this site's 1°×1° grid cell in 250–750 CE "
+    "({citation}). A 100 km cell mean and a 4 km fort context measure different "
+    "things — forts sit where the evidence is — so the figure is quoted as "
+    "context, not fitted. "
+)
+_ANCHOR_ABSENT = (
+    "The pollen-based REVEALS reconstruction of Iron Age land cover (Githumbi et "
+    "al. 2022) has no estimate for this site's 1°×1° grid cell — no suitable "
+    "pollen record fed the model there, a measured absence "
+    "(docs/vegetation-zones.md §3.1) — so there is no quantified regional "
+    "openness figure to quote, and none has been invented. "
+)
+#: Only the Broborg pair carries these citations: they cover this one valley
+#: (see SiteContext.local_pollen_anchors).
+_LOCAL_ANCHORS = (
+    "The pollen records that cover this valley (Karlsson 1999 for the "
+    "Arlanda–Knivsta area; the Stockholm University thesis on shore displacement "
+    "and paleoenvironment along Långhundraleden) are qualitative here: they "
+    "describe an Iron Age landscape opening around settlement and waterway while "
+    "forest persisted on till and bedrock, which is the pattern this "
+    "classification reproduces. "
+)
+_CALIBRATION_CLOSE = (
+    "The ratio is reported, not force-fitted (PLAN.md §4.7): the opening rules are "
+    "calibrated at Broborg and held national — no regional openness figure has "
+    "been fitted, per zone or otherwise (docs/vegetation-zones.md §3.2)."
 )
 
 
 def method_text(
     cfg: SiteConfig,
-    reference_level_m: float,
+    reference_level_m: float | None,
     collections: Sequence[str],
     coverage: float,
     proxies: int,
@@ -937,18 +1229,43 @@ def method_text(
     cultivation: int = 0,
     roads: int = 0,
     params: LandcoverParams = DEFAULT_PARAMS,
+    context: SiteContext = SiteContext(),
 ) -> str:
     """The one-paragraph derivation description the app shows verbatim (contract §10)."""
+    if context.has_shoreline:
+        water_input = _METHOD_WATER_WET.format(
+            year=reference_year_ce, level=reference_level_m
+        )
+        dynamic_note = _METHOD_DYNAMIC_WET.format(
+            year=reference_year_ce, band=params.shore_band_m
+        )
+        input_count = "seven"
+    else:
+        water_input = _METHOD_WATER_DRY
+        dynamic_note = _METHOD_DYNAMIC_DRY
+        input_count = "six"
+    zone_note = (
+        _METHOD_ZONE.format(
+            zone_name=context.zone.zone_name,
+            lat=context.zone.lat,
+            year=reference_year_ce,
+            spruce="part of" if context.zone.spruce_present else "absent from",
+        )
+        if context.zone is not None
+        else ""
+    )
     return METHOD.format(
         extent=2.0 * cfg.context.half_extent / 1000.0,
         year=reference_year_ce,
-        level=reference_level_m,
+        input_count=input_count,
+        water_input=water_input,
+        dynamic_note=dynamic_note,
+        zone_note=zone_note,
         collections=", ".join(collections) or "n/a",
         coverage=100.0 * (1.0 - coverage),
         proxies=proxies,
         cultivation=cultivation,
         roads=roads,
-        band=params.shore_band_m,
     )
 
 
@@ -957,27 +1274,47 @@ def calibration_text(
     reference_year_ce: int = REFERENCE_YEAR_CE,
     sea_fraction: float = 0.0,
     band_fraction: float = 0.0,
+    context: SiteContext = SiteContext(),
 ) -> str:
-    """The forest/open comparison against the PLAN.md §2.5 anchors (contract §10).
+    """The measured forest/open shares plus the regional context (contract §10).
 
     `sea_fraction` and `band_fraction` are the two dynamic classes' share of the
     extent at the reference level, measured on the connectivity grid: they hold no
     raster cells, so `fractions` cannot report them.
+
+    Since Phase 9d the paragraph is assembled per site: the measured shares, the
+    zone's pollen picture, the REVEALS cell anchor (or its measured absence —
+    both are real results, docs/vegetation-zones.md §3), the Broborg pair's
+    valley-specific citations, and the report-not-fit close. Nothing here ever
+    feeds back into the rules.
     """
     percent = [100.0 * f for f in fractions]
     forest = percent[CLASS_BROADLEAF] + percent[CLASS_CONIFER]
     pasture = percent[CLASS_WOOD_PASTURE]
+    # The alvar joins the open ground: it is grazed grass heath (its rule text),
+    # and counting it as forest-adjacent would undo the point of the class.
+    alvar = percent[CLASS_ALVAR] if len(percent) > CLASS_ALVAR else 0.0
     open_land = (
         percent[CLASS_FARMLAND]
         + percent[CLASS_MEADOW]
         + percent[CLASS_DRY_CORRIDOR]
         + percent[CLASS_CLEARED]
+        + alvar
     )
     # Wooded pasture is grazed half-open ground, so the ratio counts it as open and
     # the sentence above says so rather than letting the number carry the decision.
     open_total = open_land + pasture
     dry = forest + open_total
-    return CALIBRATION.format(
+    sea_note = (
+        _SEA_NOTE_WET.format(
+            year=reference_year_ce,
+            sea=100.0 * float(sea_fraction),
+            bandpct=100.0 * float(band_fraction),
+        )
+        if context.has_shoreline
+        else _SEA_NOTE_DRY
+    )
+    text = CALIBRATION_MEASURED.format(
         year=reference_year_ce,
         forest=forest,
         broadleaf=percent[CLASS_BROADLEAF],
@@ -988,20 +1325,35 @@ def calibration_text(
         meadow=percent[CLASS_MEADOW],
         corridor=percent[CLASS_DRY_CORRIDOR],
         cleared=percent[CLASS_CLEARED],
+        alvar_clause=(
+            f", {alvar:.1f} % open alvar limestone heath" if alvar >= 0.05 else ""
+        ),
         marsh=percent[CLASS_PEAT_FEN],
         water=percent[CLASS_WATER],
-        sea=100.0 * float(sea_fraction),
-        bandpct=100.0 * float(band_fraction),
+        sea_note=sea_note,
         forest_land=round(100.0 * forest / dry) if dry else 0,
         open_land_dry=round(100.0 * open_total / dry) if dry else 0,
     )
+    if context.zone is not None:
+        text += _ZONE_CALIBRATION[context.zone.zone]
+    if context.anchor is not None:
+        anchor = context.anchor
+        se = f"{anchor.open_land_se_pct:.0f}" if anchor.open_land_se_pct is not None else "?"
+        text += _ANCHOR_COVERED.format(
+            ol=anchor.open_land_pct, se=se, citation=REVEALS_CITATION
+        )
+    else:
+        text += _ANCHOR_ABSENT
+    if context.local_pollen_anchors:
+        text += _LOCAL_ANCHORS
+    return text + _CALIBRATION_CLOSE
 
 
 def build_legend(
     cfg: SiteConfig,
     classes: Sequence[LandcoverClass],
     fractions: Sequence[float],
-    reference_level_m: float,
+    reference_level_m: float | None,
     soils_meta: dict,
     coverage: float,
     proxies: int,
@@ -1011,6 +1363,7 @@ def build_legend(
     sea_fraction: float = 0.0,
     band_fraction: float = 0.0,
     params: LandcoverParams = DEFAULT_PARAMS,
+    context: SiteContext = SiteContext(),
 ) -> dict:
     """Assemble landcover_legend.json (contract §10) and gate it on the invariants."""
     if len(classes) != len(fractions):
@@ -1022,7 +1375,13 @@ def build_legend(
         "schemaVersion": SCHEMA_VERSION,
         "site": cfg.id,
         "referenceYearCE": int(reference_year_ce),
-        "referenceLevelM": round(float(reference_level_m), 1),
+        # A dry site has no reference water level; §10 requires the field, so it
+        # carries the one honest number — the level below every Swedish land
+        # surface — never a made-up local sea. The app only reads it for display
+        # next to a slider a dry site does not have.
+        "referenceLevelM": round(float(reference_level_m), 1)
+        if reference_level_m is not None
+        else 0.0,
         "method": method_text(
             cfg,
             reference_level_m,
@@ -1033,10 +1392,11 @@ def build_legend(
             cultivation,
             roads,
             params,
+            context,
         ),
         "caveat": CAVEAT,
         "calibration": calibration_text(
-            fractions, reference_year_ce, sea_fraction, band_fraction
+            fractions, reference_year_ce, sea_fraction, band_fraction, context
         ),
         "source": {
             "product": soils_meta.get("product", JORD_PRODUCT),
@@ -1230,23 +1590,44 @@ def _require(path: Path, rerun: str) -> Path:
     return path
 
 
-def load_inputs(cfg: SiteConfig) -> tuple[np.ndarray, np.ndarray, Affine, float, dict]:
-    """Read every committed input the rules need. Returns (heights, connect, transform, level, sites)."""
+def load_inputs(
+    cfg: SiteConfig,
+) -> tuple[np.ndarray, np.ndarray | None, Affine, float | None, dict]:
+    """Read every committed input the rules need. Returns (heights, connect, transform, level, sites).
+
+    The §6/§7 water pair is optional as a *pair* (scale-out §4.3: inland forts
+    ship no shoreline model — "missing asset = feature off"): with neither
+    shoreline.json nor a connect grid, `connect` and `level` come back None and
+    the caller runs the dry-site rules. Half a pair is still an error — that is
+    a broken build, not a dry site.
+    """
     build_cmd = f"python3 -m fornborg_pipeline.build --site {cfg.id}"
     water_cmd = f"python3 -m fornborg_pipeline.water --site {cfg.id}"
     sites_cmd = f"python3 -m fornborg_pipeline.fetch_sites --site {cfg.id}"
 
     context_path = _require(cfg.out_dir / cfg.context.path, build_cmd)
-    shoreline_path = _require(cfg.out_dir / SHORELINE_PATH, water_cmd)
     sites_path = _require(cfg.out_dir / SITES_PATH, sites_cmd)
     _require(cfg.out_dir / "manifest.json", build_cmd)
 
+    has_shoreline = (cfg.out_dir / SHORELINE_PATH).exists()
+    has_connect = (cfg.out_dir / WATER_CONNECT_DELTA_PATH).exists() or (
+        cfg.out_dir / WATER_CONNECT_PATH
+    ).exists()
+    if has_shoreline != has_connect:
+        missing = "the connect grid" if has_shoreline else SHORELINE_PATH
+        raise LandcoverError(
+            f"{cfg.id} has half a water pair ({missing} is missing) — re-run "
+            f"`{water_cmd}`; a dry site ships neither half."
+        )
+
     dem_dm, transform, _bounds = read_grid(context_path)
+    sites_document = json.loads(sites_path.read_text(encoding="utf-8"))
+    if not has_shoreline:
+        return dequantize_decimeters(dem_dm), None, transform, None, sites_document
+
     # v1.5 §12: the bundle ships the delta form; `read_connect_grid` reconstructs
     # `connect = dem + delta` exactly as the app does, and still reads a pre-v1.5
     # absolute grid where one is all a bundle has.
-    if not (cfg.out_dir / WATER_CONNECT_DELTA_PATH).exists():
-        _require(cfg.out_dir / WATER_CONNECT_PATH, water_cmd)
     connect_dm, connect_path = read_connect_grid(cfg.out_dir, dem_dm)
     if connect_dm.shape != dem_dm.shape:
         raise LandcoverError(
@@ -1254,9 +1635,8 @@ def load_inputs(cfg: SiteConfig) -> tuple[np.ndarray, np.ndarray, Affine, float,
             f"`{water_cmd}`."
         )
 
-    table = json.loads(shoreline_path.read_text(encoding="utf-8"))
+    table = json.loads((cfg.out_dir / SHORELINE_PATH).read_text(encoding="utf-8"))
     level = round(float(interpolate_level(table["steps"], REFERENCE_YEAR_CE)), 1)
-    sites_document = json.loads(sites_path.read_text(encoding="utf-8"))
     return (
         dequantize_decimeters(dem_dm),
         dequantize_decimeters(connect_dm),
@@ -1320,10 +1700,39 @@ def run(
 
     heights_m, connect_m, transform, level, sites_document = load_inputs(cfg)
     shape = heights_m.shape
+    level_note = (
+        f"{REFERENCE_YEAR_CE} CE water level {level:.1f} m RH 2000"
+        if level is not None
+        else "dry site (no §6/§7 water pair — scale-out §4.3)"
+    )
     print(
         f"-- context grid: {shape[1]}x{shape[0]} @ {cfg.context.resolution} m | "
-        f"z {heights_m.min():.1f}..{heights_m.max():.1f} m RH 2000 | "
-        f"{REFERENCE_YEAR_CE} CE water level {level:.1f} m RH 2000"
+        f"z {heights_m.min():.1f}..{heights_m.max():.1f} m RH 2000 | {level_note}"
+    )
+
+    # Phase 9d: the zone parameter set and the REVEALS disclosure. Crown height
+    # (context max) carries the altitude term, per docs/vegetation-zones.md §6.
+    zone = assign_zone(
+        cfg.center_e, cfg.center_n, cfg.county, float(heights_m.max())
+    )
+    anchor = openness_anchor(zone.lon, zone.lat)
+    context = SiteContext(
+        zone=zone,
+        anchor=anchor,
+        has_shoreline=level is not None,
+        local_pollen_anchors=cfg.id in LOCAL_POLLEN_ANCHOR_SITES,
+    )
+    anchor_note = (
+        f"REVEALS cell ({anchor.cell_lon}, {anchor.cell_lat}): "
+        f"{anchor.open_land_pct:.1f} % open land"
+        if anchor is not None
+        else "REVEALS cell absent from the product (disclosed)"
+    )
+    print(
+        f"-- zone: {zone.zone_name} ({zone.lat:.3f}N {zone.lon:.3f}E, "
+        f"effective {zone.effective_lat:.2f}); spruce "
+        f"{'present' if zone.spruce_present else 'absent'} at {REFERENCE_YEAR_CE} CE; "
+        f"{anchor_note}"
     )
 
     print("-- soils (SGU Jordarter)")
@@ -1405,22 +1814,34 @@ def run(
     # the extent at the reference level is measured here instead — the numbers the
     # legend quotes for the sea and the reed belt. The band excludes cells the raster
     # already calls water or fen, matching the app's band-candidate exclusion.
-    sea = connect_m <= level + LEVEL_EPSILON
-    sea_fraction = float(sea.mean())
-    band = (
-        ~sea
-        & (connect_m <= level + params.shore_band_m + LEVEL_EPSILON)
-        & (classes != CLASS_WATER)
-        & (classes != CLASS_PEAT_FEN)
-    )
-    band_fraction = float(band.mean())
-    print(
-        f"  dynamic classes at {level:.1f} m: sea {100.0 * sea_fraction:.2f} % of the "
-        f"extent, shore reed belt {100.0 * band_fraction:.2f} % "
-        f"(both re-derived by the app per century, not in the raster)"
-    )
+    # A dry site has no connect grid and both fractions are honestly zero.
+    if connect_m is not None:
+        sea = connect_m <= level + LEVEL_EPSILON
+        sea_fraction = float(sea.mean())
+        band = (
+            ~sea
+            & (connect_m <= level + params.shore_band_m + LEVEL_EPSILON)
+            & (classes != CLASS_WATER)
+            & (classes != CLASS_PEAT_FEN)
+        )
+        band_fraction = float(band.mean())
+        print(
+            f"  dynamic classes at {level:.1f} m: sea {100.0 * sea_fraction:.2f} % of the "
+            f"extent, shore reed belt {100.0 * band_fraction:.2f} % "
+            f"(both re-derived by the app per century, not in the raster)"
+        )
+    else:
+        sea_fraction = band_fraction = 0.0
+        print("  no water pair: no dynamic classes; the raster is fully static")
 
-    taxonomy = landcover_classes(level, params, REFERENCE_YEAR_CE, sea_fraction, band_fraction)
+    taxonomy = landcover_classes(
+        level if level is not None else 0.0,
+        params,
+        REFERENCE_YEAR_CE,
+        sea_fraction,
+        band_fraction,
+        context,
+    )
     fractions = area_fractions(classes, len(taxonomy))
 
     print(f"  {'class':<40} {'cells':>10} {'%':>7}")
@@ -1433,6 +1854,7 @@ def run(
         + fractions[CLASS_MEADOW]
         + fractions[CLASS_DRY_CORRIDOR]
         + fractions[CLASS_CLEARED]
+        + fractions[CLASS_ALVAR]
         + pasture
     )
     dry = forest + open_land
@@ -1460,6 +1882,7 @@ def run(
         sea_fraction,
         band_fraction,
         params,
+        context,
     )
     legend_path = write_legend(cfg.out_dir / LANDCOVER_LEGEND_PATH, legend)
     print(f"  wrote {legend_path} ({legend_path.stat().st_size / 1e3:.1f} kB)")
