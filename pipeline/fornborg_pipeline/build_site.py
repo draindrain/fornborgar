@@ -198,14 +198,30 @@ def load_site(slug: str, out_dir: Path, registry_path: Path = REGISTRY_PATH) -> 
 # --------------------------------------------------------------------------- #
 
 
-def _grid_counts(grids: dict) -> dict[str, tuple[int, int]]:
-    return {name: (grid.filled_cells, grid.width * grid.height) for name, grid in grids.items()}
+def _grid_counts(grids: dict, source_cells: int) -> dict[str, tuple[int, int]]:
+    """(nodata cells repaired, cells they were repaired in) per grid.
+
+    `Grid.filled_cells` counts repairs in the **source mosaic**, and every grid
+    built from that mosaic carries the same number — so comparing it against the
+    grid's own 2000x2000 pixel count produced shares over 100 % for a 1 m source
+    (a Gotland site reported "core is 156.8 % interpolated nodata"). The
+    denominator is the mosaic.
+    """
+    return {name: (grid.filled_cells, source_cells) for name, grid in grids.items()}
 
 
-def build_grids_step(cfg: SiteConfig, force_download: bool, archive_cogs: bool) -> tuple[dict, dict, dict]:
-    """Fetch, clip and write the §1 core/context grids. Returns (grids, meta, manifest)."""
+def build_grids_step(
+    cfg: SiteConfig, force_download: bool, archive_cogs: bool
+) -> tuple[dict, dict, dict, int]:
+    """Fetch, clip and write the §1 core/context grids.
+
+    Returns (grids, source meta, manifest, source mosaic cell count) — the last
+    because the nodata repairs are counted in the mosaic, so that is the only
+    denominator a share of them means anything against.
+    """
     cache_path, source_meta = fetch_source_mosaic(cfg, force=force_download)
     source, source_transform, nodata = read_source_mosaic(cache_path)
+    source_cells = int(source.size)
     grids = build_grids(source, source_transform, nodata, cfg)
 
     for name, grid in grids.items():
@@ -229,7 +245,7 @@ def build_grids_step(cfg: SiteConfig, force_download: bool, archive_cogs: bool) 
     manifest = build_manifest(cfg, grids, source_meta)
     write_manifest(cfg.out_dir / "manifest.json", manifest)
     write_data_licenses(cfg.out_dir / "DATA-LICENSES.md", cfg, source_meta)
-    return grids, source_meta, manifest
+    return grids, source_meta, manifest, source_cells
 
 
 def drop_asset(manifest_path: Path, key: str) -> None:
@@ -385,8 +401,8 @@ def run(
 
     print("-- grids (fetch, clip, quantize)")
     try:
-        grids, _meta, manifest = build_grids_step(cfg, force_download, archive_cogs)
-        filled = _grid_counts(grids)
+        grids, _meta, manifest, source_cells = build_grids_step(cfg, force_download, archive_cogs)
+        filled = _grid_counts(grids, source_cells)
         result.steps.append(StepResult("grids", "ok"))
     except (FetchError, VerticalDatumError, ValueError, OSError, MemoryError) as exc:
         # The one path that used to return in silence. Without the grids there

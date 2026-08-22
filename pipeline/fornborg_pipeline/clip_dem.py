@@ -140,8 +140,16 @@ def fill_nodata(
     from scipy import ndimage
 
     labels, _n = ndimage.label(invalid)
+    reach = _reach(invalid)
     refused = []
-    for index, region in enumerate(_relabel(regions, labels, invalid), start=0):
+    for region in _relabel(regions, labels, invalid):
+        # Anything `fillnodata` can genuinely reach across is a hole, whatever
+        # its boundary looks like. This is what keeps the one-pixel slivers a
+        # windowed read leaves along a ring's edge from being solemnly
+        # classified as terrain beyond the border: they are two cells wide,
+        # they sit next to valid data, and interpolating them is exactly right.
+        if _narrow_enough_to_interpolate(region["mask"], reach, max_search_distance):
+            continue
         verdict = classify_region(region["stats"])
         if verdict == "sea":
             sea |= region["mask"]
@@ -179,6 +187,29 @@ def fill_nodata(
     if sea_cells:
         print(f"  nodata: {sea_cells:,} cells filled at sea level, {count - sea_cells:,} interpolated")
     return working, count
+
+
+def _reach(invalid: np.ndarray) -> np.ndarray:
+    """Per invalid cell, the distance to the nearest valid cell (in cells).
+
+    Exactly the quantity `fillnodata`'s `max_search_distance` is compared
+    against, so "can it reach across this region" stops being a guess. A
+    bounding box cannot answer it: a one-pixel nodata sliver running along two
+    edges of a grid has a bounding box the size of the whole grid, and is still
+    everywhere one cell from real data.
+    """
+    from scipy import ndimage
+
+    return ndimage.distance_transform_edt(invalid)
+
+
+def _narrow_enough_to_interpolate(
+    mask: np.ndarray, reach: np.ndarray, max_search_distance: float
+) -> bool:
+    """True when every cell of the region is within `fillnodata`'s reach."""
+    if not mask.any():
+        return True
+    return float(reach[mask].max()) <= max_search_distance
 
 
 def _relabel(regions: list[dict], labels: np.ndarray, invalid: np.ndarray):

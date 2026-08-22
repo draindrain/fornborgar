@@ -375,7 +375,10 @@ def coastal_source(size=200, sea_cols=120, nodata=NODATA):
 def test_sea_is_filled_at_sea_level_not_interpolated():
     """Interpolating a 4x4 km stretch of Baltic would invent terrain from nothing."""
     source = coastal_source()
-    filled, count = fill_nodata(source, NODATA)
+    # The sea here is 80 cells wide, so the search distance is set below it: the
+    # rule is "anything fillnodata can reach across is a hole", and a real
+    # coastal window is thousands of cells of water, not eighty.
+    filled, count = fill_nodata(source, NODATA, max_search_distance=20.0)
     assert count == int((source == NODATA).sum())
     sea = filled[:, 130:]
     assert np.allclose(sea, 0.0), "open water must be flat at sea level"
@@ -396,7 +399,7 @@ def test_an_enclosed_hole_is_still_interpolated():
 def test_a_hole_and_the_sea_in_one_grid_get_different_treatment():
     source = coastal_source()
     source[10:14, 10:14] = NODATA  # a pond inland
-    filled, _count = fill_nodata(source, NODATA)
+    filled, _count = fill_nodata(source, NODATA, max_search_distance=20.0)
     assert np.allclose(filled[:, 130:], 0.0)  # sea
     assert filled[10:14, 10:14].min() > 1.0  # the pond took its neighbours' height
 
@@ -406,7 +409,7 @@ def test_land_beyond_the_tile_set_is_refused_not_zeroed():
     source = np.full((80, 80), 300.0, dtype=np.float32)
     source[:, 50:] = NODATA  # beyond the border, and the Swedish side is high
     with pytest.raises(ValueError, match="false flat horizon"):
-        fill_nodata(source, NODATA)
+        fill_nodata(source, NODATA, max_search_distance=10.0)
 
 
 def test_a_grid_with_no_nodata_is_returned_unchanged():
@@ -423,6 +426,32 @@ def test_an_all_nodata_grid_is_refused():
 
 def test_the_sea_fill_survives_quantization_as_zero():
     """The written int16 grid must read 0 dm over water, not a nodata sentinel."""
-    filled, _count = fill_nodata(coastal_source(), NODATA)
+    filled, _count = fill_nodata(coastal_source(), NODATA, max_search_distance=20.0)
     raw = quantize_decimeters(filled)
     assert raw[:, 130:].max() == 0 and raw[:, 130:].min() == 0
+
+
+def test_a_one_pixel_edge_sliver_is_interpolated_not_classified():
+    """The regression that broke four pilot sites' rings.
+
+    A windowed read can leave a one- or two-pixel nodata border along a grid
+    edge. It is edge-connected and bordered by whatever land is there — 70 m up,
+    at one of the sites — so a naive classifier calls it terrain beyond the
+    border and refuses the whole ring. It is an artifact two cells wide sitting
+    next to valid data, and interpolating it is exactly right.
+    """
+    source = np.full((300, 300), 70.0, dtype=np.float32)
+    source[0, :] = NODATA
+    source[:, -2:] = NODATA
+    filled, count = fill_nodata(source, NODATA)
+    assert count == 300 + 600 - 2
+    assert np.allclose(filled, 70.0)
+    assert not (filled == 0.0).any(), "an edge sliver must not be zeroed as if it were sea"
+
+
+def test_a_wide_region_is_still_classified_even_when_edge_connected():
+    """The narrowness escape hatch must not swallow the case it exists beside."""
+    source = np.full((600, 600), 250.0, dtype=np.float32)
+    source[:, 300:] = NODATA  # 300 cells wide: beyond any sane search distance
+    with pytest.raises(ValueError, match="false flat horizon"):
+        fill_nodata(source, NODATA, max_search_distance=200.0)

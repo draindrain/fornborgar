@@ -536,3 +536,16 @@ def test_missing_classification_outranks_a_clean_classified_ring():
 
 def test_no_uncovered_cells_at_all_still_passes():
     assert check_sea_fill({}, unclassified={}).severity == "pass"
+
+
+def test_the_nodata_share_cannot_exceed_one():
+    """A Gotland site once reported "core is 156.8 % interpolated nodata".
+
+    The repairs are counted in the source mosaic; comparing them against a
+    grid's own 2000x2000 pixel count made the share meaningless for a 1 m
+    source, where the mosaic is four times the grid.
+    """
+    source_cells = 16_000_000  # a 4000x4000 mosaic at 1 m
+    check = check_nodata_fill({"core": (6_270_000, source_cells)})
+    assert 0.0 <= check.detail["shareByGrid"]["core"] <= 1.0
+    assert check.severity == "fail"  # 39 % is still far too much
