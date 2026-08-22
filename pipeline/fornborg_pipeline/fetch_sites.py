@@ -17,10 +17,15 @@ so period attribution is by *type* ("typisk datering"), disclosed in the methods
 panel, never invented here — and the cultivation types span the Bronze Age to the
 medieval period, which the panel says rather than pretending they are Iron Age.
 
-GeoPackage reading is delegated to ``ogr2ogr`` (gdal-bin), spawned per layer
-with a bbox filter; everything after that is plain GeoJSON + origin subtraction
-(the app never sees EPSG:3006 numbers, contract §0). The county file (~146 MB)
-is cached under ``data-cache/`` and downloaded on demand.
+Two ways in, same GeoJSON afterwards. The **national** extract
+(``lämningar_sverige.gpkg``, the file the registry is built from) is read
+directly through ``fornborg_pipeline.gpkg`` — stdlib sqlite3 plus the
+GeoPackage's own R*Tree index, so a 4x4 km window over 2.3 GB is a millisecond
+query. That is the path every registry site takes, and it needs no GDAL binary.
+The original **county** path shells out to ``ogr2ogr`` (gdal-bin) and is kept for
+the hand-configured Uppsala sites. Everything after either reader is plain
+GeoJSON + origin subtraction (the app never sees EPSG:3006 numbers, contract §0).
+Both files are cached under ``data-cache/`` and downloaded on demand.
 """
 
 from __future__ import annotations
@@ -34,6 +39,7 @@ from pathlib import Path
 
 import click
 
+from .gpkg import list_layers, read_features_bbox, table_columns
 from .sites import CACHE_DIR, SITES, SiteConfig, get_site
 
 SITES_PATH = "sites.json"
@@ -114,6 +120,80 @@ def download_gpkg(force: bool = False) -> Path:
     urllib.request.urlretrieve(RAA_COUNTY_URL, path)
     print(f"  {path.stat().st_size / 1e6:.0f} MB")
     return path
+
+
+# KMR attribute columns the overlay needs, with the spellings seen across
+# releases. Resolved case-insensitively against the layer's actual schema.
+NATIONAL_COLUMNS = {
+    "lamningsnummer": ("lamningsnummer", "lamningnummer"),
+    "lamningsnamn": ("lamningsnamn", "namn"),
+    "lamningstyp": ("lamningstyp",),
+    "beskrivning": ("beskrivning",),
+    "url": ("url", "fornsok_url", "lank"),
+    "uuid": ("uuid", "lamning_uuid"),
+}
+
+
+def national_gpkg_path() -> Path:
+    """The riket extract the registry caches, when it is there."""
+    from .registry import gpkg_path
+
+    return gpkg_path()
+
+
+def national_layers(gpkg: Path) -> dict[str, str]:
+    """{"polygon": <table>, "linestring": …} for the riket file's feature layers."""
+    tables = [name for name, kind in list_layers(gpkg) if kind == "features"]
+    found = {}
+    for suffix in ("polygon", "linestring", "point"):
+        matches = sorted(name for name in tables if name.lower().endswith(suffix))
+        if matches:
+            found[suffix] = matches[0]
+    return found
+
+
+def _resolve(gpkg: Path, table: str) -> dict[str, str]:
+    present = {name.lower(): name for name in table_columns(gpkg, table)}
+    resolved = {}
+    for canonical, candidates in NATIONAL_COLUMNS.items():
+        for candidate in candidates:
+            if candidate in present:
+                resolved[canonical] = present[candidate]
+                break
+    if "lamningstyp" not in resolved or "lamningsnummer" not in resolved:
+        raise SitesError(
+            f"{table} lacks lamningstyp/lamningsnummer; columns are {sorted(present)}"
+        )
+    return resolved
+
+
+def read_layer_bbox_national(
+    gpkg: Path, layer: str, bounds3006: tuple[float, float, float, float]
+) -> list[dict]:
+    """One riket layer, bbox-filtered, as GeoJSON features — the ogr2ogr-free path.
+
+    Returns the same feature shape `read_layer_bbox` does, so `build_records`
+    below cannot tell which reader produced it. Type filtering happens here
+    rather than downstream: pushing `lamningstyp IN (…)` into SQL is what keeps
+    a dense 4x4 km window from materialising thousands of irrelevant records.
+    """
+    columns = _resolve(gpkg, layer)
+    placeholders = ", ".join("?" for _ in SELECTED_TYPES)
+    types = tuple(sorted(SELECTED_TYPES))
+    features = []
+    for attributes, geometry in read_features_bbox(
+        gpkg,
+        layer,
+        list(columns.values()),
+        bounds3006,
+        where=f'"{columns["lamningstyp"]}" IN ({placeholders})',
+        params=types,
+    ):
+        properties = {canonical: attributes.get(actual) for canonical, actual in columns.items()}
+        if not properties.get("url") and properties.get("uuid"):
+            properties["url"] = f"https://pub.raa.se/visa/objekt/lamning/{properties['uuid']}"
+        features.append({"type": "Feature", "properties": properties, "geometry": geometry.geojson})
+    return features
 
 
 def read_layer_bbox(gpkg: Path, layer: str, bounds3006: tuple[float, float, float, float]) -> list[dict]:
@@ -297,16 +377,36 @@ def write_sites(path: Path, doc: dict) -> Path:
     return path
 
 
-def run(site_id: str, force_download: bool = False) -> dict:
-    cfg = get_site(site_id)
-    print(f"== {cfg.name} ({cfg.id}) — KMR sites extract (PLAN §2.2 type filter)")
-    gpkg = download_gpkg(force=force_download)
+def read_all_layers(cfg: SiteConfig, force_download: bool = False) -> dict[str, list[dict]]:
+    """The three geometry layers over this site's context bbox, whichever file we have.
 
+    The riket extract wins when it is cached: it covers every county, so a
+    registry site anywhere in Sweden works with no per-county download, and it
+    reads without a GDAL binary. Falling back to the Uppsala county file keeps
+    the original Broborg path working exactly as before.
+    """
     bounds = cfg.bounds3006(cfg.context.half_extent)
-    features_by_kind = {
+    national = national_gpkg_path()
+    if national.exists():
+        layers = national_layers(national)
+        missing = {"polygon", "linestring", "point"} - set(layers)
+        if missing:
+            raise SitesError(f"{national.name} has no {sorted(missing)} layer(s)")
+        print(f"  source: {national.name} (riket, R*Tree bbox query)")
+        return {kind: read_layer_bbox_national(national, layers[kind], bounds) for kind in layers}
+
+    print(f"  source: {RAA_GPKG} (Uppsala county, via ogr2ogr)")
+    gpkg = download_gpkg(force=force_download)
+    return {
         kind: read_layer_bbox(gpkg, f"{LAYER_PREFIX}_{kind}", bounds)
         for kind in ("polygon", "linestring", "point")
     }
+
+
+def run(site_id: str, force_download: bool = False) -> dict:
+    cfg = get_site(site_id)
+    print(f"== {cfg.name} ({cfg.id}) — KMR sites extract (PLAN §2.2 type filter)")
+    features_by_kind = read_all_layers(cfg, force_download=force_download)
     for kind, feats in features_by_kind.items():
         kept = sum(1 for f in feats if (f.get("properties") or {}).get("lamningstyp") in SELECTED_TYPES)
         print(f"  {kind}: {len(feats)} in bbox, {kept} selected")
@@ -334,8 +434,7 @@ def run(site_id: str, force_download: bool = False) -> dict:
     "site_id",
     default="broborg",
     show_default=True,
-    type=click.Choice(sorted(SITES)),
-    help="Site whose sites.json to build.",
+    help="Site whose sites.json to build (a registered site id or registry slug).",
 )
 @click.option("--force-download", is_flag=True, help="Re-download the county GeoPackage.")
 def cli(site_id: str, force_download: bool) -> None:

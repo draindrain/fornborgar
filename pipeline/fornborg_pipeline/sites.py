@@ -61,10 +61,22 @@ class SiteConfig:
     # Hard sanity band for every height in the outputs (m RH 2000). A Swedish
     # lowland site outside this range means a geoid shift crept in (PLAN.md §2.1).
     elevation_range: tuple[float, float] = (-10.0, 200.0)
-    # Hard sanity band for the height at the site center (m RH 2000).
-    center_height_range: tuple[float, float] = (40.0, 60.0)
+    # Hard sanity band for the height at the site center (m RH 2000). `None`
+    # skips the center test: a registry-driven site has no hand-verified crown
+    # height to compare against, and inventing one would either never fire or
+    # fire on perfectly good data. The *range* gate — which is what actually
+    # catches the geoid shift — always runs.
+    center_height_range: tuple[float, float] | None = (40.0, 60.0)
     raa: dict | None = None
     kmr_fetched: str = ""
+    # Where the bundle is written. `None` = the committed `app/public/data/<id>/`
+    # (Broborg and the testsite); batch builds point it at a scratch directory
+    # so a national run never touches the repository.
+    out_dir_override: Path | None = None
+    # Informational, from the registry: which §5.2 extent preset produced the
+    # grid specs above, and the KMR extent bbox the preset was chosen from.
+    extent_preset: str = "standard"
+    county: str = ""
 
     @property
     def grids(self) -> tuple[GridSpec, ...]:
@@ -104,7 +116,7 @@ class SiteConfig:
 
     @property
     def out_dir(self) -> Path:
-        return APP_DATA_DIR / self.id
+        return self.out_dir_override or (APP_DATA_DIR / self.id)
 
 
 def _standard_grids() -> dict:
@@ -112,6 +124,38 @@ def _standard_grids() -> dict:
         "core": GridSpec("core", half_extent=1000.0, resolution=1.0, path="dem_core.tif"),
         "context": GridSpec("context", half_extent=2000.0, resolution=2.0, path="dem_context.tif"),
     }
+
+
+def _large_grids() -> dict:
+    """The §5.2 `large` preset: twice the ground, same 2000x2000 pixel budget.
+
+    Only the three registered forts wider than a kilometre need it (Halleberg,
+    Ramundersborg, Torsburgen). Grid *sizes* are unchanged, so every performance
+    and memory budget in the app holds exactly as for a standard site.
+    """
+    return {
+        "core": GridSpec("core", half_extent=2000.0, resolution=2.0, path="dem_core.tif"),
+        "context": GridSpec("context", half_extent=4000.0, resolution=4.0, path="dem_context.tif"),
+    }
+
+
+#: §5.2 extent presets, by name. `source_resolution` is the resolution of the raw
+#: mosaic the clip step reads: 1 m for a standard site, 2 m for a `large` one
+#: (whose finest output grid is 2 m — fetching 1 m would quadruple the transfer
+#: for data that gets block-averaged away).
+EXTENT_PRESETS: dict[str, dict] = {
+    "standard": {"grids": _standard_grids, "source_resolution": 1.0},
+    "large": {"grids": _large_grids, "source_resolution": 2.0},
+}
+
+#: National height band (m RH 2000) for a registry-driven site. Broborg's tight
+#: [-10, 200] band was tuned to Uppland lowland; nationally the *core* extent can
+#: reach the Västgöta plateau forts and Norrland, and a far ring can legitimately
+#: cover the fjäll. The band still has to be narrow enough to catch the +23..36 m
+#: EPSG:5845 geoid shift on a coastal site, which -15 m as a floor does: a real
+#: Swedish ground cell never sits 15 m below RH 2000 zero, but a shifted sea does
+#: not sit below it at all.
+NATIONAL_ELEVATION_RANGE = (-15.0, 2200.0)
 
 
 # The far-field ring ladder (docs/data-formats.md §11, docs/national-scaleout.md
@@ -151,6 +195,19 @@ BROBORG = SiteConfig(
 )
 
 SITES: dict[str, SiteConfig] = {BROBORG.id: BROBORG}
+
+
+def register_site(cfg: SiteConfig) -> SiteConfig:
+    """Make `cfg` resolvable by `get_site` for the rest of this process.
+
+    Every pipeline step takes a `site_id` and looks it up here, which is exactly
+    what makes a batch build possible without touching those steps: `build_site`
+    turns a registry entry into a `SiteConfig`, registers it, and then runs the
+    ordinary per-site pipeline. Nothing is persisted — the hand-written entries
+    above stay the only ones that survive a restart.
+    """
+    SITES[cfg.id] = cfg
+    return cfg
 
 
 def get_site(site_id: str) -> SiteConfig:

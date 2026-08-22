@@ -243,7 +243,9 @@ def check_height_sanity(
             f"read path — do NOT offset the values."
         )
     center = sample_nearest(heights_m, transform, cfg.center_e, cfg.center_n)
-    if not check_center:
+    if not check_center or cfg.center_height_range is None:
+        # A registry-driven site has no hand-verified crown height to compare
+        # against; the range gate above is what catches a vertical shift.
         return center
     clo, chi = cfg.center_height_range
     if not (clo <= center <= chi):

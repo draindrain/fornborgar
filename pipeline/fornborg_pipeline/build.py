@@ -62,7 +62,8 @@ def run(
 
     core = grids["core"]
     center = sample_nearest(core.heights_m(), core.transform, cfg.center_e, cfg.center_n)
-    print(f"  center height check: {center:.1f} m RH 2000 (band {cfg.center_height_range})")
+    band = cfg.center_height_range or "not checked — registry site"
+    print(f"  center height check: {center:.1f} m RH 2000 (band {band})")
 
     print("-- manifest")
     manifest = build_manifest(cfg, grids, source_meta)
