@@ -12,9 +12,14 @@ import copy
 
 import pytest
 
+import numpy as np
+
 from fornborg_pipeline.qa import (
     LADDER_CAP_RADIUS_M,
+    RING_AGREEMENT_TOLERANCE_M,
     check_elevation_band,
+    check_ring_agreement,
+    ring_context_offset,
     check_ladder,
     check_nodata_fill,
     check_required_files,
@@ -295,3 +300,74 @@ def test_run_gates_includes_the_steps_check_when_given_steps(tmp_path, manifest)
     )
     assert "required-steps" in {c.id for c in report.checks}
     assert not report.passed
+
+
+# ----------------------------- ring/context agreement ------------------------
+
+
+def flat_grid(shape, value):
+    return np.full(shape, value, dtype=np.float64)
+
+
+CONTEXT_BOUNDS = (663810.0, 6625880.0, 667810.0, 6629880.0)  # 4x4 km @ 2 m
+RING_BOUNDS = (661810.0, 6623880.0, 669810.0, 6631880.0)  # 8x8 km @ 4 m
+
+
+def test_matching_grids_have_no_offset():
+    offset = ring_context_offset(
+        flat_grid((2000, 2000), 42.0), RING_BOUNDS, 4.0,
+        flat_grid((2000, 2000), 42.0), CONTEXT_BOUNDS,
+    )
+    assert offset == pytest.approx(0.0)
+
+
+def test_a_geoid_shifted_ring_shows_up_as_its_shift():
+    """A +25 m EPSG:5845 shift on the ring path, which no absolute band catches."""
+    offset = ring_context_offset(
+        flat_grid((2000, 2000), 67.0), RING_BOUNDS, 4.0,
+        flat_grid((2000, 2000), 42.0), CONTEXT_BOUNDS,
+    )
+    assert offset == pytest.approx(25.0)
+    check = check_ring_agreement({"dem_ring3.tif": offset})
+    assert check.severity == "fail"
+    assert "warped" in check.message
+
+
+def test_a_shifted_context_grid_is_caught_the_same_way():
+    """The check is symmetric — it does not care which path did the warping."""
+    offset = ring_context_offset(
+        flat_grid((2000, 2000), 42.0), RING_BOUNDS, 4.0,
+        flat_grid((2000, 2000), 67.0), CONTEXT_BOUNDS,
+    )
+    assert offset == pytest.approx(-25.0)
+    assert check_ring_agreement({"dem_ring3.tif": offset}).severity == "fail"
+
+
+def test_a_ring_that_does_not_overlap_is_not_measured():
+    far = (900000.0, 6900000.0, 908000.0, 6908000.0)
+    assert ring_context_offset(
+        flat_grid((2000, 2000), 42.0), far, 4.0,
+        flat_grid((2000, 2000), 42.0), CONTEXT_BOUNDS,
+    ) is None
+
+
+def test_block_averaging_noise_stays_inside_the_tolerance():
+    """Real rings differ from the context grid; only a systematic offset is a fault."""
+    rng = np.random.default_rng(11)
+    context = rng.normal(40.0, 8.0, size=(2000, 2000))
+    ring = rng.normal(40.0, 8.0, size=(2000, 2000))
+    offset = ring_context_offset(ring, RING_BOUNDS, 4.0, context, CONTEXT_BOUNDS)
+    assert abs(offset) < RING_AGREEMENT_TOLERANCE_M
+    assert check_ring_agreement({"dem_ring3.tif": offset}).severity == "pass"
+
+
+def test_agreement_check_reports_the_worst_ring():
+    check = check_ring_agreement({"a.tif": 0.4, "b.tif": -25.0, "c.tif": 1.1})
+    assert check.severity == "fail"
+    assert "b.tif" in check.message
+    assert check.detail["medianOffsetM"]["c.tif"] == 1.1
+
+
+def test_agreement_check_passes_a_ringless_site():
+    assert check_ring_agreement({}).severity == "pass"
+    assert check_ring_agreement({"a.tif": None}).severity == "pass"

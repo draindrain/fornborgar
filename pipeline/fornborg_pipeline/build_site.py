@@ -49,7 +49,7 @@ from .fetch_sites import SitesError
 from .fetch_sites import run as fetch_sites_run
 from .landcover import LandcoverError
 from .manifest import build_manifest, write_data_licenses, write_manifest
-from .qa import QAReport, bundle_bytes, run_gates, water_mask_at
+from .qa import QAReport, bundle_bytes, ring_context_offset, run_gates, water_mask_at
 from .rampart import RampartError
 from .registry import REGISTRY_PATH, RegistryError, get_entry
 from .rings import RingsError
@@ -245,6 +245,42 @@ def drop_asset(manifest_path: Path, key: str) -> None:
     print(f"  dropped assets.{key} from the manifest — the step that writes it failed")
 
 
+def measure_ring_offsets(cfg: SiteConfig, manifest: dict) -> dict[str, float | None]:
+    """Median (ring - context) height per ring, for `qa.check_ring_agreement`.
+
+    Reads the grids the build just wrote rather than the arrays in memory: a
+    shift introduced during *writing* would be invisible to an in-memory check,
+    and these are the bytes that ship.
+    """
+    rings = manifest.get("grids", {}).get("rings") or []
+    if not rings:
+        return {}
+    context_path = cfg.out_dir / cfg.context.path
+    if not context_path.exists():
+        return {}
+    context_dm, _transform, context_bounds = read_grid(context_path)
+    context_m = dequantize(context_dm, cfg.context.quant_scale)
+
+    offsets: dict[str, float | None] = {}
+    for entry in rings:
+        path = cfg.out_dir / entry["path"]
+        if not path.exists():
+            continue
+        ring_dm, _t, ring_bounds = read_grid(path)
+        scale = float(entry.get("encoding", {}).get("scale", 0.1))
+        try:
+            offsets[entry["path"]] = ring_context_offset(
+                dequantize(ring_dm, scale),
+                ring_bounds,
+                float(entry["resolution"]),
+                context_m,
+                context_bounds,
+            )
+        except (ValueError, IndexError) as exc:
+            print(f"  ring agreement for {entry['path']} not measured: {exc}")
+    return offsets
+
+
 def render_site_thumbnail(cfg: SiteConfig, size: int = DEFAULT_SIZE) -> str:
     """Hillshade the site for the §4.4 contact sheet, tinting the modelled water.
 
@@ -388,7 +424,14 @@ def run(
     print("-- QA gates (scale-out §4.4)")
     result.manifest = manifest
     result.qa = run_gates(
-        slug, out_dir, manifest, cfg.elevation_range, filled, coastal, steps=result.steps
+        slug,
+        out_dir,
+        manifest,
+        cfg.elevation_range,
+        filled,
+        coastal,
+        steps=result.steps,
+        ring_offsets=measure_ring_offsets(cfg, manifest),
     )
     for check in result.qa.checks:
         print(f"  [{check.severity:4}] {check.id}: {check.message}")

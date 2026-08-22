@@ -358,6 +358,23 @@ def _close(a: float, b: float) -> bool:
     return abs(a - b) <= TOL
 
 
+def _band_for(manifest: dict) -> tuple[float, float]:
+    """The height band to validate this manifest's grids against.
+
+    Resolved from the site the manifest names rather than threaded through every
+    caller: `manifest.site.id` is exactly the key every pipeline step already
+    uses with `get_site`, and a batch registers its `SiteConfig` before any of
+    them run. A manifest naming a site this process does not know — someone
+    validating an old bundle, say — falls back to Broborg's original band, so
+    the check keeps saying what it always said.
+    """
+    from .sites import SITES
+
+    site_id = manifest.get("site", {}).get("id", "")
+    config = SITES.get(site_id)
+    return config.elevation_range if config else DEFAULT_ELEVATION_BAND
+
+
 def validate_manifest(manifest: dict) -> None:
     """Raise ValueError on any contract violation."""
     if manifest.get("schemaVersion") != SCHEMA_VERSION:
@@ -366,6 +383,7 @@ def validate_manifest(manifest: dict) -> None:
     origin = manifest["origin"]
     oe, on = float(origin["e"]), float(origin["n"])
 
+    band = _band_for(manifest)
     grids = manifest["grids"]
     for required in ("core", "context"):
         if required not in grids:
@@ -374,13 +392,13 @@ def validate_manifest(manifest: dict) -> None:
     for name, grid in grids.items():
         if name == "rings":
             continue  # validated below (v1.4 §11 — a list, not a grid entry)
-        _validate_grid_entry(name, grid, oe, on, allowed_scales=(DECIMETER_SCALE,))
+        _validate_grid_entry(name, grid, oe, on, allowed_scales=(DECIMETER_SCALE,), band=band)
 
     core, context = grids["core"]["bounds3006"], grids["context"]["bounds3006"]
     if not _strictly_inside(core, context):
         raise ValueError("core extent must lie strictly inside the context extent")
 
-    _validate_rings(manifest, grids, oe, on)
+    _validate_rings(manifest, grids, oe, on, band)
 
     for layer in manifest["layers"]:
         if layer["provenance"] not in ("measured", "model", "conjecture"):
@@ -396,8 +414,19 @@ def validate_manifest(manifest: dict) -> None:
     _validate_palisade(manifest, assets)
 
 
+#: Fallback height band for a manifest that does not carry its site's own
+#: (every pre-Phase-9 bundle). Broborg's [-10, 200], preserved so validating an
+#: old manifest keeps saying exactly what it used to.
+DEFAULT_ELEVATION_BAND = (-10.0, 200.0)
+
+
 def _validate_grid_entry(
-    name: str, grid: dict, oe: float, on: float, allowed_scales: tuple[float, ...]
+    name: str,
+    grid: dict,
+    oe: float,
+    on: float,
+    allowed_scales: tuple[float, ...],
+    band: tuple[float, float] = DEFAULT_ELEVATION_BAND,
 ) -> None:
     """The §2 per-grid invariants, shared by core/context and the §11 rings."""
     res = float(grid["resolution"])
@@ -429,11 +458,15 @@ def _validate_grid_entry(
     lo, hi = float(grid["minElevation"]), float(grid["maxElevation"])
     if lo > hi:
         raise ValueError(f"{name}: minElevation {lo} > maxElevation {hi}")
-    # Datum sanity: catches the +23..36 m EPSG:5845 geoid-shift bug.
-    if lo < -10.0 or hi > 200.0:
+    # Gross-corruption band. For a single hand-configured site it is tight
+    # enough to also catch the +23..36 m EPSG:5845 geoid shift; nationally it is
+    # not, and cannot be (see sites.NATIONAL_ELEVATION_RANGE) — there the
+    # ring/context agreement check is what catches a vertical shift.
+    band_lo, band_hi = band
+    if lo < band_lo or hi > band_hi:
         raise ValueError(
-            f"{name}: elevation range {lo}..{hi} m is outside [-10, 200] for a Swedish "
-            f"lowland site — suspect a vertical-datum shift (PLAN.md §2.1)"
+            f"{name}: elevation range {lo}..{hi} m is outside [{band_lo}, {band_hi}] m "
+            f"RH 2000 for this site — suspect a vertical-datum shift (PLAN.md §2.1)"
         )
 
 
@@ -446,7 +479,9 @@ def _strictly_inside(inner: dict, outer: dict) -> bool:
     )
 
 
-def _validate_rings(manifest: dict, grids: dict, oe: float, on: float) -> None:
+def _validate_rings(
+    manifest: dict, grids: dict, oe: float, on: float, band: tuple[float, float] = DEFAULT_ELEVATION_BAND
+) -> None:
     """v1.4 §11 rules: per-ring §2 invariants, the containment chain, one far-water grid."""
     rings = grids.get("rings")
     if rings is None:
@@ -458,7 +493,7 @@ def _validate_rings(manifest: dict, grids: dict, oe: float, on: float) -> None:
     previous_name, previous = "context", grids["context"]
     for index, ring in enumerate(rings):
         name = f"rings[{index}]"
-        _validate_grid_entry(name, ring, oe, on, allowed_scales=ALLOWED_SCALES)
+        _validate_grid_entry(name, ring, oe, on, allowed_scales=ALLOWED_SCALES, band=band)
         if not _strictly_inside(previous["bounds3006"], ring["bounds3006"]):
             raise ValueError(
                 f"{name}: rings must be ordered inside-out — {previous_name} extent must lie "

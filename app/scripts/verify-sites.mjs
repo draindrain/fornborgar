@@ -54,9 +54,12 @@ for (const site of SITES) {
     failedRequests.push(`${request.method()} ${request.url()} — ${request.failure()?.errorText}`);
   });
   page.on('response', (response) => {
-    if (response.status() >= 400) {
-      failedRequests.push(`${response.status()} ${response.url()}`);
-    }
+    if (response.status() < 400) return;
+    // A missing national index is a documented first-class state, not a fault:
+    // a repo-relative build ships two fixtures and has nothing to pick between,
+    // so the app asks once, gets a 404, and leaves the picker off.
+    if (new URL(response.url()).pathname.endsWith('/index.json')) return;
+    failedRequests.push(`${response.status()} ${response.url()}`);
   });
 
   const url = `${BASE}/?site=${encodeURIComponent(site)}`;

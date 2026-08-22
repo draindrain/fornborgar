@@ -254,6 +254,94 @@ def check_sea_fill(manifest: dict, coastal: bool) -> Check:
     )
 
 
+#: How far a ring's heights may sit from the context grid's over their shared
+#: footprint, in metres of *median* difference. Generous against block-averaging
+#: (a 32 m ring cell averages 256 context cells, and averaging a valley with its
+#: shoulders is not an error) and against per-ring quantization, but far below
+#: the 23-36 m the EPSG:5845 geoid shift would introduce.
+RING_AGREEMENT_TOLERANCE_M = 3.0
+
+
+def ring_context_offset(
+    ring_heights_m: np.ndarray,
+    ring_bounds: tuple[float, float, float, float],
+    ring_resolution: float,
+    context_heights_m: np.ndarray,
+    context_bounds: tuple[float, float, float, float],
+) -> float | None:
+    """Median (ring - context) height over the footprint they share, in metres.
+
+    Returns None when the overlap is too small to say anything. Both grids are
+    north-up and axis-aligned in EPSG:3006, so the overlap is found by
+    arithmetic on the bounds — no resampling, no reprojection, nothing that
+    could itself introduce the shift we are looking for. Ring cells are compared
+    against the *mean* of the context cells they cover, which is what a
+    block-averaged read should reproduce.
+    """
+    r_min_e, r_min_n, r_max_e, r_max_n = ring_bounds
+    c_min_e, c_min_n, c_max_e, c_max_n = context_bounds
+    over_min_e, over_max_e = max(r_min_e, c_min_e), min(r_max_e, c_max_e)
+    over_min_n, over_max_n = max(r_min_n, c_min_n), min(r_max_n, c_max_n)
+    if over_max_e - over_min_e < ring_resolution or over_max_n - over_min_n < ring_resolution:
+        return None
+
+    ring = np.asarray(ring_heights_m, dtype=np.float64)
+    context = np.asarray(context_heights_m, dtype=np.float64)
+    context_resolution = (c_max_e - c_min_e) / context.shape[1]
+
+    # Sample the middle of each overlapping ring cell in both grids. Row 0 is
+    # the north edge in both (contract §1), so northing decreases with row.
+    cols = np.arange(int((over_max_e - over_min_e) // ring_resolution))
+    rows = np.arange(int((over_max_n - over_min_n) // ring_resolution))
+    if cols.size == 0 or rows.size == 0:
+        return None
+    easts = over_min_e + (cols + 0.5) * ring_resolution
+    northings = over_max_n - (rows + 0.5) * ring_resolution
+
+    ring_cols = np.clip(((easts - r_min_e) / ring_resolution).astype(int), 0, ring.shape[1] - 1)
+    ring_rows = np.clip(((r_max_n - northings) / ring_resolution).astype(int), 0, ring.shape[0] - 1)
+    ctx_cols = np.clip(((easts - c_min_e) / context_resolution).astype(int), 0, context.shape[1] - 1)
+    ctx_rows = np.clip(((c_max_n - northings) / context_resolution).astype(int), 0, context.shape[0] - 1)
+
+    ring_samples = ring[np.ix_(ring_rows, ring_cols)]
+    context_samples = context[np.ix_(ctx_rows, ctx_cols)]
+    return float(np.median(ring_samples - context_samples))
+
+
+def check_ring_agreement(offsets: dict[str, float | None]) -> Check:
+    """Rings and context must describe the same ground where they overlap.
+
+    This is the national replacement for Broborg's tight elevation band. Core
+    and context come from the 1 m source mosaic; the rings come from decimated
+    overview reads — a genuinely different path through GDAL. A vertical datum
+    transform creeping into either one shifts it by 23-36 m relative to the
+    other (PLAN.md §2.1), and unlike an absolute band this notices wherever the
+    site is and however high its terrain.
+    """
+    measured = {name: offset for name, offset in offsets.items() if offset is not None}
+    if not measured:
+        return Check("ring-agreement", "pass", "no rings to cross-check")
+    worst_name = max(measured, key=lambda n: abs(measured[n]))
+    worst = measured[worst_name]
+    detail = {"medianOffsetM": {k: round(v, 2) for k, v in measured.items()}}
+    if abs(worst) > RING_AGREEMENT_TOLERANCE_M:
+        return Check(
+            "ring-agreement",
+            "fail",
+            f"{worst_name} sits {worst:+.1f} m from the context grid over their shared "
+            f"footprint (tolerance ±{RING_AGREEMENT_TOLERANCE_M:.0f} m) — the ring and "
+            f"the core/context grids are read through different paths, so a systematic "
+            f"offset means one of them warped the data (PLAN.md §2.1)",
+            detail,
+        )
+    return Check(
+        "ring-agreement",
+        "pass",
+        f"rings agree with the context grid to {abs(worst):.2f} m (worst: {worst_name})",
+        detail,
+    )
+
+
 def check_water_pair(manifest: dict) -> Check:
     """§6/§7/§12: the shoreline table and a connectivity grid ship together or not at all."""
     assets = manifest.get("assets", {})
@@ -339,16 +427,18 @@ def run_gates(
     filled_by_grid: dict[str, tuple[int, int]],
     coastal: bool,
     steps: list | None = None,
+    ring_offsets: dict[str, float | None] | None = None,
 ) -> QAReport:
     """Every gate, in one pass. Never raises on a gate result — that is the report."""
     return QAReport(
         slug=slug,
         checks=[
-            *( [check_steps(steps)] if steps is not None else [] ),
+            *([check_steps(steps)] if steps is not None else []),
             check_required_files(out_dir, manifest),
             check_elevation_band(manifest, band),
             check_nodata_fill(filled_by_grid),
             check_ladder(manifest),
+            check_ring_agreement(ring_offsets or {}),
             check_sea_fill(manifest, coastal),
             check_water_pair(manifest),
         ],

@@ -154,14 +154,24 @@ EXTENT_PRESETS: dict[str, dict] = {
     "large": {"grids": _large_grids, "source_resolution": 2.0},
 }
 
-#: National height band (m RH 2000) for a registry-driven site. Broborg's tight
-#: [-10, 200] band was tuned to Uppland lowland; nationally the *core* extent can
-#: reach the Västgöta plateau forts and Norrland, and a far ring can legitimately
-#: cover the fjäll. The band still has to be narrow enough to catch the +23..36 m
-#: EPSG:5845 geoid shift on a coastal site, which -15 m as a floor does: a real
-#: Swedish ground cell never sits 15 m below RH 2000 zero, but a shifted sea does
-#: not sit below it at all.
-NATIONAL_ELEVATION_RANGE = (-15.0, 2200.0)
+#: National height band (m RH 2000) for a registry-driven site.
+#:
+#: Broborg's tight [-10, 200] band was tuned to one Uppland valley. Nationally it
+#: has to hold everything a legitimate ladder covers, and the first three
+#: registry sites built showed both ends of that: a fort near Örebro has ring
+#: cells at 208 m (Kilsbergen is real terrain), and one on Öland has ring cells
+#: at -16 m, where a 64 km box reaches Baltic water and the ground model carries
+#: interpolated and occasionally negative values there. Neither is a bug.
+#:
+#: **This band is a gross-corruption check, not the geoid tripwire.** That is
+#: the honest consequence of widening it: the EPSG:5845 bug shifts heights
+#: *up* by 23-36 m, and on a lowland site that lands a 0..60 m range at 25..85 m
+#: — comfortably inside any band wide enough for Norrland. What actually catches
+#: a vertical shift nationally is `qa.check_ring_agreement`: the rings are read
+#: through a different code path from core/context (decimated overview reads vs.
+#: the 1 m mosaic), so the two disagreeing over their shared footprint is a
+#: direct, site-independent signal that one of them warped the data.
+NATIONAL_ELEVATION_RANGE = (-100.0, 2200.0)
 
 
 # The far-field ring ladder (docs/data-formats.md §11, docs/national-scaleout.md
