@@ -14,9 +14,17 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=7.4"]
+# The object-store sync (fornborg_pipeline.upload). Optional on purpose: every
+# other step runs without it, and a machine that only builds bundles should not
+# need an AWS SDK.
+upload = ["boto3>=1.34"]
 
 [project.scripts]
 fornborg-pipeline = "fornborg_pipeline.build:cli"
+fornborg-build-site = "fornborg_pipeline.build_site:cli"
+fornborg-registry = "fornborg_pipeline.registry:cli"
+fornborg-upload = "fornborg_pipeline.upload:cli"
+fornborg-batch = "fornborg_pipeline.batch:cli"
 
 [build-system]
 requires = ["setuptools>=68"]
