@@ -18,6 +18,7 @@ import { FarLandcoverTint } from './landcover/farTint';
 import { FarVegetationLayer } from './landcover/farVegetation';
 import type { LandcoverGrid } from './landcover/landcoverGrid';
 import { LandcoverTint } from './landcover/tint';
+import { bakeImpostorAtlas, type ImpostorAtlas } from './landcover/impostors';
 import { VegetationLayer } from './landcover/vegetation';
 import { PalisadeLayer } from './overlays/palisade';
 import {
@@ -200,6 +201,17 @@ function applyPalisadeSettings(): void {
  */
 let landcoverTint: LandcoverTint | null = null;
 let vegetation: VegetationLayer | null = null;
+// §6.1 LOD: one baked impostor atlas per seed (archetypes are seed-derived), on
+// the app's own renderer. Cached so GUI toggles never re-bake; a seed change
+// swaps it and disposes the old targets.
+let impostorAtlasCache: { seed: number; atlas: ImpostorAtlas } | null = null;
+function impostorAtlasFor(seed: number): ImpostorAtlas | null {
+  if (impostorAtlasCache?.seed !== seed) {
+    impostorAtlasCache?.atlas.dispose();
+    impostorAtlasCache = { seed, atlas: bakeImpostorAtlas(renderer, seed) };
+  }
+  return impostorAtlasCache.atlas;
+}
 /** v1.6 §13: the far half of the same layer — one toggle drives all four. */
 let farTint: FarLandcoverTint | null = null;
 let farVegetation: FarVegetationLayer | null = null;
@@ -293,6 +305,9 @@ renderer.setAnimationLoop(() => {
   const walkable = terrain.contextGrid?.boundsLocal ?? { minX: -1, minZ: -1, maxX: 1, maxZ: 1 };
   modes.update(dt, groundAt, terrain.getExaggeration(), walkable);
   if (modes.mode === 'orbit') rig.controls.update();
+  // §6.1 LOD: the layer rebins mesh/impostor tiers only after the camera has
+  // moved REBIN_MOVE_M, so a per-frame call costs a comparison.
+  vegetation?.updateCamera(rig.camera.position.x, rig.camera.position.z);
   renderer.render(scene, rig.camera);
 });
 
@@ -431,6 +446,7 @@ async function start(): Promise<void> {
         seed: Math.round(controlState.landcover.seed),
         contextHalfM: (contextExtent.maxX - contextExtent.minX) / 2,
         getExaggeration: () => terrain.getExaggeration(),
+        atlasFor: impostorAtlasFor,
       });
       scene.add(farVegetation.group);
     }
@@ -531,6 +547,7 @@ async function start(): Promise<void> {
       getExaggeration: () => terrain.getExaggeration(),
       connectAt: connect ? (x, z) => connectAtLocal(connect, x, z) : null,
       levelRange,
+      impostorAtlas: impostorAtlasFor,
     });
     scene.add(vegetation.group);
     if (water) vegetation.setWaterLevel(water.levelM);

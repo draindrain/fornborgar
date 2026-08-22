@@ -43,6 +43,7 @@ import { heightAtLocal } from '../lib/coords';
 import { refractedDropM } from '../lib/earth';
 import { mulberry32, streamSeed } from '../lib/random';
 import { classAtLocal, type LandcoverGrid } from './landcoverGrid';
+import { AZIMUTH_FRAMES, archetypeIndex, type ImpostorAtlas } from './impostors';
 import type { FarFieldClass, VegetationType } from './legend';
 import { jitterPlantColor } from './species';
 import { VEGETATION_FORMS } from './vegetation';
@@ -227,25 +228,43 @@ function billboardColor(hex: string): THREE.Color {
  * injections — the cylindrical camera-facing rotation and the context-edge
  * fade — chained with the same idiom as every overlay in this app, so logdepth
  * and fog come from the built-in chunks for free.
+ *
+ * §6.1 amendment: pass `textured` and the billboard samples one row of the baked
+ * archetype atlas (`impostors.ts`) instead of drawing a flat quad — the treeline
+ * stops being rectangles. The frame shown follows the camera azimuth offset by a
+ * per-position hash (a stand shows varied aspects with no per-instance data), the
+ * bark mask keeps trunks out of the instance tint, and coverage multiplies into
+ * the seam fade. Flat (no `textured`) stays byte-identical to the pre-amendment
+ * §13 material — that is what sites keep drawing until an atlas exists.
  */
-export function createBillboardMaterial(fadeStartM: number): THREE.Material {
+export function createBillboardMaterial(
+  fadeStartM: number,
+  textured: { atlas: ImpostorAtlas; row: number } | null = null,
+): THREE.Material {
   const material = new THREE.MeshLambertMaterial({
     // A billboard is pure silhouette + (per-instance) colour; DoubleSide guards the edge case
     // where the per-frame rotation trails the camera by one frame.
     side: THREE.DoubleSide,
     transparent: true,
     depthWrite: false,
-    alphaTest: 0.01,
+    alphaTest: textured ? 0.3 : 0.01,
   });
-  material.name = 'far-billboards';
+  material.name = textured ? `far-billboards-row${textured.row}` : 'far-billboards';
 
-  const uniforms = {
+  const uniforms: Record<string, { value: unknown }> = {
     uFarFadeStart: { value: fadeStartM },
     uFarFadeWidth: { value: FAR_FADE_METERS },
   };
+  if (textured) {
+    uniforms['uAtlasColor'] = { value: textured.atlas.color };
+    uniforms['uAtlasMask'] = { value: textured.atlas.mask };
+    uniforms['uFrames'] = { value: AZIMUTH_FRAMES };
+    uniforms['uRows'] = { value: textured.atlas.layout.rows };
+    uniforms['uRow'] = { value: textured.row };
+  }
 
   const previousKey = material.customProgramCacheKey.bind(material);
-  material.customProgramCacheKey = () => `${previousKey()}|farbillboard`;
+  material.customProgramCacheKey = () => `${previousKey()}|farbillboard${textured ? '-tex' : ''}`;
   material.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, uniforms);
     shader.vertexShader = shader.vertexShader
@@ -256,6 +275,9 @@ export function createBillboardMaterial(fadeStartM: number): THREE.Material {
           'uniform float uFarFadeStart;',
           'uniform float uFarFadeWidth;',
           'varying float vFarFade;',
+          ...(textured
+            ? ['uniform float uFrames;', 'uniform float uRows;', 'uniform float uRow;', 'varying vec2 vAtlasUv;']
+            : []),
         ].join('\n'),
       )
       .replace(
@@ -277,11 +299,44 @@ export function createBillboardMaterial(fadeStartM: number): THREE.Material {
           // Fade-in outside the near field: a blend at the §13 seam, not a line.
           'float fbDist = max(abs(fbWorld.x), abs(fbWorld.z));',
           'vFarFade = clamp((fbDist - uFarFadeStart) / uFarFadeWidth, 0.0, 1.0);',
+          ...(textured
+            ? [
+                // Which baked frame: camera azimuth offset by a positional hash,
+                // so neighbouring stems show different aspects for free.
+                'float fbYaw = fract(sin(dot(fbWorld.xz, vec2(12.9898, 78.233))) * 43758.5453) * 6.28318530718;',
+                'float fbFrame = mod(floor((fbAng - fbYaw) / (6.28318530718 / uFrames) + 0.5), uFrames);',
+                'vAtlasUv = vec2((fbFrame + uv.x) / uFrames, 1.0 - (uRow + 1.0 - uv.y) / uRows);',
+              ]
+            : []),
         ].join('\n'),
       );
     shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', '#include <common>\nvarying float vFarFade;')
-      .replace('#include <color_fragment>', '#include <color_fragment>\ndiffuseColor.a *= vFarFade;');
+      .replace(
+        '#include <common>',
+        [
+          '#include <common>',
+          'varying float vFarFade;',
+          ...(textured
+            ? ['uniform sampler2D uAtlasColor;', 'uniform sampler2D uAtlasMask;', 'varying vec2 vAtlasUv;']
+            : []),
+        ].join('\n'),
+      )
+      .replace(
+        '#include <color_fragment>',
+        [
+          '#include <color_fragment>',
+          ...(textured
+            ? [
+                'vec4 fbTexel = texture2D(uAtlasColor, vAtlasUv);',
+                'float fbBark = texture2D(uAtlasMask, vAtlasUv).r;',
+                // Foliage takes the instance tint, bark keeps the atlas colour —
+                // the impostor material's split (impostors.ts).
+                'diffuseColor.rgb = mix(diffuseColor.rgb * fbTexel.rgb, fbTexel.rgb, fbBark);',
+                'diffuseColor.a *= fbTexel.a * vFarFade;',
+              ]
+            : ['diffuseColor.a *= vFarFade;']),
+        ].join('\n'),
+      );
   };
   return material;
 }
@@ -306,6 +361,14 @@ export interface FarVegetationOptions {
   /** §11 ring connect sampler, or null: no far water, no suppression (§2b.5).
    * The ring connect streams in after construction — see `setConnect`. */
   connectAt?: ((x: number, z: number) => number) | null;
+  /**
+   * §6.1 amendment: the seed's baked archetype atlas, when the caller can bake
+   * one — tree billboards then draw a real silhouette instead of a flat quad
+   * (conifer shows as spruce, broadleaf as oak; one representative archetype per
+   * type, because a far stem has no species assignment). `null`/omitted = the
+   * pre-amendment flat-colour §13 billboards, exactly as before.
+   */
+  atlasFor?: ((seed: number) => ImpostorAtlas | null) | null;
 }
 
 interface FarBatch {
@@ -329,6 +392,9 @@ export class FarVegetationLayer {
   private readonly rings: FarRingInput[] = [];
   private readonly geometry = billboardGeometry();
   private readonly material: THREE.Material;
+  /** §6.1: textured billboard materials per tree type, for the current seed. */
+  private readonly texturedMaterials = new Map<VegetationType, THREE.Material>();
+  private texturedSeed: number | null = null;
   private batches: FarBatch[] = [];
   private built = false;
   private enabled = false;
@@ -399,6 +465,33 @@ export class FarVegetationLayer {
     if (this.built) this.refreshMatrices();
   }
 
+  /**
+   * The billboard material for one §13 type (§6.1 amendment): tree types draw a
+   * representative baked silhouette when an atlas exists (conifer → spruce,
+   * broadleaf → oak, first variant), reeds and atlas-less sites keep the flat
+   * quad. Cached per type for the current seed; a seed change re-bakes.
+   */
+  private materialForType(type: VegetationType): THREE.Material {
+    const atlas = type !== 'reeds' ? (this.options.atlasFor?.(this.options.seed) ?? null) : null;
+    if (!atlas) return this.material;
+    if (this.texturedSeed !== this.options.seed) {
+      this.disposeTexturedMaterials();
+      this.texturedSeed = this.options.seed;
+    }
+    let material = this.texturedMaterials.get(type);
+    if (!material) {
+      const row = archetypeIndex(type === 'conifer' ? 'spruce' : 'oak', 0);
+      material = createBillboardMaterial(this.options.contextHalfM, { atlas, row });
+      this.texturedMaterials.set(type, material);
+    }
+    return material;
+  }
+
+  private disposeTexturedMaterials(): void {
+    for (const material of this.texturedMaterials.values()) material.dispose();
+    this.texturedMaterials.clear();
+  }
+
   private rebuild(): void {
     for (const batch of this.batches) {
       this.group.remove(batch.mesh);
@@ -447,7 +540,7 @@ export class FarVegetationLayer {
         width[i] = h * form.widthRatio * (1 + (random() * 2 - 1) * form.widthJitter);
       }
 
-      const mesh = new THREE.InstancedMesh(this.geometry, this.material, n);
+      const mesh = new THREE.InstancedMesh(this.geometry, this.materialForType(instances.type), n);
       mesh.name = `far-vegetation-ring${instances.ringIndex[0]}-${instances.type}`;
       mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
       mesh.castShadow = false;
@@ -501,5 +594,6 @@ export class FarVegetationLayer {
     this.batches = [];
     this.geometry.dispose();
     this.material.dispose();
+    this.disposeTexturedMaterials();
   }
 }

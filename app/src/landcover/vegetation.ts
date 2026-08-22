@@ -31,9 +31,12 @@
  *     wobble per stem, so a thousand crowns read as a thousand trees instead of one
  *     repeated cutout.
  *
- * Geometry is *not* part of this step: the forms are still cone / icosahedron /
- * cross-quad, and batches are still keyed by legend form. The species assignment stored
- * per instance is the input the archetype geometry work consumes next.
+ *   • **Species archetype meshes** (`treeGeometry.ts`). Tree instances draw as
+ *     generated per-species meshes — spruce spire, bare-trunked pine, white-trunked
+ *     birch, broad oak — in seeded variants, batched one `InstancedMesh` per
+ *     (species, variant). Reeds keep their cross-quads. Every mesh keeps the old
+ *     cone's instancing contract (unit height, base at y = 0), so scale-as-size,
+ *     suppression and exaggeration semantics are untouched.
  *
  * Four invariants, all easy to break later:
  *
@@ -80,6 +83,18 @@
 import * as THREE from 'three';
 import { mulberry32, streamSeed } from '../lib/random';
 import { classAtLocal, type LandcoverGrid } from './landcoverGrid';
+import {
+  ARCHETYPE_VARIANTS,
+  archetypeGeometry,
+  createArchetypeMaterial,
+  type ArchetypeSpecies,
+} from './treeGeometry';
+import {
+  archetypeIndex,
+  createImpostorMaterial,
+  impostorGeometry,
+  type ImpostorAtlas,
+} from './impostors';
 import {
   SPECIES_FORMS,
   TREE_SPECIES,
@@ -651,6 +666,8 @@ const VEGETATION_TYPE_ORDER: VegetationType[] = ['conifer', 'broadleaf', 'reeds'
  */
 const SPECIES_TIEBREAK_STREAM_BASE = 400;
 const NEAR_COLOR_STREAM_BASE = 410;
+/** Which of a species' archetype variants an instance draws with (§6.1). */
+const VARIANT_STREAM_BASE = 450;
 
 export interface VegetationOptions {
   /** Unexaggerated ground height at local (x, z) — the app's single sampler. */
@@ -668,15 +685,28 @@ export interface VegetationOptions {
    * (or a legend with no `shore-band` class) = no dynamic band at all.
    */
   levelRange?: [number, number] | null;
+  /**
+   * §6.1 LOD: the baked impostor atlas for a seed (`impostors.ts`), or `null` when
+   * baking is unavailable. A callback rather than a value because archetypes are
+   * seed-derived — a seed change needs a fresh bake, and only the caller holds the
+   * renderer. `null`/omitted = every tree draws as a full mesh at any distance
+   * (correct, and what the headless tests exercise; only viable at small counts).
+   */
+  impostorAtlas?: ((seed: number) => ImpostorAtlas | null) | null;
 }
+
+/** Trees nearer the camera than this draw as full archetype meshes (§6.1 LOD). */
+export const MESH_TIER_RADIUS_M = 320;
+
+/** Camera movement that triggers a tier rebin — hysteresis against thrash. */
+export const REBIN_MOVE_M = 40;
 
 interface Batch {
   type: VegetationType;
   sample: TypeSample;
   /**
    * Which species each instance is, as an index into `TREE_SPECIES` (§6.1 amendment).
-   * Sized and ordered like `sample.x`. This is the input the archetype geometry work
-   * consumes — it is why the assignment is stored rather than recomputed.
+   * Sized and ordered like `sample.x`.
    */
   species: Uint8Array;
   /** Cached per instance so an exaggeration or level change never resamples. */
@@ -687,11 +717,28 @@ interface Batch {
   yaw: Float32Array;
   leanX: Float32Array;
   leanZ: Float32Array;
-  mesh: THREE.InstancedMesh;
+  /**
+   * §6.1 amendment: a tree-form batch draws as several `InstancedMesh`es — one per
+   * (species, variant) archetype present — while reeds keep their single cross-quad
+   * mesh. The batch's per-instance arrays stay in **sample order** (that is what the
+   * RNG stream walk and every A-vs-B test key on); `subOf`/`slotOf` map instance `i`
+   * to its mesh and slot, so suppression/exaggeration refreshes stay one O(n) pass.
+   */
+  meshes: THREE.InstancedMesh[];
+  /**
+   * §6.1 LOD: the impostor twin of each tree sub-mesh (same capacity, same slots),
+   * or `null` where there is none (reeds, or no atlas available). An instance is
+   * drawn in exactly one tier at a time — the other tier holds a zero-scale matrix,
+   * the same trick suppression uses.
+   */
+  impostors: (THREE.InstancedMesh | null)[];
+  subOf: Uint8Array;
+  slotOf: Uint32Array;
 }
 
 /**
- * One `InstancedMesh` per vegetation form, all under one group.
+ * One `InstancedMesh` per (species, variant) archetype — plus one for reeds — all
+ * under one group.
  *
  * Add the group to the **scene**, never to `terrain.group` — see the module comment.
  * Changing the seed or density rebuilds the instance buffers; changing exaggeration
@@ -706,6 +753,19 @@ export class VegetationLayer {
   private readonly options: VegetationOptions;
   private readonly materials = new Map<VegetationType, THREE.Material>();
   private readonly geometries = new Map<VegetationType, THREE.BufferGeometry>();
+  /** Archetype meshes for the current seed, keyed `species-variant` (§6.1). */
+  private readonly archetypeGeometries = new Map<string, THREE.BufferGeometry>();
+  /** The seed the cached archetypes were generated for (they are seed-derived). */
+  private archetypeGeometrySeed: number | null = null;
+  /** One material shared by every archetype mesh (bark/foliage split shader). */
+  private archetypeMaterial: THREE.Material | null = null;
+  /** §6.1 LOD: the current seed's atlas (owned by the caller) and one impostor
+   * material per archetype row — same lifetime as the archetype geometries. */
+  private impostorAtlasFor: ImpostorAtlas | null = null;
+  private readonly impostorMaterials = new Map<number, THREE.Material>();
+  /** Camera position of the last tier rebin; `null` = everything mesh tier. */
+  private cameraX: number | null = null;
+  private cameraZ = 0;
   private batches: Batch[] = [];
   private params: VegetationParams;
   private enabled = false;
@@ -884,6 +944,26 @@ export class VegetationLayer {
     this.refreshBand();
   }
 
+  /**
+   * §6.1 LOD: tell the layer where the camera is, so instances can move between
+   * the mesh and impostor tiers. Call as often as you like (every frame is fine):
+   * the rebin — an O(n) matrix rewrite, the same cost class as a slider move —
+   * only runs once the camera has moved `REBIN_MOVE_M` from the last one. With no
+   * atlas (options.impostorAtlas absent) this is a no-op and every tree stays a
+   * full mesh.
+   */
+  updateCamera(x: number, z: number): void {
+    if (!this.impostorAtlasFor) return;
+    if (this.cameraX !== null) {
+      const dx = x - this.cameraX;
+      const dz = z - this.cameraZ;
+      if (dx * dx + dz * dz < REBIN_MOVE_M * REBIN_MOVE_M) return;
+    }
+    this.cameraX = x;
+    this.cameraZ = z;
+    this.refreshMatrices();
+  }
+
   /** Is instance `index` of `type` suppressed at the current level (split threshold)? */
   isSuppressed(type: VegetationType, index: number): boolean {
     const batch = this.batchOf(type);
@@ -912,13 +992,39 @@ export class VegetationLayer {
     return target;
   }
 
+  /** The instance colour of `type` instance `index`, for tests and dev hooks. */
+  instanceColor(type: VegetationType, index: number, target = new THREE.Color()): THREE.Color {
+    const batch = this.batchOf(type);
+    if (index < 0 || index >= batch.sample.x.length) {
+      throw new RangeError(`vegetation: no ${type} instance at index ${index} (count ${batch.sample.x.length})`);
+    }
+    batch.meshes[batch.subOf[index]].getColorAt(batch.slotOf[index], target);
+    return target;
+  }
+
   /** The instance matrix of `type` instance `index`, for tests and dev hooks. */
   instanceMatrix(type: VegetationType, index: number, target = new THREE.Matrix4()): THREE.Matrix4 {
     const batch = this.batchOf(type);
     if (index < 0 || index >= batch.sample.x.length) {
       throw new RangeError(`vegetation: no ${type} instance at index ${index} (count ${batch.sample.x.length})`);
     }
-    batch.mesh.getMatrixAt(index, target);
+    batch.meshes[batch.subOf[index]].getMatrixAt(batch.slotOf[index], target);
+    return target;
+  }
+
+  /**
+   * The impostor-tier matrix of `type` instance `index` (§6.1 LOD), or `null`
+   * when the instance has no impostor twin (reeds, or no atlas). Tests and dev
+   * hooks; zero scale in exactly one of the two tiers is the LOD invariant.
+   */
+  impostorInstanceMatrix(type: VegetationType, index: number, target = new THREE.Matrix4()): THREE.Matrix4 | null {
+    const batch = this.batchOf(type);
+    if (index < 0 || index >= batch.sample.x.length) {
+      throw new RangeError(`vegetation: no ${type} instance at index ${index} (count ${batch.sample.x.length})`);
+    }
+    const impostor = batch.impostors[batch.subOf[index]];
+    if (!impostor) return null;
+    impostor.getMatrixAt(batch.slotOf[index], target);
     return target;
   }
 
@@ -928,6 +1034,13 @@ export class VegetationLayer {
     for (const material of this.materials.values()) material.dispose();
     this.geometries.clear();
     this.materials.clear();
+    for (const geometry of this.archetypeGeometries.values()) geometry.dispose();
+    this.archetypeGeometries.clear();
+    this.archetypeMaterial?.dispose();
+    this.archetypeMaterial = null;
+    this.disposeImpostorMaterials();
+    // The atlas itself is the caller's (it holds the render targets).
+    this.impostorAtlasFor = null;
   }
 
   private batchOf(type: VegetationType): Batch {
@@ -938,8 +1051,18 @@ export class VegetationLayer {
 
   private disposeMeshes(): void {
     for (const batch of this.batches) {
-      this.group.remove(batch.mesh);
-      batch.mesh.dispose();
+      for (const mesh of batch.meshes) {
+        this.group.remove(mesh);
+        mesh.dispose();
+      }
+      for (const impostor of batch.impostors) {
+        if (!impostor) continue;
+        this.group.remove(impostor);
+        // Impostor geometries are per-mesh clones (they carry the instanced yaw
+        // attribute), so they are owned here, not by a shared cache.
+        impostor.geometry.dispose();
+        impostor.dispose();
+      }
     }
     this.batches = [];
     if (this.bandMesh) {
@@ -966,9 +1089,9 @@ export class VegetationLayer {
     let material = this.materials.get(type);
     if (!material) {
       material = new THREE.MeshLambertMaterial({
-        // Flat shading, no map: the crown's facets are its shading, and the variation
-        // that keeps a stand from reading as one object is per-instance colour, not
-        // texture (§6.1 amendment). Geometry — species archetypes — comes next.
+        // The reeds' cross-quads (and the shore band, whatever its form) keep this
+        // plain per-instance-colour Lambert; the tree forms draw with the archetype
+        // material's bark/foliage split instead (§6.1 amendment).
         flatShading: type !== 'reeds',
         side: type === 'reeds' ? THREE.DoubleSide : THREE.FrontSide,
       });
@@ -978,8 +1101,56 @@ export class VegetationLayer {
     return material;
   }
 
+  /**
+   * The (species, variant) archetype for the current seed. Archetype shapes are
+   * seed-derived (streams 500+), so a seed change invalidates the whole cache —
+   * regeneration is a dozen meshes of a few hundred triangles, trivial next to the
+   * instance resample that same rebuild is already doing.
+   */
+  private archetypeOf(species: ArchetypeSpecies, variant: number): THREE.BufferGeometry {
+    if (this.archetypeGeometrySeed !== this.params.seed) {
+      for (const geometry of this.archetypeGeometries.values()) geometry.dispose();
+      this.archetypeGeometries.clear();
+      this.archetypeGeometrySeed = this.params.seed;
+    }
+    const key = `${species}-${variant}`;
+    let geometry = this.archetypeGeometries.get(key);
+    if (!geometry) {
+      geometry = archetypeGeometry(species, variant, this.params.seed);
+      this.archetypeGeometries.set(key, geometry);
+    }
+    return geometry;
+  }
+
+  private archetypeMaterialOf(): THREE.Material {
+    if (!this.archetypeMaterial) this.archetypeMaterial = createArchetypeMaterial();
+    return this.archetypeMaterial;
+  }
+
+  /** One impostor material per archetype row, for the current atlas (§6.1 LOD). */
+  private impostorMaterialOf(row: number): THREE.Material {
+    let material = this.impostorMaterials.get(row);
+    if (!material) {
+      material = createImpostorMaterial(this.impostorAtlasFor!, row);
+      this.impostorMaterials.set(row, material);
+    }
+    return material;
+  }
+
+  private disposeImpostorMaterials(): void {
+    for (const material of this.impostorMaterials.values()) material.dispose();
+    this.impostorMaterials.clear();
+  }
+
   private rebuild(): void {
     this.disposeMeshes();
+    // The seed's impostor atlas, if the caller can bake one (§6.1 LOD). A changed
+    // atlas invalidates the per-row materials, which hold its textures.
+    const atlas = this.options.impostorAtlas?.(this.params.seed) ?? null;
+    if (atlas !== this.impostorAtlasFor) {
+      this.disposeImpostorMaterials();
+      this.impostorAtlasFor = atlas;
+    }
     const connectAt = this.options.connectAt ?? null;
     const { vegetation: sample, band } = sampleLandcoverVegetation(
       this.grid,
@@ -1007,12 +1178,14 @@ export class VegetationLayer {
       const formIndex = VEGETATION_TYPE_ORDER.indexOf(typeSample.type);
 
       // -----------------------------------------------------------------------
-      // THREE streams, each walked a FIXED number of draws per instance, in
+      // FOUR streams, each walked a FIXED number of draws per instance, in
       // instance order, unconditionally:
       //
       //   100 + form  — appearance:  5 draws (height, width, yaw, leanX, leanZ)
       //   400 + form  — species:     1 draw  (the mix tiebreak)
       //   410 + form  — colour:      3 draws (hue, saturation, lightness)
+      //   450 + form  — variant:     1 draw  (which archetype mesh; drawn and
+      //                              ignored for reeds, so the walk stays fixed)
       //
       // Splitting them this way is the point: the §6.1 species and colour work adds
       // draws WITHOUT touching the appearance stream, so an existing seed's layout —
@@ -1023,6 +1196,7 @@ export class VegetationLayer {
       const random = mulberry32(streamSeed(this.params.seed, 100 + formIndex));
       const speciesRandom = mulberry32(streamSeed(this.params.seed, SPECIES_TIEBREAK_STREAM_BASE + formIndex));
       const colorRandom = mulberry32(streamSeed(this.params.seed, NEAR_COLOR_STREAM_BASE + formIndex));
+      const variantRandom = mulberry32(streamSeed(this.params.seed, VARIANT_STREAM_BASE + formIndex));
 
       // The two clump fields (species.ts): smooth functions of position, so a stand
       // shares a species and an age. Both are pure — no draws, no order dependence.
@@ -1030,6 +1204,7 @@ export class VegetationLayer {
       const standHeightAt = standHeightFieldFor(typeSample.type, this.params.seed);
 
       const species = new Uint8Array(n);
+      const variant = new Uint8Array(n);
       const ground = new Float32Array(n);
       const connect = new Float32Array(n);
       const height = new Float32Array(n);
@@ -1053,6 +1228,7 @@ export class VegetationLayer {
 
         const kind = speciesAt(x, z, speciesRandom());
         species[i] = TREE_SPECIES.indexOf(kind);
+        variant[i] = Math.min(ARCHETYPE_VARIANTS - 1, Math.floor(variantRandom() * ARCHETYPE_VARIANTS));
         const form = SPECIES_FORMS[kind] ?? VEGETATION_FORMS[typeSample.type];
 
         // Height is the species' own size × the stand's age × this stem's jitter: the
@@ -1065,20 +1241,100 @@ export class VegetationLayer {
         leanZ[i] = (jitterLeanZ * 2 - 1) * form.leanRad;
       }
 
-      const mesh = new THREE.InstancedMesh(this.geometryOf(typeSample.type), this.materialOf(typeSample.type), n);
-      mesh.name = `vegetation-${typeSample.type}`;
-      mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-      mesh.castShadow = false;
-      mesh.receiveShadow = false;
+      // ------------------------------------------------------------------------
+      // Partition into meshes (§6.1 amendment). Reeds: one cross-quad mesh, as
+      // ever. Tree forms: one InstancedMesh per (species, variant) archetype that
+      // actually occurs — at 2 species × 3 variants per form that is ≤ 6 draws
+      // where there used to be 1, which is noise next to the terrain chunks.
+      // Instance order inside each partition follows sample order, so the colour
+      // stream below is still consumed strictly in instance order.
+      // ------------------------------------------------------------------------
+      const isReeds = typeSample.type === 'reeds';
+      const keyOf = (i: number): string => {
+        if (isReeds) return 'reeds';
+        const kind = TREE_SPECIES[species[i]] as ArchetypeSpecies;
+        return `${kind}-${variant[i]}`;
+      };
+
+      const meshes: THREE.InstancedMesh[] = [];
+      const impostors: (THREE.InstancedMesh | null)[] = [];
+      const meshIndexByKey = new Map<string, number>();
+      const countByKey = new Map<string, number>();
+      for (let i = 0; i < n; i++) countByKey.set(keyOf(i), (countByKey.get(keyOf(i)) ?? 0) + 1);
+      for (const [key, count] of countByKey) {
+        let mesh: THREE.InstancedMesh;
+        let impostor: THREE.InstancedMesh | null = null;
+        if (isReeds) {
+          mesh = new THREE.InstancedMesh(this.geometryOf('reeds'), this.materialOf('reeds'), count);
+          mesh.name = `vegetation-reeds`;
+        } else {
+          const [kind, variantName] = key.split('-');
+          const treeSpecies = kind as ArchetypeSpecies;
+          const treeVariant = Number(variantName);
+          mesh = new THREE.InstancedMesh(
+            this.archetypeOf(treeSpecies, treeVariant),
+            this.archetypeMaterialOf(),
+            count,
+          );
+          mesh.name = `vegetation-${typeSample.type}-${key}`;
+          if (this.impostorAtlasFor) {
+            // The impostor twin (§6.1 LOD): same capacity, same slot for every
+            // instance, its own quad geometry carrying the per-instance yaw the
+            // frame-selection shader reads. Which twin actually shows an instance
+            // is decided per rebin in refreshMatrices.
+            const quad = impostorGeometry();
+            quad.setAttribute('yaw', new THREE.InstancedBufferAttribute(new Float32Array(count), 1));
+            impostor = new THREE.InstancedMesh(
+              quad,
+              this.impostorMaterialOf(archetypeIndex(treeSpecies, treeVariant)),
+              count,
+            );
+            impostor.name = `vegetation-${typeSample.type}-${key}-impostor`;
+            impostor.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+            impostor.castShadow = false;
+            impostor.receiveShadow = false;
+          }
+        }
+        mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+        mesh.castShadow = false;
+        mesh.receiveShadow = false;
+        meshIndexByKey.set(key, meshes.length);
+        meshes.push(mesh);
+        impostors.push(impostor);
+      }
+
+      const subOf = new Uint8Array(n);
+      const slotOf = new Uint32Array(n);
+      const nextSlot = new Uint32Array(meshes.length);
       // Class colour → species tint → per-stem wobble, three draws each in instance
       // order. The class colour still dominates: both steps are a few percent of HSL
-      // (species.ts), so the legend swatch stays the thing the eye reads.
+      // (species.ts), so the legend swatch stays the thing the eye reads. The
+      // impostor twin gets the identical colour and the instance's yaw — no extra
+      // draws, so the stream walk is byte-identical with or without an atlas.
       for (let i = 0; i < n; i++) {
+        const sub = meshIndexByKey.get(keyOf(i))!;
+        subOf[i] = sub;
+        slotOf[i] = nextSlot[sub]++;
         const base = colors.get(typeSample.classIndex[i]) ?? new THREE.Color(0x6b8f5a);
         const tinted = speciesColor(base, TREE_SPECIES[species[i]]);
-        mesh.setColorAt(i, jitterPlantColor(tinted, colorRandom));
+        const shaded = jitterPlantColor(tinted, colorRandom);
+        meshes[sub].setColorAt(slotOf[i], shaded);
+        const impostor = impostors[sub];
+        if (impostor) {
+          impostor.setColorAt(slotOf[i], shaded);
+          (impostor.geometry.getAttribute('yaw') as THREE.InstancedBufferAttribute).setX(slotOf[i], yaw[i]);
+        }
       }
-      if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+      for (const mesh of meshes) {
+        if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+        this.group.add(mesh);
+      }
+      for (const impostor of impostors) {
+        if (!impostor) continue;
+        if (impostor.instanceColor) impostor.instanceColor.needsUpdate = true;
+        (impostor.geometry.getAttribute('yaw') as THREE.InstancedBufferAttribute).needsUpdate = true;
+        this.group.add(impostor);
+      }
 
       this.batches.push({
         type: typeSample.type,
@@ -1091,9 +1347,11 @@ export class VegetationLayer {
         yaw,
         leanX,
         leanZ,
-        mesh,
+        meshes,
+        impostors,
+        subOf,
+        slotOf,
       });
-      this.group.add(mesh);
     }
 
     this.buildBandMesh(colors);
@@ -1184,15 +1442,47 @@ export class VegetationLayer {
         this.position.set(x, batch.ground[i] * exaggeration, z);
         this.euler.set(batch.leanX[i], batch.yaw[i], batch.leanZ[i], 'YXZ');
         this.quaternion.setFromEuler(this.euler);
-        if (wet) this.scale.set(0, 0, 0);
+        const sub = batch.subOf[i];
+        const slot = batch.slotOf[i];
+        const impostor = batch.impostors[sub];
+        // §6.1 LOD: the instance shows in exactly one tier — mesh inside
+        // MESH_TIER_RADIUS_M of the camera (or when there is no impostor twin /
+        // no camera yet), impostor beyond. The hidden tier gets the zero-scale
+        // matrix, the same trick suppression uses, so a rebin is matrix writes
+        // and nothing else.
+        let meshTier = true;
+        if (!wet && impostor && this.cameraX !== null) {
+          const dx = x - this.cameraX;
+          const dz = z - this.cameraZ;
+          meshTier = dx * dx + dz * dz <= MESH_TIER_RADIUS_M * MESH_TIER_RADIUS_M;
+        }
+        if (wet || !meshTier) this.scale.set(0, 0, 0);
         else this.scale.set(batch.width[i], batch.height[i], batch.width[i]);
-        batch.mesh.setMatrixAt(i, this.matrix.compose(this.position, this.quaternion, this.scale));
+        batch.meshes[sub].setMatrixAt(slot, this.matrix.compose(this.position, this.quaternion, this.scale));
+        if (impostor) {
+          // Impostors carry no yaw/lean in the matrix — the facing shader needs a
+          // symmetric XZ scale and composes its own rotation; yaw rides along as
+          // an instanced attribute and picks the baked frame instead.
+          if (wet || meshTier) this.scale.set(0, 0, 0);
+          else this.scale.set(batch.width[i], batch.height[i], batch.width[i]);
+          impostor.setMatrixAt(slot, this.matrix.compose(this.position, IDENTITY_QUATERNION, this.scale));
+        }
       }
-      batch.mesh.instanceMatrix.needsUpdate = true;
-      batch.mesh.computeBoundingSphere();
+      for (const mesh of batch.meshes) {
+        mesh.instanceMatrix.needsUpdate = true;
+        mesh.computeBoundingSphere();
+      }
+      for (const impostor of batch.impostors) {
+        if (!impostor) continue;
+        impostor.instanceMatrix.needsUpdate = true;
+        impostor.computeBoundingSphere();
+      }
     }
   }
 }
+
+/** Impostor matrices never rotate — the facing shader owns rotation. */
+const IDENTITY_QUATERNION = new THREE.Quaternion();
 
 /**
  * First index `i` with `values[i] > value` in an ascending array (`std::upper_bound`).

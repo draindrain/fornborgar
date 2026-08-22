@@ -720,11 +720,18 @@ function wideLayer(seed = 1): VegetationLayer {
   );
 }
 
-/** The batch's instance colours as a plain array — three floats per instance. */
+/** The batch's instance colours as a plain array — three floats per instance,
+ * in instance order (the layer routes through its per-archetype meshes). */
 function instanceColors(layer: VegetationLayer, type: VegetationType): number[] {
-  const mesh = layer.group.getObjectByName(`vegetation-${type}`) as THREE.InstancedMesh | null;
-  if (!mesh?.instanceColor) throw new Error(`no instance colours for ${type}`);
-  return Array.from(mesh.instanceColor.array as Float32Array);
+  const out: number[] = [];
+  const color = new THREE.Color();
+  const count = layer.countsByType()[type] ?? 0;
+  if (count === 0) throw new Error(`no instance colours for ${type}`);
+  for (let i = 0; i < count; i++) {
+    layer.instanceColor(type, i, color);
+    out.push(color.r, color.g, color.b);
+  }
+  return out;
 }
 
 describe('species mixes and stands (PLAN §6.1 amendment)', () => {
