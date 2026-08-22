@@ -44,6 +44,7 @@ import { refractedDropM } from '../lib/earth';
 import { mulberry32, streamSeed } from '../lib/random';
 import { classAtLocal, type LandcoverGrid } from './landcoverGrid';
 import type { FarFieldClass, VegetationType } from './legend';
+import { jitterPlantColor } from './species';
 import { VEGETATION_FORMS } from './vegetation';
 
 /** Square meters per hectare — the unit §13 billboard densities are quoted in. */
@@ -64,6 +65,16 @@ export const FAR_FADE_METERS = 200;
 
 /** Stream-id base for far-field sampling (near field uses 0…, 100+, 200+). */
 const FAR_STREAM_BASE = 300;
+
+/**
+ * Stream-id base for the far field's per-instance colour jitter, offset by ring index.
+ *
+ * A **new** stream in the 400+ range (§6.1 amendment, 2026-08-22) rather than three more
+ * draws on `FAR_STREAM_BASE + 100 + ring`: that stream's two-draws-per-instance walk is
+ * what fixes each billboard's size, and lengthening it would resize the whole far
+ * forest for every existing seed.
+ */
+const FAR_COLOR_STREAM_BASE = 420;
 
 /** One ring's inputs: the §13 class raster, the §11 height grid, and the
  * half-extent of the next-finer grid (whose ground the ring must not repopulate). */
@@ -212,14 +223,14 @@ function billboardColor(hex: string): THREE.Color {
 }
 
 /**
- * The §13 billboard material: flat-colour Lambert with two vertex-shader
+ * The §13 billboard material: one Lambert, coloured per instance, with two vertex-shader
  * injections — the cylindrical camera-facing rotation and the context-edge
  * fade — chained with the same idiom as every overlay in this app, so logdepth
  * and fog come from the built-in chunks for free.
  */
 export function createBillboardMaterial(fadeStartM: number): THREE.Material {
   const material = new THREE.MeshLambertMaterial({
-    // A billboard is pure silhouette + colour; DoubleSide guards the edge case
+    // A billboard is pure silhouette + (per-instance) colour; DoubleSide guards the edge case
     // where the per-frame rotation trails the camera by one frame.
     side: THREE.DoubleSide,
     transparent: true,
@@ -441,8 +452,17 @@ export class FarVegetationLayer {
       mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
       mesh.castShadow = false;
       mesh.receiveShadow = false;
+      // Per-instance colour jitter (§6.1 amendment): three draws each, in instance
+      // order, from this ring's own colour stream. At a few pixels a billboard is
+      // silhouette plus colour, so a whole hillside in one flat green reads as painted
+      // cardboard — the same wobble the near field uses is what gives it depth. No
+      // species split out here: at this range it would cost draws to buy nothing.
+      const colorRandom = mulberry32(
+        streamSeed(this.options.seed, FAR_COLOR_STREAM_BASE + instances.ringIndex[0]),
+      );
       for (let i = 0; i < n; i++) {
-        mesh.setColorAt(i, colors.get(instances.classIndex[i]) ?? new THREE.Color(0x5a7a4a));
+        const base = colors.get(instances.classIndex[i]) ?? new THREE.Color(0x5a7a4a);
+        mesh.setColorAt(i, jitterPlantColor(base, colorRandom));
       }
       if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
 

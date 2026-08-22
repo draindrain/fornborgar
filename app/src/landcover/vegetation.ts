@@ -3,17 +3,46 @@
  * contract §9 "Rendering contract").
  *
  * The §9 raster says *what kind* of ground each 2 m cell is; the §10 legend says how
- * densely that kind was vegetated. This module turns the two into instanced
- * geometry — cones for `conifer`, rounder crowns for `broadleaf`, cross-quad
- * billboards for `reeds` — and nothing more. It is a **model**: flat colours, no
- * textures, deliberately schematic, so nobody mistakes it for a reconstruction of a
- * particular wood.
+ * densely that kind was vegetated. This module turns the two into instanced geometry.
+ *
+ * ## v1.4 — naturalistic rendering (PLAN §6.1 amendment, 2026-08-22)
+ *
+ * The original rule made the *rendering style itself* part of the Model badge: flat
+ * colours, deliberately schematic forms, so nobody could mistake the layer for a
+ * reconstruction. **That rule is retired.** It failed exactly where the model has to
+ * persuade — up close and at the treeline — and it conflated provenance with rendering
+ * quality. Honesty now lives where it belongs: in the "model" badge, the first-toggle
+ * caveat, the verbatim rule disclosure in the methods panel, the legend's calibration
+ * text, and species composition tied to the zone evidence (docs/vegetation-zones.md
+ * §2/§4). Not in how rough the trees look.
+ *
+ * So the population is built as a *statistical* model of a stand rather than a field of
+ * identical props (`landcover/species.ts` owns all of it):
+ *
+ *   • **Species mixes.** A legend class still says "conifer forest at 120 stems/ha" —
+ *     that is the data contract — but the renderer resolves that form into the species
+ *     mix §4 supports (conifer = spruce/pine, broadleaf = oak/birch).
+ *   • **Clumped stands, not salt-and-pepper.** Species and stand age both come from
+ *     smooth noise fields (`lib/noise`), so neighbours mostly share a species and share
+ *     a height, the way regeneration actually works — with the realised species
+ *     fractions still landing on the model's weights (see `species.ts` on why that
+ *     needs an explicit distribution correction).
+ *   • **Per-instance colour variation.** A few percent of hue/saturation/lightness
+ *     wobble per stem, so a thousand crowns read as a thousand trees instead of one
+ *     repeated cutout.
+ *
+ * Geometry is *not* part of this step: the forms are still cone / icosahedron /
+ * cross-quad, and batches are still keyed by legend form. The species assignment stored
+ * per instance is the input the archetype geometry work consumes next.
  *
  * Four invariants, all easy to break later:
  *
- *   • **Deterministic for a seed.** Placement and per-instance jitter both come from
- *     `lib/random`'s mulberry32, walked in a fixed order, so the same seed is the
- *     same forest on every machine and in every screenshot (the palisade rule).
+ *   • **Deterministic for a seed.** Placement, per-instance jitter, species and colour
+ *     all come from `lib/random`'s mulberry32 (and from noise fields seeded through it),
+ *     walked in a fixed order, so the same seed is the same forest on every machine and
+ *     in every screenshot (the palisade rule). Each concern owns a **stream id**, and
+ *     each stream is walked a fixed number of draws per instance whether or not the
+ *     draw is used — see `rebuild()`, where the counts are pinned.
  *   • **Vertical exaggeration is a render-only Y scale on the terrain _group_**
  *     (contract §0). Plants must stand *on* the exaggerated ground while keeping
  *     their true metric size, so this layer lives in the scene *outside* that group
@@ -51,6 +80,15 @@
 import * as THREE from 'three';
 import { mulberry32, streamSeed } from '../lib/random';
 import { classAtLocal, type LandcoverGrid } from './landcoverGrid';
+import {
+  SPECIES_FORMS,
+  TREE_SPECIES,
+  jitterPlantColor,
+  speciesColor,
+  speciesFieldFor,
+  standHeightFieldFor,
+  type TreeSpecies,
+} from './species';
 import {
   dynamicClass,
   staticVegetationClasses,
@@ -97,6 +135,18 @@ export interface VegetationForm {
   leanRad: number;
 }
 
+/**
+ * The per-**form** envelope: one size for each of the legend's three vegetation types.
+ *
+ * Since the §6.1 amendment the near-field trees size themselves from `SPECIES_FORMS`
+ * instead (a spruce and a pine are not one "conifer"), but this table is still the live
+ * envelope for the two populations that must not move:
+ *   • the **shore band**, whose whole honesty argument is that a candidate's appearance
+ *     is a pure function of (seed, lattice cell) — see `sampleShoreBand`;
+ *   • the **far field** (`farVegetation.ts`), where a stem is a few pixels of silhouette
+ *     and a species split would cost draws to buy nothing.
+ * It is also the fallback envelope for any legend type without a species mix.
+ */
 export const VEGETATION_FORMS: Record<VegetationType, VegetationForm> = {
   // Boreal spruce/pine: tall, narrow, strongly varied in height.
   conifer: { heightM: 13, widthRatio: 0.34, heightJitter: 0.28, widthJitter: 0.15, leanRad: (3 * Math.PI) / 180 },
@@ -569,9 +619,12 @@ function geometryFor(type: VegetationType): THREE.BufferGeometry {
 }
 
 /**
- * Flat, cheap, slightly desaturated: PLAN §6.1 asks for stylized rendering, and the
- * ground wash already carries the class colour, so the plants sit a shade darker and
- * duller than their class rather than shouting over it.
+ * The **base** colour of one legend class's plants: the class colour a shade darker and
+ * duller, because the ground wash already carries the class colour at full strength and
+ * the plants should sit against it rather than shout over it.
+ *
+ * This is where a plant's colour starts, not where it ends — `rebuild()` shades it per
+ * species and wobbles it per stem (§6.1 amendment, `species.ts`).
  */
 function plantColor(hex: string): THREE.Color {
   const color = new THREE.Color().setStyle(hex, THREE.SRGBColorSpace);
@@ -584,6 +637,20 @@ function plantColor(hex: string): THREE.Color {
 
 /** Stable order for the per-form jitter streams (see `VegetationLayer.rebuild`). */
 const VEGETATION_TYPE_ORDER: VegetationType[] = ['conifer', 'broadleaf', 'reeds'];
+
+/**
+ * Stream-id bases for the near field's per-instance draws.
+ *
+ * The whole map, so a future stream lands somewhere free: class placement 0–31
+ * (`cls.index`), near-field appearance 100+, shore band 200+, far field 300+ and 400+
+ * (its colour jitter at 420+), this module's two additions below, and
+ * `landcover/species.ts`'s noise fields at 430+ / 440+.
+ *
+ * Each base is offset by the form's index in `VEGETATION_TYPE_ORDER`, so adding a form
+ * — or changing what a stream is used for — cannot reshuffle another form's stems.
+ */
+const SPECIES_TIEBREAK_STREAM_BASE = 400;
+const NEAR_COLOR_STREAM_BASE = 410;
 
 export interface VegetationOptions {
   /** Unexaggerated ground height at local (x, z) — the app's single sampler. */
@@ -606,6 +673,12 @@ export interface VegetationOptions {
 interface Batch {
   type: VegetationType;
   sample: TypeSample;
+  /**
+   * Which species each instance is, as an index into `TREE_SPECIES` (§6.1 amendment).
+   * Sized and ordered like `sample.x`. This is the input the archetype geometry work
+   * consumes — it is why the assignment is stored rather than recomputed.
+   */
+  species: Uint8Array;
   /** Cached per instance so an exaggeration or level change never resamples. */
   ground: Float32Array;
   connect: Float32Array;
@@ -746,6 +819,33 @@ export class VegetationLayer {
     return Object.fromEntries(this.batches.map((b) => [b.type, b.sample.x.length]));
   }
 
+  /**
+   * Instance counts per **species**, for the readout and the tests (§6.1 amendment).
+   *
+   * Only species that were actually placed appear, so the readout never claims a stand
+   * of nothing. Sums to `countsByType()`'s total — the shore band is not included here,
+   * it is reeds-only by construction (see `sampleShoreBand`).
+   */
+  countsBySpecies(): Record<string, number> {
+    const counts: Record<string, number> = {};
+    for (const batch of this.batches) {
+      for (let i = 0; i < batch.species.length; i++) {
+        const name = TREE_SPECIES[batch.species[i]] ?? 'unknown';
+        counts[name] = (counts[name] ?? 0) + 1;
+      }
+    }
+    return counts;
+  }
+
+  /** The species assigned to `type` instance `index`, for tests and dev hooks. */
+  speciesOf(type: VegetationType, index: number): TreeSpecies {
+    const batch = this.batchOf(type);
+    if (index < 0 || index >= batch.species.length) {
+      throw new RangeError(`vegetation: no ${type} instance at index ${index} (count ${batch.species.length})`);
+    }
+    return TREE_SPECIES[batch.species[index]];
+  }
+
   setEnabled(on: boolean): void {
     this.enabled = on;
     this.group.visible = on;
@@ -866,7 +966,9 @@ export class VegetationLayer {
     let material = this.materials.get(type);
     if (!material) {
       material = new THREE.MeshLambertMaterial({
-        // Flat shading and no map: a stylized model, never a photographic one.
+        // Flat shading, no map: the crown's facets are its shading, and the variation
+        // that keeps a stand from reading as one object is per-instance colour, not
+        // texture (§6.1 amendment). Geometry — species archetypes — comes next.
         flatShading: type !== 'reeds',
         side: type === 'reeds' ? THREE.DoubleSide : THREE.FrontSide,
       });
@@ -902,11 +1004,32 @@ export class VegetationLayer {
     for (const typeSample of sample.byType) {
       const n = typeSample.x.length;
       if (n === 0) continue;
-      const form = VEGETATION_FORMS[typeSample.type];
+      const formIndex = VEGETATION_TYPE_ORDER.indexOf(typeSample.type);
 
-      // Jitter draws from its own stream, so adding a form later cannot reshuffle
-      // an existing one's placement.
-      const random = mulberry32(streamSeed(this.params.seed, 100 + VEGETATION_TYPE_ORDER.indexOf(typeSample.type)));
+      // -----------------------------------------------------------------------
+      // THREE streams, each walked a FIXED number of draws per instance, in
+      // instance order, unconditionally:
+      //
+      //   100 + form  — appearance:  5 draws (height, width, yaw, leanX, leanZ)
+      //   400 + form  — species:     1 draw  (the mix tiebreak)
+      //   410 + form  — colour:      3 draws (hue, saturation, lightness)
+      //
+      // Splitting them this way is the point: the §6.1 species and colour work adds
+      // draws WITHOUT touching the appearance stream, so an existing seed's layout —
+      // which stem stands where, which way it leans — is exactly what it was. Adding a
+      // draw to the 100+ stream, or making any of these three conditional, re-rolls
+      // every instance after it and silently changes every saved screenshot.
+      // -----------------------------------------------------------------------
+      const random = mulberry32(streamSeed(this.params.seed, 100 + formIndex));
+      const speciesRandom = mulberry32(streamSeed(this.params.seed, SPECIES_TIEBREAK_STREAM_BASE + formIndex));
+      const colorRandom = mulberry32(streamSeed(this.params.seed, NEAR_COLOR_STREAM_BASE + formIndex));
+
+      // The two clump fields (species.ts): smooth functions of position, so a stand
+      // shares a species and an age. Both are pure — no draws, no order dependence.
+      const speciesAt = speciesFieldFor(typeSample.type, this.params.seed);
+      const standHeightAt = standHeightFieldFor(typeSample.type, this.params.seed);
+
+      const species = new Uint8Array(n);
       const ground = new Float32Array(n);
       const connect = new Float32Array(n);
       const height = new Float32Array(n);
@@ -920,12 +1043,26 @@ export class VegetationLayer {
         const z = typeSample.z[i];
         ground[i] = this.options.groundAt(x, z);
         connect[i] = this.options.connectAt ? this.options.connectAt(x, z) : Number.POSITIVE_INFINITY;
-        const h = form.heightM * (1 + (random() * 2 - 1) * form.heightJitter);
+
+        // The five appearance draws, in their original order — see the note above.
+        const jitterHeight = random();
+        const jitterWidth = random();
+        const jitterYaw = random();
+        const jitterLeanX = random();
+        const jitterLeanZ = random();
+
+        const kind = speciesAt(x, z, speciesRandom());
+        species[i] = TREE_SPECIES.indexOf(kind);
+        const form = SPECIES_FORMS[kind] ?? VEGETATION_FORMS[typeSample.type];
+
+        // Height is the species' own size × the stand's age × this stem's jitter: the
+        // stand term is what makes a wood read as stands rather than as noise.
+        const h = form.heightM * standHeightAt(x, z) * (1 + (jitterHeight * 2 - 1) * form.heightJitter);
         height[i] = h;
-        width[i] = h * form.widthRatio * (1 + (random() * 2 - 1) * form.widthJitter);
-        yaw[i] = random() * Math.PI * 2;
-        leanX[i] = (random() * 2 - 1) * form.leanRad;
-        leanZ[i] = (random() * 2 - 1) * form.leanRad;
+        width[i] = h * form.widthRatio * (1 + (jitterWidth * 2 - 1) * form.widthJitter);
+        yaw[i] = jitterYaw * Math.PI * 2;
+        leanX[i] = (jitterLeanX * 2 - 1) * form.leanRad;
+        leanZ[i] = (jitterLeanZ * 2 - 1) * form.leanRad;
       }
 
       const mesh = new THREE.InstancedMesh(this.geometryOf(typeSample.type), this.materialOf(typeSample.type), n);
@@ -933,14 +1070,20 @@ export class VegetationLayer {
       mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
       mesh.castShadow = false;
       mesh.receiveShadow = false;
+      // Class colour → species tint → per-stem wobble, three draws each in instance
+      // order. The class colour still dominates: both steps are a few percent of HSL
+      // (species.ts), so the legend swatch stays the thing the eye reads.
       for (let i = 0; i < n; i++) {
-        mesh.setColorAt(i, colors.get(typeSample.classIndex[i]) ?? new THREE.Color(0x6b8f5a));
+        const base = colors.get(typeSample.classIndex[i]) ?? new THREE.Color(0x6b8f5a);
+        const tinted = speciesColor(base, TREE_SPECIES[species[i]]);
+        mesh.setColorAt(i, jitterPlantColor(tinted, colorRandom));
       }
       if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
 
       this.batches.push({
         type: typeSample.type,
         sample: typeSample,
+        species,
         ground,
         connect,
         height,

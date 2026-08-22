@@ -351,7 +351,7 @@ function buildBirch(b: Builder, random: () => number): void {
     bend: 0.09,
     radial: 5,
     segments: 4,
-    color: (t, r) => (r() < 0.22 ? fleck : white).clone().multiplyScalar(0.95 + 0.1 * r()),
+    color: (_t, r) => (r() < 0.22 ? fleck : white).clone().multiplyScalar(0.95 + 0.1 * r()),
   });
   // Airy: several small, well-separated lobes rather than one mass, so sky
   // shows through the crown the way it does through a real birch.
@@ -387,7 +387,7 @@ function buildOak(b: Builder, random: () => number): void {
     bend: 0.07,
     radial: 6,
     segments: 3,
-    color: (t, r) => barkColor.clone().multiplyScalar(0.88 + 0.2 * r()),
+    color: (_t, r) => barkColor.clone().multiplyScalar(0.88 + 0.2 * r()),
   });
   const lobes = 3 + Math.floor(random() * 2);
   for (let i = 0; i < lobes; i++) {
