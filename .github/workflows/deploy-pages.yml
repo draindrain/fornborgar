@@ -16,6 +16,7 @@ on:
     branches: [main]
     paths:
       - "app/**"
+      - "pipeline/r2-config.json"
       - ".github/workflows/deploy-pages.yml"
   workflow_dispatch:
 
@@ -59,9 +60,33 @@ jobs:
         working-directory: app
         run: npm ci
 
+      - name: Resolve the bundle host
+        id: data
+        if: steps.guard.outputs.has_app == 'true'
+        # Where the deployed app fetches site bundles from (national-scaleout §3).
+        # The repository variable wins when set, so the host can be changed
+        # without a commit; otherwise it comes from the committed
+        # pipeline/r2-config.json, which is the single place that value lives.
+        # Neither present = repo-relative data/, i.e. the two committed fixtures
+        # and no site picker — a correct build, just a much smaller one.
+        run: |
+          url='${{ vars.VITE_DATA_BASE_URL }}'
+          if [ -z "$url" ] && [ -f pipeline/r2-config.json ]; then
+            url=$(node -p "require('./pipeline/r2-config.json').publicBaseUrl || ''")
+            [ -n "$url" ] && url="$url/v1"
+          fi
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          if [ -n "$url" ]; then
+            echo "Bundles: $url"
+          else
+            echo "Bundles: repo-relative data/ (no object host configured)"
+          fi
+
       - name: Build
         if: steps.guard.outputs.has_app == 'true'
         working-directory: app
+        env:
+          VITE_DATA_BASE_URL: ${{ steps.data.outputs.url }}
         # Project site is served from /<repo>/ — set the Vite base accordingly.
         run: npm run build -- --base=/${{ github.event.repository.name }}/
 
