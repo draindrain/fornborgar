@@ -221,3 +221,13 @@ the class's rule string.
 (Eketorp rings 3–5: 41/35/20 kB; Tarsta rings 3–7: 82/71/85/76/112 kB) —
 comfortably inside §5's ≤ 0.2 MB bound; the false-lake speckle had been
 costing 3–6× that before the correction.
+
+**Headless verification (Eketorp, built app, 2026-08-22):** full ring chain +
+far water + all three class rasters loaded with zero console errors; the
+billboard population was 0 before the layer's first enable (the lazy contract)
+and 32,881 after — about half the §1 worst case, right for an island tip whose
+band is mostly sea. From the ground the billboards read as horizon treelines;
+from orbit the ground tint runs to the map edge. One visual note for the
+contact-sheet sweep: at orbit altitude the 256 m mosaic reads as an aligned
+checkerboard — honest to the disclosed method, but a candidate for softer
+patch boundaries if it grates in the full 27-site sweep.
