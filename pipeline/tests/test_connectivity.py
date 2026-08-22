@@ -15,9 +15,15 @@ from scipy import ndimage
 
 from fornborg_pipeline.clip_dem import build_grids, quantize_decimeters, write_grid
 from fornborg_pipeline.connectivity import (
+    WATER_CONNECT_DELTA_PATH,
+    WATER_CONNECT_PATH,
+    apply_connect_delta,
     build_connect_grid,
+    connect_delta,
     flood_fill_elevation,
     quantize_connect_decimeters,
+    read_connect_grid,
+    write_connect_delta_grid,
     write_connect_grid,
 )
 
@@ -195,9 +201,117 @@ def test_written_connect_grid_matches_the_context_grid_profile(tmp_path, fake_si
         assert new.dtypes == ref.dtypes == ("int16",)
         assert new.nodata is None and ref.nodata is None
         assert new.profile["compress"] == ref.profile["compress"] == "deflate"
-        assert new.profile["blockxsize"] == ref.profile["blockxsize"] == 512
+        # §1a (v1.5): both are the striped, overview-free web layout, and the
+        # §7 "identical profile" promise is what pins them to the same strip height.
+        assert new.profile["tiled"] is ref.profile["tiled"] is False
+        assert new.profile["blockysize"] == ref.profile["blockysize"]
         structure = new.tags(ns="IMAGE_STRUCTURE")
         assert structure == ref.tags(ns="IMAGE_STRUCTURE")
-        assert structure["PREDICTOR"] == "2" and structure["LAYOUT"] == "COG"
-        assert new.overviews(1) == ref.overviews(1)
+        assert structure["PREDICTOR"] == "2"
+        assert new.overviews(1) == ref.overviews(1) == []
         assert np.all(new.read(1) >= ref.read(1))
+
+
+# ------------------------- v1.5 §12: the delta shipping form -----------------
+
+
+@pytest.mark.parametrize(
+    "dem_factory", [tilted_plane, false_basin, rough_terrain], ids=["plane", "basin", "rough"]
+)
+def test_delta_roundtrips_the_connect_surface_exactly(dem_factory):
+    """§12: `dem + delta` must reconstruct the connect grid bit for bit, not nearly."""
+    dem_dm = quantize_decimeters(dem_factory())
+    connect_dm = build_connect_grid(dem_dm)
+
+    delta = connect_delta(connect_dm, dem_dm)
+    assert delta.dtype == np.int16
+    assert delta.min() >= 0  # connect >= dem is what makes the delta meaningful
+    np.testing.assert_array_equal(apply_connect_delta(dem_dm, delta), connect_dm)
+
+
+def test_delta_is_zero_wherever_the_ground_drains():
+    """The saving comes from the zeros: only depression cells carry a lift."""
+    dem_dm = quantize_decimeters(tilted_plane())
+    delta = connect_delta(build_connect_grid(dem_dm), dem_dm)
+    assert not delta.any(), "a surface with no depressions must produce an all-zero delta"
+
+    basin_dm = quantize_decimeters(false_basin())
+    basin_delta = connect_delta(build_connect_grid(basin_dm), basin_dm)
+    raised = basin_delta > 0
+    assert raised.any()
+    # Every raised cell is inside the basin floor, and nothing outside it moved.
+    assert np.all(basin_delta[~raised] == 0)
+    assert raised[FLOOR_SLICE].all()
+
+
+def test_connect_delta_rejects_a_broken_invariant():
+    dem_dm = quantize_decimeters(false_basin())
+    connect_dm = build_connect_grid(dem_dm)
+    connect_dm[5, 5] = dem_dm[5, 5] - 1
+    with pytest.raises(ValueError, match="connect < dem"):
+        connect_delta(connect_dm, dem_dm)
+
+
+def test_connect_delta_rejects_a_geometry_mismatch():
+    dem_dm = quantize_decimeters(tilted_plane(16))
+    other = quantize_decimeters(tilted_plane(20))
+    with pytest.raises(ValueError, match="share a geometry"):
+        connect_delta(other, dem_dm)
+
+
+def test_written_delta_grid_matches_the_context_grid_profile(tmp_path, fake_site, fake_source):
+    """§12: the delta is written with exactly the §1/§1a encoding of its DEM grid."""
+    holed, transform, nodata, _ = fake_source
+    grids = build_grids(holed, transform, nodata, fake_site)
+    context = grids["context"]
+    dem_path = write_grid(tmp_path / context.spec.path, context)
+
+    connect_dm = build_connect_grid(context.data)
+    delta_path = write_connect_delta_grid(
+        tmp_path / WATER_CONNECT_DELTA_PATH,
+        connect_delta(connect_dm, context.data),
+        context.transform,
+        fake_site,
+        fake_site.context,
+        WATER_CONNECT_DELTA_PATH,
+    )
+
+    with rasterio.open(dem_path) as ref, rasterio.open(delta_path) as new:
+        assert (new.width, new.height) == (ref.width, ref.height)
+        assert new.crs == ref.crs and new.transform == ref.transform
+        assert new.bounds == ref.bounds
+        assert new.dtypes == ref.dtypes == ("int16",)
+        assert new.nodata is None
+        assert new.tags(ns="IMAGE_STRUCTURE") == ref.tags(ns="IMAGE_STRUCTURE")
+        assert new.profile["blockysize"] == ref.profile["blockysize"]
+        assert new.overviews(1) == []
+        np.testing.assert_array_equal(
+            apply_connect_delta(ref.read(1), new.read(1)), connect_dm
+        )
+
+
+def test_read_connect_grid_prefers_the_delta_and_falls_back(tmp_path, fake_site, fake_source):
+    """The app's precedence, mirrored pipeline-side so both read the same surface."""
+    holed, transform, nodata, _ = fake_source
+    context = build_grids(holed, transform, nodata, fake_site)["context"]
+    connect_dm = build_connect_grid(context.data)
+
+    with pytest.raises(FileNotFoundError):
+        read_connect_grid(tmp_path, context.data)
+
+    write_connect_grid(tmp_path / WATER_CONNECT_PATH, connect_dm, context.transform, fake_site)
+    absolute, path = read_connect_grid(tmp_path, context.data)
+    assert path.name == WATER_CONNECT_PATH
+    np.testing.assert_array_equal(absolute, connect_dm)
+
+    write_connect_delta_grid(
+        tmp_path / WATER_CONNECT_DELTA_PATH,
+        connect_delta(connect_dm, context.data),
+        context.transform,
+        fake_site,
+        fake_site.context,
+        WATER_CONNECT_DELTA_PATH,
+    )
+    reconstructed, path = read_connect_grid(tmp_path, context.data)
+    assert path.name == WATER_CONNECT_DELTA_PATH
+    np.testing.assert_array_equal(reconstructed, connect_dm)

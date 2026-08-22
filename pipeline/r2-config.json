@@ -1,0 +1,21 @@
+{
+  "comment": [
+    "Non-secret object-store configuration (docs/national-scaleout.md §3).",
+    "",
+    "`publicBaseUrl` is the base the app fetches bundles from and the base the",
+    "contact sheet links thumbnails at. It is public by definition — it appears in",
+    "every request a visitor's browser makes — so it is committed here rather than",
+    "hidden in an environment variable, which also means a batch run needs no",
+    "per-shell setup to produce correct URLs.",
+    "",
+    "It is still *configuration*, never a constant in pipeline or app source: the",
+    "r2.dev development URL below is expected to be replaced by a custom domain,",
+    "and that must be a one-line edit here plus a rebuild of the app with",
+    "VITE_DATA_BASE_URL set to match.",
+    "",
+    "Credentials (R2_ACCOUNT_ID / R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY /",
+    "R2_BUCKET) are NOT here and never will be — they come from the environment",
+    "only. R2_PUBLIC_BASE_URL in the environment still wins over this file."
+  ],
+  "publicBaseUrl": "https://pub-9ea507a776bc4f54b159e7bf7095a2fa.r2.dev"
+}

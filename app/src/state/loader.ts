@@ -6,7 +6,10 @@
  *
  * URL rule (docs/data-formats.md §0): every data URL is resolved against
  * `import.meta.env.BASE_URL` as `data/<siteId>/<path>` — never a leading slash —
- * so the app works from a GitHub Pages project subpath.
+ * so the app works from a GitHub Pages project subpath. Since Phase 9 a build
+ * may instead point `VITE_DATA_BASE_URL` at an object host, in which case the
+ * same paths resolve under `<base>/<siteId>/` (scale-out §3). One code path
+ * either way: the only thing that changes is what `siteDataUrl` returns.
  *
  * Optional assets follow the versioning policy in the contract preamble: a
  * missing `assets` entry always means "feature off", never an error.
@@ -20,6 +23,7 @@ import type { ConnectGrid } from '../water/connectGrid';
 import { validateShoreline, type ShorelineTable } from '../water/shoreline';
 import { validateSites, type SitesFile } from '../overlays/sites';
 import { validateRampart, type RampartFile } from '../overlays/palisade';
+import { validateSiteIndex, type SiteIndex } from './siteIndex';
 import type { LandcoverGrid } from '../landcover/landcoverGrid';
 import { validateLandcoverLegend, type LandcoverLegend } from '../landcover/legend';
 
@@ -35,13 +39,69 @@ export function siteIdFromLocation(search: string = window.location.search): str
   return raw;
 }
 
-/** Base URL for a site's data directory, always ending in "/". */
-export function siteDataUrl(siteId: string, base: string = import.meta.env.BASE_URL): string {
+/**
+ * The root every bundle hangs off, always ending in "/".
+ *
+ * Unset `VITE_DATA_BASE_URL` (local dev, and the GitHub Pages build as it
+ * shipped through Phase 8) means repo-relative `data/` under the app's own base
+ * URL — byte-for-byte the behaviour of every earlier build. Set, it is the
+ * object host's versioned prefix (`https://…/v1`), and bundles come from there
+ * instead. There is deliberately no third mode and no per-site override: a site
+ * that resolved differently from its neighbours would be untestable.
+ */
+export function dataBaseUrl(
+  base: string = import.meta.env.BASE_URL,
+  configured: string | undefined = import.meta.env.VITE_DATA_BASE_URL,
+): string {
+  const external = (configured ?? '').trim();
+  if (external) return external.endsWith('/') ? external : `${external}/`;
   const b = base.endsWith('/') ? base : `${base}/`;
-  return `${b}data/${siteId}/`;
+  return `${b}data/`;
+}
+
+/** Base URL for a site's data directory, always ending in "/". */
+export function siteDataUrl(
+  siteId: string,
+  base: string = import.meta.env.BASE_URL,
+  configured: string | undefined = import.meta.env.VITE_DATA_BASE_URL,
+): string {
+  return `${dataBaseUrl(base, configured)}${siteId}/`;
+}
+
+/** URL of the national site index (§6.1). Only meaningful with a data base URL set. */
+export function siteIndexUrl(
+  base: string = import.meta.env.BASE_URL,
+  configured: string | undefined = import.meta.env.VITE_DATA_BASE_URL,
+): string {
+  return `${dataBaseUrl(base, configured)}index.json`;
 }
 
 export type ProgressFn = (stage: string, fraction: number) => void;
+
+/**
+ * Fetch the national site index (§6.1), or `null` when there isn't one.
+ *
+ * "No index" is a first-class answer, not an error: a repo-relative build ships
+ * `testsite` and `broborg` and nothing else, so there is nothing to pick
+ * between and the picker stays off — exactly the pre-Phase-9 experience. A
+ * *broken* index is also non-fatal for the same reason the optional assets are:
+ * the site the user asked for must still load.
+ */
+export async function loadSiteIndex(): Promise<SiteIndex | null> {
+  const url = siteIndexUrl();
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const text = await res.text();
+    return validateSiteIndex(JSON.parse(text));
+  } catch (error) {
+    console.warn(
+      `[fornborg] site picker unavailable — ${url}: ` +
+        (error instanceof Error ? error.message : String(error)),
+    );
+    return null;
+  }
+}
 
 async function fetchWithProgress(url: string, onProgress: (f: number) => void): Promise<ArrayBuffer> {
   const res = await fetch(url);
@@ -80,10 +140,12 @@ export async function loadManifest(siteId: string): Promise<SiteManifest> {
   const url = `${siteDataUrl(siteId)}manifest.json`;
   const res = await fetch(url);
   if (!res.ok) {
-    throw new Error(
-      `Could not load ${url} (${res.status} ${res.statusText}). ` +
-        `Has the pipeline written app/public/data/${siteId}/ yet?`,
-    );
+    // The remedy differs by where bundles come from, so say which one applies
+    // rather than pointing at a directory this build never reads.
+    const hint = (import.meta.env.VITE_DATA_BASE_URL ?? '').trim()
+      ? `Is ${siteId} published to ${dataBaseUrl()} yet?`
+      : `Has the pipeline written app/public/data/${siteId}/ yet?`;
+    throw new Error(`Could not load ${url} (${res.status} ${res.statusText}). ${hint}`);
   }
   const text = await res.text();
   let parsed: unknown;
@@ -94,7 +156,7 @@ export async function loadManifest(siteId: string): Promise<SiteManifest> {
     // missing file, so say what actually happened instead of "unexpected token <".
     throw new Error(
       `${url} did not return JSON (got ${res.headers.get('content-type') ?? 'unknown content type'}). ` +
-        `The site directory app/public/data/${siteId}/ is probably missing.`,
+        `The bundle at ${siteDataUrl(siteId)} is probably missing.`,
     );
   }
   return validateManifest(parsed);
@@ -219,14 +281,19 @@ export async function loadRingGrid(
  * Fetch + decode a ring's §11 far-water connectivity grid. Like the §7 grid, the
  * file carries no manifest entry of its own — the ring entry is authoritative
  * for its geometry and encoding scale. Rendering only.
+ *
+ * v1.5 §12: when the ring declares `waterConnectDelta`, that is what ships and
+ * the surface is reconstructed against the ring's own DEM, which the caller has
+ * just loaded. Passing no DEM restricts this to the absolute form.
  */
 export async function loadRingConnect(
   siteId: string,
   ring: GridManifest,
   onProgress: (f: number) => void = () => {},
+  ringDem: HeightGrid | null = null,
 ): Promise<ConnectGrid> {
-  const path = ring.waterConnect;
-  if (!path) throw new Error(`ring ${ring.path} declares no waterConnect grid.`);
+  const { path, delta } = connectAssetFor(ring, ringDem !== null);
+  if (!path) throw new Error(`ring ${ring.path} declares no far-water connect grid.`);
 
   const url = `${siteDataUrl(siteId)}${path}`;
   const band = await loadBand(
@@ -238,7 +305,9 @@ export async function loadRingConnect(
     `the ${ring.path} ring entry (authoritative for its geometry, docs/data-formats.md §11)`,
   );
 
-  const values = decodeHeights(band, ring.encoding.scale);
+  const values = delta
+    ? reconstructConnect(band, ringDem!, ring.encoding.scale, path)
+    : decodeHeights(band, ring.encoding.scale);
   onProgress(1);
   return {
     width: ring.width,
@@ -247,6 +316,58 @@ export async function loadRingConnect(
     boundsLocal: ring.boundsLocal,
     values,
   };
+}
+
+// ------------------------------------- v1.5 §12: delta-encoded connectivity --
+
+/**
+ * Which connectivity file to fetch for a grid that may declare either encoding.
+ *
+ * The §12 delta wins when it is declared *and* the caller has the DEM to
+ * reconstruct against; otherwise the absolute §7/§11 grid does. A bundle that
+ * declares only the delta while the caller has no DEM has no usable connect
+ * grid — that is a programming error here, not a data problem, and the callers
+ * below always pass the DEM.
+ */
+function connectAssetFor(
+  source: { waterConnect?: string; waterConnectDelta?: string },
+  haveDem: boolean,
+): { path: string | undefined; delta: boolean } {
+  if (source.waterConnectDelta && haveDem) return { path: source.waterConnectDelta, delta: true };
+  if (source.waterConnect) return { path: source.waterConnect, delta: false };
+  return { path: source.waterConnectDelta, delta: source.waterConnectDelta !== undefined };
+}
+
+/**
+ * `connect = dem + delta * scale` (docs/data-formats.md §12), in one pass.
+ *
+ * The delta is exact on the DEM's own quantization lattice, so this reproduces
+ * the absolute grid the pipeline would otherwise have shipped. `dem.heights` is
+ * already `raw * scale`, so the delta only has to be scaled the same way.
+ */
+function reconstructConnect(
+  band: ArrayLike<number>,
+  dem: HeightGrid,
+  scale: number,
+  path: string,
+): Float32Array {
+  if (band.length !== dem.heights.length) {
+    throw new Error(
+      `${path}: ${band.length} delta samples but the grid it deltas against has ${dem.heights.length} ` +
+        '(docs/data-formats.md §12 — a delta shares its DEM grid\'s geometry exactly).',
+    );
+  }
+  const out = new Float32Array(band.length);
+  for (let i = 0; i < band.length; i++) {
+    const lift = band[i];
+    if (lift < 0) {
+      throw new Error(
+        `${path}: sample ${i} is ${lift}; a §12 delta is never negative (connect ≥ dem).`,
+      );
+    }
+    out[i] = dem.heights[i] + lift * scale;
+  }
+  return out;
 }
 
 // ------------------------------------------------- Phase 4: water assets ----
@@ -286,9 +407,27 @@ export async function loadConnectGrid(
   siteId: string,
   manifest: SiteManifest,
   onProgress: (f: number) => void = () => {},
+  contextDem: HeightGrid | null = null,
 ): Promise<ConnectGrid> {
-  const path = manifest.assets?.['waterConnect'];
-  if (!path) throw new Error('manifest.assets.waterConnect is not declared for this site.');
+  const { path, delta } = connectAssetFor(
+    {
+      waterConnect: manifest.assets?.['waterConnect'],
+      waterConnectDelta: manifest.assets?.['waterConnectDelta'],
+    },
+    contextDem !== null,
+  );
+  if (!path) {
+    throw new Error(
+      'neither manifest.assets.waterConnect (§7) nor manifest.assets.waterConnectDelta (§12) ' +
+        'is declared for this site.',
+    );
+  }
+  if (delta && !contextDem) {
+    throw new Error(
+      `${path} is a §12 delta grid, which needs the context DEM to reconstruct; ` +
+        'loadConnectGrid was called without it.',
+    );
+  }
   const g = manifest.grids.context;
 
   const url = `${siteDataUrl(siteId)}${path}`;
@@ -301,7 +440,9 @@ export async function loadConnectGrid(
     'grids.context (authoritative for its geometry, docs/data-formats.md §7)',
   );
 
-  const values = decodeHeights(band, g.encoding.scale);
+  const values = delta
+    ? reconstructConnect(band, contextDem!, g.encoding.scale, path)
+    : decodeHeights(band, g.encoding.scale);
   onProgress(1);
   return {
     width: g.width,
@@ -322,15 +463,19 @@ export async function loadWaterAssets(
   siteId: string,
   manifest: SiteManifest,
   onProgress: (f: number) => void = () => {},
+  contextDem: HeightGrid | null = null,
 ): Promise<WaterAssets | null> {
   const hasTable = Boolean(manifest.assets?.['shoreline']);
-  const hasConnect = Boolean(manifest.assets?.['waterConnect']);
+  // v1.5 §12: either encoding of the connectivity grid satisfies the pair.
+  const hasConnect =
+    Boolean(manifest.assets?.['waterConnect']) || Boolean(manifest.assets?.['waterConnectDelta']);
   if (!hasTable || !hasConnect) {
     if (hasTable !== hasConnect) {
       console.warn(
-        `[fornborg] ${siteId}: assets.shoreline and assets.waterConnect are a pair ` +
-          `(docs/data-formats.md §6/§7); only ${hasTable ? 'shoreline' : 'waterConnect'} is declared, ` +
-          'so the paleo-shoreline layer stays off.',
+        `[fornborg] ${siteId}: assets.shoreline and a connectivity grid ` +
+          `(assets.waterConnect §7 or assets.waterConnectDelta §12) are a pair ` +
+          `(docs/data-formats.md §6/§7); only ${hasTable ? 'shoreline' : 'the connectivity grid'} is ` +
+          'declared, so the paleo-shoreline layer stays off.',
       );
     }
     return null;
@@ -338,7 +483,7 @@ export async function loadWaterAssets(
 
   try {
     const table = await loadShorelineTable(siteId, manifest);
-    const connect = await loadConnectGrid(siteId, manifest, onProgress);
+    const connect = await loadConnectGrid(siteId, manifest, onProgress, contextDem);
     return { table, connect };
   } catch (error) {
     // A broken optional asset must not take the whole site down with it.

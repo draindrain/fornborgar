@@ -586,3 +586,79 @@ def test_add_rings_replaces_stale_ring_seam_lines(ringed_manifest, fake_site):
     assert stale not in steps
     assert other in steps
     assert steps.count("far-field rings: decimated overview reads") == 1
+
+
+# --------------------- v1.5 §12: the delta shipping form ---------------------
+
+
+def test_delta_alone_satisfies_the_water_pair(manifest):
+    """§12: `shoreline` + either connectivity encoding is a complete pair."""
+    patched = copy.deepcopy(manifest)
+    add_water_assets(patched, "shoreline.json", delta_path="water_connect_delta.tif")
+    validate_manifest(patched)
+    assert patched["assets"]["waterConnectDelta"] == "water_connect_delta.tif"
+    assert "waterConnect" not in patched["assets"]
+
+
+def test_both_connectivity_encodings_may_ship_together(manifest):
+    patched = copy.deepcopy(manifest)
+    add_water_assets(
+        patched,
+        "shoreline.json",
+        connect_path="water_connect.tif",
+        delta_path="water_connect_delta.tif",
+    )
+    validate_manifest(patched)
+    assert patched["assets"]["waterConnect"] == "water_connect.tif"
+    assert patched["assets"]["waterConnectDelta"] == "water_connect_delta.tif"
+
+
+def test_switching_encoding_drops_the_superseded_asset(manifest):
+    """A re-encode must never leave the manifest pointing at a deleted file."""
+    patched = copy.deepcopy(manifest)
+    add_water_assets(patched, "shoreline.json", "water_connect.tif")
+    assert patched["assets"]["waterConnect"] == "water_connect.tif"
+    add_water_assets(patched, "shoreline.json", delta_path="water_connect_delta.tif")
+    assert "waterConnect" not in patched["assets"]
+    validate_manifest(patched)
+
+
+def test_add_water_assets_needs_some_connectivity_asset(manifest):
+    with pytest.raises(ValueError, match="connectivity asset"):
+        add_water_assets(copy.deepcopy(manifest), "shoreline.json")
+
+
+def test_shoreline_without_either_connectivity_form_is_rejected(manifest):
+    broken = copy.deepcopy(manifest)
+    add_water_assets(broken, "shoreline.json", delta_path="water_connect_delta.tif")
+    broken["assets"].pop("waterConnectDelta")
+    with pytest.raises(ValueError, match="pair"):
+        validate_manifest(broken)
+
+
+def test_ring_far_water_may_ship_as_a_delta(ringed_manifest):
+    with_water = copy.deepcopy(ringed_manifest)
+    add_water_assets(with_water, "shoreline.json", delta_path="water_connect_delta.tif")
+    set_ring_water_connect(
+        with_water, "dem_ring4.tif", delta_path="water_connect_delta_ring4.tif"
+    )
+    validate_manifest(with_water)
+    ring = with_water["grids"]["rings"][1]
+    assert ring["waterConnectDelta"] == "water_connect_delta_ring4.tif"
+    assert "waterConnect" not in ring
+
+
+def test_ring_far_water_delta_still_counts_toward_the_one_ring_rule(ringed_manifest):
+    broken = copy.deepcopy(ringed_manifest)
+    add_water_assets(broken, "shoreline.json", delta_path="water_connect_delta.tif")
+    set_ring_water_connect(broken, "dem_ring3.tif", delta_path="a.tif")
+    set_ring_water_connect(broken, "dem_ring4.tif", connect_path="b.tif")
+    with pytest.raises(ValueError, match="at most one"):
+        validate_manifest(broken)
+
+
+def test_ring_far_water_delta_requires_the_water_pair(ringed_manifest):
+    broken = copy.deepcopy(ringed_manifest)
+    set_ring_water_connect(broken, "dem_ring4.tif", delta_path="water_connect_delta_ring4.tif")
+    with pytest.raises(ValueError, match="water pair"):
+        validate_manifest(broken)

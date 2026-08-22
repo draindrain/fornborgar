@@ -106,15 +106,36 @@ def horizon_distance_m(h_m: float) -> float:
     return HORIZON_COEFF_KM * math.sqrt(max(0.0, h_m)) * 1000.0
 
 
-def ladder(distance_m: float, rings: tuple[GridSpec, ...] = RING_LADDER) -> tuple[GridSpec, ...]:
-    """The ring specs a site ships: always the first two, extended while the
-    last ring's half-extent < the horizon distance, capped at the ladder's end."""
-    if len(rings) < 2:
-        raise ValueError("the ring ladder needs at least ring3 and ring4")
+def rings_beyond(context_half_extent_m: float, rings: tuple[GridSpec, ...] = RING_LADDER):
+    """The ladder entries that actually lie outside a site's context grid.
+
+    §11's containment chain is context ⊂ rings[0] ⊂ rings[1] ⊂ …, so a ring
+    that is not strictly wider than the context has no annulus to render and
+    would fail validation. For a `standard` site (2 km context half-extent) that
+    is the whole ladder from ring3; for a §5.2 `large` one (4 km) ring3 is
+    exactly the context extent, so its ladder starts at ring4.
+    """
+    return tuple(spec for spec in rings if spec.half_extent > context_half_extent_m)
+
+
+def ladder(
+    distance_m: float,
+    rings: tuple[GridSpec, ...] = RING_LADDER,
+    context_half_extent_m: float = 2000.0,
+) -> tuple[GridSpec, ...]:
+    """The ring specs a site ships: always the first two beyond its context,
+    extended while the last ring's half-extent < the horizon distance, capped at
+    the ladder's end."""
+    usable = rings_beyond(context_half_extent_m, rings)
+    if len(usable) < 2:
+        raise ValueError(
+            f"a {context_half_extent_m:.0f} m context half-extent leaves only "
+            f"{len(usable)} ring(s) beyond it; §11 needs at least two"
+        )
     count = 2
-    while count < len(rings) and rings[count - 1].half_extent < distance_m:
+    while count < len(usable) and usable[count - 1].half_extent < distance_m:
         count += 1
-    return rings[:count]
+    return usable[:count]
 
 
 def horizon_info(crown_m: float, floor_m: float) -> dict:

@@ -131,3 +131,59 @@ def test_horizon_info_block():
     assert info["eyeM"] == EYE_HEIGHT_M == 2.0
     h = (57.3 + 2.0) - 5.1
     assert info["distanceKm"] == pytest.approx(round(3.83 * math.sqrt(h), 1))
+
+
+# ------------------- §5.2 large preset: where the ladder starts ---------------
+
+
+def test_a_standard_context_uses_the_whole_ladder():
+    from fornborg_pipeline.horizon import rings_beyond
+
+    assert [s.name for s in rings_beyond(2000.0)] == ["ring3", "ring4", "ring5", "ring6", "ring7"]
+
+
+def test_a_large_context_skips_the_ring_it_already_covers():
+    """§5.2 `large` has a 4 km context half-extent — exactly ring3's, so ring3
+    has no annulus to render and would fail §11's containment chain."""
+    from fornborg_pipeline.horizon import rings_beyond
+
+    assert [s.name for s in rings_beyond(4000.0)] == ["ring4", "ring5", "ring6", "ring7"]
+
+
+def test_the_large_preset_ladder_still_starts_with_two_rings():
+    from fornborg_pipeline.horizon import ladder
+
+    specs = ladder(1000.0, context_half_extent_m=4000.0)
+    assert [s.name for s in specs] == ["ring4", "ring5"]
+
+
+def test_the_large_preset_ladder_extends_to_the_horizon():
+    from fornborg_pipeline.horizon import ladder
+
+    specs = ladder(40_000.0, context_half_extent_m=4000.0)
+    assert specs[-1].half_extent >= 40_000.0
+    assert [s.name for s in specs] == ["ring4", "ring5", "ring6", "ring7"]
+
+
+def test_every_ring_strictly_contains_a_large_context():
+    from fornborg_pipeline.horizon import ladder
+
+    for spec in ladder(40_000.0, context_half_extent_m=4000.0):
+        assert spec.half_extent > 4000.0
+
+
+def test_a_context_too_wide_for_two_rings_is_refused():
+    from fornborg_pipeline.horizon import ladder
+
+    with pytest.raises(ValueError, match="needs at least two"):
+        ladder(10_000.0, context_half_extent_m=32_000.0)
+
+
+def test_the_floor_box_is_named_not_indexed():
+    """§11's floor is the 16x16 km box, whichever preset built the ladder."""
+    from fornborg_pipeline.rings import FLOOR_BOX_HALF_EXTENT_M
+    from fornborg_pipeline.sites import RING_LADDER
+
+    box = next(s for s in RING_LADDER if s.half_extent == FLOOR_BOX_HALF_EXTENT_M)
+    assert box.name == "ring4"
+    assert 2 * box.half_extent == 16_000.0

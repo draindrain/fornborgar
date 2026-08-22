@@ -8,5 +8,12 @@ __pycache__/
 *.egg-info/
 *.aux.xml
 
-# Claude Code local state (agent worktrees, local settings)
-.claude/
+# Built bundles: the repo keeps only `testsite` and `broborg` (national-scaleout
+# §3). A batch builds here and publishes to the object host.
+build/
+
+# Claude Code local state (agent worktrees, local settings) — except the batch
+# orchestration script, which is part of how this project is built.
+.claude/*
+!.claude/workflows/
+

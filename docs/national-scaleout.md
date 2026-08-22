@@ -339,14 +339,121 @@ and doubles as the picker's preview imagery.
 | Step | Scope | Exit criterion |
 |---|---|---|
 | **Phase 8. Rings + contract v1.4** | `grids.rings` + ring pipeline (adaptive ladder, per-ring quantization, ring4 water connect), curvature/log-depth/lazy-ring rendering; rebuild Broborg with its full horizon ladder | Standing on Broborg's rampart, the skyline closes at the true horizon; near scene byte-equivalent to v1; ring-size estimates verified |
-| **9a. Encoding wins + batch machinery** | delta grid, no-overview TIFFs, presets; registry builder (incl. per-site horizon-ladder depth from crown/floor heights), tile + Copernicus cache, `build_site`, QA report + contact sheet | Broborg + 2 arbitrary registry sites build unattended; ladder-depth histogram sanity-checked against the 128 km cap |
-| **9b. Pilot: ~25 curated forts** | the famous ones (Torsburgen, Ismantorp, Eketorp, Gråborg, Runsa, Gåseborg, Birka borg, Halleberg, Ramundersborg, …) incl. the 3 `large`-preset outliers; R2 bucket + custom domain live; picker MVP | public URL serves 25+ sites from R2; manual QA pass |
+| **9a. Encoding wins + batch machinery** ✅ **done 2026-08-22** | delta grid, no-overview TIFFs, presets; registry builder, `build_site`, QA gates + contact sheet, R2 sync + per-site state, `VITE_DATA_BASE_URL` + picker | **met** — Broborg + Ismantorp (Öland, coastal) + Tarsta berg (Örebro, inland) all build unattended and ship; contract **v1.5** (§1a, §12); 483 pipeline + 346 app tests |
+| **9b. Pilot: ~25 curated forts** ✅ **done 2026-08-22** | 27 sites across 15 counties (`pipeline/pilot-sites.json`), incl. all 3 `large`-preset outliers and one line-geometry site; R2 live on the r2.dev URL; picker MVP | **met** — 27 sites on R2, `index.json` published, contact-sheet sweep done |
 | **9c. County-by-county fill** | remaining ~1,280 sites, east-coast counties first (they exercise the water path) | all 1,304 built; QA contact-sheet sweep done |
 | **9d. Stretch** | intervisibility between neighboring forts (76 % have a neighbor in-extent), Phase-7 landcover for curated sites | — |
 
 Owner actions needed: a Cloudflare account (free plan) + R2 bucket + domain/subdomain
 choice; pipeline runs stay local (Geotorget credentials never enter CI; ~55 GB free
 disk for the tile cache).
+
+### 7.1 As built: the 9b pilot **[measured 2026-08-22]**
+
+27 sites, 15 counties, published under
+`https://pub-9ea507a776bc4f54b159e7bf7095a2fa.r2.dev/v1/<slug>/`. The bucket's
+r2.dev development URL is configuration, not a constant —
+`pipeline/r2-config.json` holds it and the app takes it from
+`VITE_DATA_BASE_URL`; moving to a custom domain is a one-line edit plus a rebuild.
+
+| | measured |
+|---|---|
+| Sites published | **27** (of 1,304 registered) |
+| Total | **~189 MB**, mean **7.0 MB/site** |
+| Paleo-shoreline layer | 14 of 27 |
+| Derived rampart/palisade | 24 of 27 |
+| Ring ladders | 3 rings ×1, 4 rings ×19, 5 rings ×6 |
+| Horizon distances | 13.3–52.8 km |
+
+**Ladder-depth sanity vs. the 128 km cap (§2b):** the deepest horizon in the
+pilot is **52.8 km**, inside ring 6's 32 km half-extent extended to ring 7's
+64 km — no site came close to the cap, as §2b predicted. Ring 7 does get used
+(Ramundersborg), so the rare case is real rather than theoretical.
+
+**Encoding wins, measured on the Broborg rebuild:**
+
+| | Phase 8 | v1.5 |
+|---|---|---|
+| `dem_core.tif` | 1.67 MB | **1.01 MB** |
+| `dem_context.tif` | 2.13 MB | **1.31 MB** |
+| ring ladder (3–6) | 7.75 MB | **4.50 MB** |
+| `water_connect` | 2.03 MB | **0.22 MB** (9.2×) |
+| ring-4 far water | 1.79 MB | **0.14 MB** |
+| **whole bundle** | **15.96 MB** | **7.5 MB** |
+
+**Revised national projection:** 1,304 × 7.0 MB ≈ **~9 GB**, against §2b's ~12 GB
+estimate — still ≈ $0.03/month on R2 past the free tier.
+
+**CORS, as configured and verified 2026-08-22.** The bucket answers
+`Access-Control-Allow-Origin` for the Pages origin, allows `GET`/`HEAD` with a
+`range` request header, and — the one that is easy to miss — exposes
+`content-length, content-range, etag, accept-ranges`. geotiff.js issues range
+requests, so without that last header the grids fail to decode with no obvious
+cause. Confirmed live: `GET …/index.json` → 200 with `max-age=300`;
+`GET …/dem_core.tif` with `Range:` → **206** with `Content-Range` and
+`max-age=31536000, immutable`; `OPTIONS` preflight → 204.
+
+**Load verification (headless Chromium, 2026-08-22).** Three pilot bundles —
+Broborg, Eketorp (coastal, 3-ring) and Ramundersborg (`large` preset, 4-ring) —
+fetched from the published bytes with `VITE_DATA_BASE_URL` set: every ring
+loaded, far water rendered, **zero console errors**, and the picker read all 27
+sites out of `index.json`. Each manifest lists `waterConnectDelta`, so the §12
+encoding is both what ships and what the app decodes.
+
+Back-compat, same app build with `VITE_DATA_BASE_URL` unset: the committed
+**pre-v1.5** `broborg` (absolute `waterConnect`, tiled COGs with overviews) and
+`testsite` load unchanged, and `testsite-rings` loads the delta form — both
+encodings exercised by one binary. The picker correctly stays off when there is
+no index, which is the pre-Phase-9 experience exactly.
+
+One gap, stated rather than papered over: the browser check runs against the
+published bytes served locally, not across the CDN, because this build
+environment denies the browser outbound network (every external host, not just
+this one). The network hop is verified separately with curl against the live URL
+— see the CORS paragraph above — so the two halves are each confirmed and only
+their join is inferred.
+
+### 7.2 What the pilot changed, and what it is honest about
+
+Running arbitrary registry sites found nine defects that no amount of reading
+found, and three of them mattered enough to record here because they were
+**silent**:
+
+1. **The shoreline literature band was Uppland's, not Sweden's.** The §2.4
+   anchors are, in that constant's own words, "interpolated literature estimates
+   for the Uppsala/Knivsta area". Applied nationally they rejected 9 of 22 sites
+   — Blekinge at 1.85 m and Södermanland at 25.70 m for −500 CE were both thrown
+   out as "the derivation is wrong", and neither was. Uplift runs from roughly
+   nothing in Skåne to ~9 mm/yr in Norrland; no single band can be right in both.
+   Broborg keeps its anchors (a genuine local cross-check, cited in the panel);
+   every other site is gated on region-independent checks plus its own terrain.
+   Worse than the rejections: `method_text` was shipping *"checked against
+   published shoreline estimates for the Uppsala/Knivsta area"* into **every**
+   site's methods panel. That sentence is now conditional on the check actually
+   having run.
+2. **The elevation band could no longer catch a geoid shift.** Widening
+   [−10, 200] for Norrland necessarily lets a +23–36 m EPSG:5845 shift through
+   on a lowland site. The tripwire moved to `qa.check_ring_agreement`: rings come
+   from decimated overview reads and core/context from the 1 m mosaic, so the two
+   must describe the same ground where they overlap. Measured across the pilot:
+   **0.00–0.20 m**.
+3. **Nodata in a ground model is water, not a hole.** A coastal site's window is
+   mostly Baltic, where the DTM has no returns. Interpolating that invents
+   terrain; the fill now separates sea, still water and interpolation, and the
+   QA gate measures only the last — the one that makes something up.
+
+Still deferred, honestly: **Copernicus GLO-30 is not implemented.** No pilot site
+needed it — every uncovered region classified as open sea, bounded by nodata or
+by shoreline at ~0 m. The gate that would catch a genuine non-Swedish land gap
+exists, is tested, and fails loudly naming GLO-30; Värmland is in the pilot
+precisely because its rings approach the Norwegian border, and it did not trip.
+
+Also not implemented: **§4.2's shared 10×10 km tile cache.** The pipeline does
+per-site windowed reads with 429-aware backoff and caches per-site mosaics,
+evicted after upload. That is polite and bounded for 27 sites at concurrency 3;
+for the 1,280-site 9c fill, where 76 % of sites share a neighbour's tiles, the
+shared cache is the difference between one polite pass and re-fetching the same
+tiles a dozen times.
 
 ## 8. Risks
 

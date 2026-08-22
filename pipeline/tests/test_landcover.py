@@ -991,7 +991,7 @@ def test_write_legend_refuses_an_invalid_legend(tmp_path, legend):
 
 
 def test_class_raster_roundtrips_with_the_contract_encoding(tmp_path, rule_inputs, legend):
-    """Contract §9: uint8 indices, no nodata, DEFLATE COG, every value in the legend."""
+    """Contract §9: uint8 indices, no nodata, DEFLATE web layout, every value in the legend."""
     classes = run_rules(rule_inputs)
     path = write_class_grid(tmp_path / "landcover.tif", classes, TRANSFORM)
     with rasterio.open(path) as src:
@@ -1000,8 +1000,9 @@ def test_class_raster_roundtrips_with_the_contract_encoding(tmp_path, rule_input
         assert src.crs.to_epsg() == 3006
         assert src.transform == TRANSFORM
         assert src.profile["compress"].lower() == "deflate"
+        assert src.profile["tiled"] is False and src.overviews(1) == []  # §1a
         structure = src.tags(ns="IMAGE_STRUCTURE")
-        assert structure["PREDICTOR"] == "2" and structure["LAYOUT"] == "COG"
+        assert structure["PREDICTOR"] == "2"
         assert src.tags(1).get("SCALE") is None  # an index is not a measurement
         raw = src.read(1)
     assert np.array_equal(raw, classes)
@@ -1036,7 +1037,7 @@ def test_missing_inputs_name_the_command_that_produces_them(tmp_path, fake_site,
 
 
 def test_class_raster_matches_the_context_grids_geometry(tmp_path, fake_site, fake_source_clean):
-    """§9: the raster shares `grids.context`'s geometry, tiling and overviews exactly."""
+    """§9: the raster shares `grids.context`'s geometry and §1a layout exactly."""
     from fornborg_pipeline.clip_dem import build_grids, write_grid
     from fornborg_pipeline.landcover import _check_context_profile
 

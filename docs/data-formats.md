@@ -2,7 +2,9 @@
 
 **Status: FROZEN v1 (2026-08-20), amended v1.1 (2026-08-20, additive — §6–§8),
 v1.2 (2026-08-21, additive — §9–§10), v1.3 (2026-08-21, additive — dynamic
-hydrology in §9–§10), v1.4 (2026-08-21, additive — far-field rings, §11).** This
+hydrology in §9–§10), v1.4 (2026-08-21, additive — far-field rings, §11),
+v1.5 (2026-08-22, additive — the §1a web grid layout and the §12 connectivity
+delta, the two Phase-9a encoding wins).** This
 file and the `manifest.json` schema below are the single source of truth for what the
 Python pipeline writes under `app/public/data/<siteId>/` and what the TypeScript app
 reads. Derived from PLAN.md §1, §4.1–§4.6 (incl. the [phase-0 verified] corrections).
@@ -62,8 +64,9 @@ E 663810–667810, N 6625880–6629880; core is E 664810–666810, N 6626880–6
   No offset. (±5 cm quantization; int16 dm covers ±3276.7 m.)
 - **No nodata cells.** The pipeline fills any nodata (rasterio `fillnodata`) before
   writing; the committed file has no nodata tag. The app does not implement a nodata path.
-- Compression **DEFLATE**, predictor 2, tiled (512×512 internal blocks), COG layout
-  with overviews (for GIS inspection; the app reads full resolution only).
+- Compression **DEFLATE**, predictor 2. The container layout is §1a below —
+  since v1.5 bundles ship the plain striped form, and the tiled COG with
+  overviews is archival only.
 - CRS tag: **EPSG:3006 horizontal only** — the vertical CRS is deliberately stripped
   (source tiles declare compound EPSG:5845; carrying it invites the gdalwarp
   RH2000→ellipsoid vertical-shift bug, PLAN §2.1). Heights are RH 2000 by this contract.
@@ -87,6 +90,41 @@ y = raw[row * width + col] * 0.1
 `minZ = −(maxN − origin.n)`, etc. — note **minZ corresponds to the north edge**).
 Terrain-mesh vertices sit at pixel centers; the context ring's inner cutout is skirted
 against the core mesh edge (PLAN §4.2).
+
+## 1a. Grid container layout (v1.5, 2026-08-22 — additive)
+
+Applies to **every** raster this contract defines: the §1 elevation grids, the §11
+rings, the §7/§12 connectivity grids and the §9 land-cover raster.
+
+A bundle grid is a **plain striped GeoTIFF, full resolution only**:
+
+| | Bundle (`web`) | Archival (`cog`) |
+|---|---|---|
+| Driver | GTiff | COG |
+| Tiling | striped, 256 rows/strip | tiled 512×512 |
+| Overviews | **none** | `average` (`nearest` for class rasters) |
+| Compression | DEFLATE, predictor 2, zlevel 9 | DEFLATE, predictor 2 |
+| Where it lives | `app/public/data/<siteId>/` and the object host | `data-cache/` only |
+
+Rationale: the app reads full resolution only and always has — `geotiff.js` decodes
+the whole band in one pass — so the overview pyramid and the 512-px tile grid were
+pure download weight. Dropping them plus raising the DEFLATE level costs nothing in
+fidelity: **the samples, georeferencing, CRS tag, `SCALE` band metadata and array
+convention are byte-identical between the two layouts.** Measured on the real
+Broborg grids **[measured 2026-08-22]**: `dem_core.tif` 1.67 → **1.01 MB**,
+`dem_context.tif` 2.13 → **1.31 MB** (−39 % and −38 %).
+
+- Strip height is **pinned** (not left to GDAL, which sizes strips by bytes and so
+  would give an int16 grid and a uint8 class raster on the same geometry different
+  strip heights). This is what keeps the §7/§9 "identical profile to
+  `dem_context.tif`" promises checkable.
+- Readers must not assume either layout. Every pre-v1.5 bundle — the committed
+  `testsite`, and `broborg` until it is regenerated — is a tiled COG with
+  overviews and stays valid forever; a reader that required overviews to be absent
+  would break it.
+- Archival COGs are still generated on request for GIS inspection (`--archive-cogs`
+  on `build_site`); they are written into the gitignored `data-cache/` and are
+  **never** part of a bundle.
 
 ## 2. `manifest.json`
 
@@ -135,7 +173,8 @@ One per site. Complete Broborg example (values illustrative where marked `<…>`
   "assets": {                                 // optional entries; absent = feature off
     "sites": "sites.json",
     "shoreline": "shoreline.json",            // v1.1 — §6 (century → water level)
-    "waterConnect": "water_connect.tif",      // v1.1 — §7 (sea-connectivity grid)
+    "waterConnectDelta": "water_connect_delta.tif", // v1.5 — §12 (the shipping form)
+ // "waterConnect": "water_connect.tif",      // v1.1 — §7 (absolute grid; pre-v1.5 bundles)
     "rampart": "rampart.json",                // v1.1 — §8 (rampart crest polylines)
     "landcover": "landcover.tif",             // v1.2 — §9 (land-cover class raster)
     "landcoverLegend": "landcover_legend.json"// v1.2 — §10 (classes, palette, rules)
@@ -304,6 +343,11 @@ Rules:
 
 ## 7. `water_connect.tif` — sea-connectivity grid (PLAN §4.5)
 
+> **v1.5 (2026-08-22):** the *semantics* below are unchanged and authoritative,
+> but bundles now ship this surface in the delta form of **§12**
+> (`assets.waterConnectDelta`) rather than as the absolute grid. The absolute
+> form remains valid — pre-v1.5 bundles carry it and must keep loading.
+
 Encodes, for every cell of the **context** grid, the minimum water level at which that
 cell is hydrologically connected to the open sea. This one grid is exactly equivalent
 to a per-century connectivity bitmask for *every* century (and every intermediate
@@ -328,9 +372,9 @@ Sea entry = every grid-edge cell (the paleo-sea enters through the Långhundrale
 valley, which crosses the 4×4 km extent; matches `pipeline/spike/basin_check.py`).
 Connectivity is **4-connected** (water does not leak between diagonal land cells).
 
-**File encoding:** identical to the elevation grids (§1) — single band int16
-**decimeters** (`meters = raw * 0.1`), no nodata, DEFLATE + predictor 2, tiled COG,
-EPSG:3006 horizontal only — and identical **geometry** to `grids.context` (same width,
+**File encoding:** identical to the elevation grids (§1/§1a) — single band int16
+**decimeters** (`meters = raw * 0.1`), no nodata, DEFLATE + predictor 2, the §1a
+layout, EPSG:3006 horizontal only — and identical **geometry** to `grids.context` (same width,
 height, resolution, bounds; row 0 = north). The app validates the dimensions against
 `grids.context` and reuses the §1 array convention. No separate manifest grid entry:
 `grids.context` is authoritative for its geometry.
@@ -697,3 +741,54 @@ pair.
   radially from the context edge to the ring edge — the SGU level is a single
   per-century value that is only locally valid across an uplift gradient (disclosed
   in the methods panel). Rings beyond it render terrain only.
+
+## 12. `water_connect_delta.tif` — connectivity as a delta (v1.5, 2026-08-22 — additive)
+
+The §7 sea-connectivity surface, shipped as its **difference from the DEM grid it
+sits on** rather than as absolute heights:
+
+```
+connect_raw = dem_raw + delta_raw          (exact, same quantization lattice)
+connect_m   = connect_raw * grid.encoding.scale
+```
+
+**Why.** By construction `connect ≥ dem`, and the two are *equal* everywhere
+outside a depression. At Broborg only **6.2 %** of cells differ, by at most
+**+4.8 m** **[measured 2026-08-22]** — so the delta is a mostly-zero grid, and
+deflate does the rest: `water_connect.tif` **2.03 MB → 0.22 MB** (9.2×), and the
+§11 far-water grid on ring 4 **1.79 MB → 0.14 MB**. On the second-largest file in
+a bundle, for one addition per cell at load.
+
+**Encoding.** Single band **int16**, no nodata, the §1a layout, EPSG:3006
+horizontal only, north-up — that is, byte-for-byte the encoding of the DEM grid it
+deltas against, whose `encoding.scale` it shares (0.1 m against `grids.context`;
+0.5/1.0 m against a §11 ring). Values are in *steps of that scale*, not meters.
+The delta carries **no manifest grid entry of its own**: the DEM grid it belongs to
+is authoritative for geometry, exactly as for §7 and §9.
+
+**Invariants** (pipeline-guaranteed, pytest- and vitest-covered):
+
+- `delta_raw ≥ 0` for every cell. A negative sample means the §7 invariant broke
+  upstream; readers must reject the file rather than render it.
+- Sample count equals the DEM grid's exactly.
+- Reconstruction is **exact**, not approximate: both operands are integers on the
+  same lattice, so `dem + delta` reproduces the absolute grid bit for bit.
+
+**Where it is declared.**
+
+- Context grid: `assets.waterConnectDelta` (alongside `assets.shoreline`).
+- §11 ring: `waterConnectDelta` on that ring's entry in `grids.rings`.
+
+**Precedence and back-compatibility.** A bundle may declare the absolute grid, the
+delta, or both. **When both are present the reader prefers the delta.** The v1.1
+pairing rule of §6/§7 is satisfied by *either* connectivity form — `shoreline`
+plus one of `waterConnect` / `waterConnectDelta` — and the §11 "at most one ring
+carries far water" rule counts a ring once whichever key it uses. A pre-v1.5
+bundle declaring only `waterConnect` loads unchanged, forever; the pipeline writes
+the delta by default and can be asked for the absolute form
+(`fornborg_pipeline.water --absolute-connect`).
+
+**Reader note.** Reconstruction needs the DEM grid in hand, so the app loads the
+context grid (which it does first anyway) before the connectivity grid, and a
+ring's DEM before that ring's far-water grid. That ordering is the only behavioural
+change this amendment asks of a reader.

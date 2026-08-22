@@ -12,6 +12,7 @@ is missing from the product entirely.
 from __future__ import annotations
 
 import json
+import pathlib
 
 import numpy as np
 import pytest
@@ -335,3 +336,110 @@ def test_derive_fails_loudly_when_no_sea_is_in_frame(dem):
     lakes = [f for f in canned_sgu() if f["properties"]["code"] == CODE_SJO]
     with pytest.raises(ShorelineError, match="nothing to derive"):
         derive_steps(lakes, dem, TRANSFORM, BOUNDS, project=None)
+
+
+# ---------------- national sites: no local literature to check against -------
+
+
+def _steps(levels, years=(-900, -500, 1, 500, 1000)):
+    return [
+        {"yearCE": y, "bp": 1950 - y, "levelM": lv, "derived": True}
+        for y, lv in zip(years, levels, strict=True)
+    ]
+
+
+def test_broborg_keeps_its_literature_anchors():
+    """The §2.4 cross-check is real *there* and is not being relaxed."""
+    from fornborg_pipeline.sites import BROBORG
+
+    assert BROBORG.shoreline_anchors is not None
+    assert (500, 8.0, 10.0) in BROBORG.shoreline_anchors
+
+
+def test_a_registry_site_has_no_anchors():
+    from fornborg_pipeline.build_site import site_config
+
+    cfg = site_config(
+        {
+            "slug": "l1-1", "lamningsnummer": "L1:1", "name": "x", "county": "Skåne",
+            "centerE": 400000.0, "centerN": 6160000.0, "extentPreset": "standard",
+        },
+        pathlib.Path("/tmp"),
+    )
+    assert cfg.shoreline_anchors is None
+
+
+@pytest.mark.parametrize(
+    ("levels", "county"),
+    [
+        ([2.0, 1.8, 1.2, 0.9, 0.4], "Blekinge — barely any uplift"),
+        ([46.0, 40.0, 30.0, 22.0, 15.0], "Norrland — a lot of uplift"),
+    ],
+)
+def test_regional_levels_that_the_uppland_band_rejects_are_accepted(levels, county):
+    """The whole point: uplift varies tenfold, so one band cannot fit the country."""
+    from fornborg_pipeline.shoreline import check_derivation, check_sanity_anchors
+
+    steps = _steps(levels)
+    # The Uppland anchors reject both of these...
+    with pytest.raises(ShorelineError):
+        check_sanity_anchors(steps)
+    # ...and the national check accepts them, given the site's own terrain.
+    check_derivation(steps, terrain_range_m=(0.0, max(levels) + 10.0))
+
+
+def test_nonsense_levels_are_still_refused():
+    from fornborg_pipeline.shoreline import check_derivation
+
+    with pytest.raises(ShorelineError, match="physical envelope"):
+        check_derivation(_steps([900.0, 800.0, 700.0, 600.0, 500.0]))
+    with pytest.raises(ShorelineError, match="physical envelope"):
+        check_derivation(_steps([5.0, 4.0, 3.0, 2.0, -50.0]))
+
+
+def test_a_level_outside_the_sites_own_terrain_is_refused():
+    """A boundary median sampled inside the extent cannot land outside its DEM."""
+    from fornborg_pipeline.shoreline import check_derivation
+
+    with pytest.raises(ShorelineError, match="own terrain"):
+        check_derivation(_steps([40.0, 35.0, 30.0, 25.0, 20.0]), terrain_range_m=(0.0, 12.0))
+
+
+def test_the_terrain_check_allows_a_small_margin():
+    from fornborg_pipeline.shoreline import check_derivation
+
+    check_derivation(_steps([14.0, 12.0, 10.0, 9.0, 8.0]), terrain_range_m=(0.0, 12.0))
+
+
+def test_validate_shoreline_selects_the_check_by_anchor_presence(monkeypatch):
+    from fornborg_pipeline.shoreline import validate_shoreline
+
+    table = {
+        "schemaVersion": 1, "site": "x", "method": "m", "uncertainty": "u",
+        "datumNote": "d", "source": {"product": "p"}, "steps": _steps([2.0, 1.8, 1.2, 0.9, 0.4]),
+    }
+    with pytest.raises(ShorelineError):
+        validate_shoreline(table)  # Uppland anchors by default
+    validate_shoreline(table, anchors=None, terrain_range_m=(0.0, 20.0))
+
+
+def test_the_methods_text_does_not_claim_a_check_it_did_not_run():
+    """The panel shows this verbatim; claiming Uppland literature elsewhere is a lie."""
+    from fornborg_pipeline.build_site import site_config
+    from fornborg_pipeline.shoreline import method_text
+    from fornborg_pipeline.sites import BROBORG
+
+    stats = {"measured": 5, "stepCount": 5, "filled": [], "trendDegree": 1,
+             "trendRms": 0.2, "clampedTotalM": 0.0, "missingBp": [], "sampleTotal": 900}
+    steps = []
+    broborg_text = method_text(BROBORG, steps, stats)
+    assert "Uppsala/Knivsta" in broborg_text
+
+    cfg = site_config(
+        {"slug": "l1-1", "lamningsnummer": "L1:1", "name": "x", "county": "Skåne",
+         "centerE": 400000.0, "centerN": 6160000.0, "extentPreset": "standard"},
+        pathlib.Path("/tmp"),
+    )
+    national_text = method_text(cfg, steps, stats)
+    assert "Uppsala/Knivsta" not in national_text
+    assert "own terrain" in national_text

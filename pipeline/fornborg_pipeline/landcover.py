@@ -70,7 +70,7 @@ from rasterio import features
 from scipy import ndimage
 
 from .clip_dem import DECIMETER_SCALE, dequantize_decimeters, read_grid, write_class_grid
-from .connectivity import WATER_CONNECT_PATH
+from .connectivity import WATER_CONNECT_DELTA_PATH, WATER_CONNECT_PATH, read_connect_grid
 from .fetch_dem import FetchError
 from .fetch_sites import SITES_PATH
 from .fetch_soils import (
@@ -1237,14 +1237,18 @@ def load_inputs(cfg: SiteConfig) -> tuple[np.ndarray, np.ndarray, Affine, float,
     sites_cmd = f"python3 -m fornborg_pipeline.fetch_sites --site {cfg.id}"
 
     context_path = _require(cfg.out_dir / cfg.context.path, build_cmd)
-    connect_path = _require(cfg.out_dir / WATER_CONNECT_PATH, water_cmd)
     shoreline_path = _require(cfg.out_dir / SHORELINE_PATH, water_cmd)
     sites_path = _require(cfg.out_dir / SITES_PATH, sites_cmd)
     _require(cfg.out_dir / "manifest.json", build_cmd)
 
     dem_dm, transform, _bounds = read_grid(context_path)
-    connect_dm, connect_transform, _ = read_grid(connect_path)
-    if connect_dm.shape != dem_dm.shape or connect_transform != transform:
+    # v1.5 §12: the bundle ships the delta form; `read_connect_grid` reconstructs
+    # `connect = dem + delta` exactly as the app does, and still reads a pre-v1.5
+    # absolute grid where one is all a bundle has.
+    if not (cfg.out_dir / WATER_CONNECT_DELTA_PATH).exists():
+        _require(cfg.out_dir / WATER_CONNECT_PATH, water_cmd)
+    connect_dm, connect_path = read_connect_grid(cfg.out_dir, dem_dm)
+    if connect_dm.shape != dem_dm.shape:
         raise LandcoverError(
             f"{connect_path.name} does not share {context_path.name}'s geometry — re-run "
             f"`{water_cmd}`."

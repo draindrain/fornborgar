@@ -1,6 +1,16 @@
 node_modules/
-dist/
 .vite/
 *.local
 .DS_Store
-dist-pages/
+
+# Every build output. `dist/` is the ordinary one; the suffixed variants are
+# throwaway builds made to verify a specific data source — `dist-hosted` and
+# `dist-live` point VITE_DATA_BASE_URL at a stand-in host and at the real object
+# host respectively, so the same app can be checked against both without
+# disturbing the default build.
+dist*/
+
+# Python bytecode from a stray run in this directory (the pipeline's tests live
+# in pipeline/, not here).
+__pycache__/
+.pytest_cache/

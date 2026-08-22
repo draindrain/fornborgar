@@ -6,7 +6,10 @@ state — so the whole encoding path is testable on synthetic fixtures.
 Output contract (docs/data-formats.md §1), enforced by `write_grid`:
   * int16, value = height in decimeters (`height_m = raw * 0.1`), no offset
   * no nodata cells and no nodata tag
-  * DEFLATE + predictor 2, tiled 512x512, COG layout with overviews
+  * DEFLATE + predictor 2, **no tiling and no overviews** (v1.5 §1a: the app
+    reads full resolution only, so the 512x512 tile grid and the overview
+    pyramid were ~35 % of every shipped byte). `LAYOUT_COG` still writes the
+    archival COG — for GIS inspection, into `data-cache/`, never into a bundle.
   * CRS tag EPSG:3006, HORIZONTAL ONLY (never the compound EPSG:5845 of the
     source tiles — see the vertical-shift guard below)
   * band metadata SCALE=0.1 for GIS interop (the manifest stays authoritative)
@@ -33,6 +36,24 @@ from rasterio.fill import fillnodata
 from .sites import EPSG_HORIZONTAL, GridSpec, SiteConfig
 
 DECIMETER_SCALE = 0.1  # height_m = raw * SCALE (core/context; rings carry their own)
+
+# Grid layouts (docs/data-formats.md §1a, v1.5). Same pixels, same CRS, same
+# band metadata in both — they differ only in what a reader has to skip past.
+#: Shipped in bundles: striped, full resolution only, no overview pyramid.
+LAYOUT_WEB = "web"
+#: Archival: the pre-v1.5 tiled COG with overviews, for GIS inspection.
+LAYOUT_COG = "cog"
+LAYOUTS = (LAYOUT_WEB, LAYOUT_COG)
+#: DEFLATE level for the web layout. The grids are written once and downloaded
+#: many times, so the extra compression time is free where it matters (-14 % vs
+#: the default 6 on the real Broborg grids [measured 2026-08-22]).
+WEB_ZLEVEL = 9
+#: Rows per strip in the web layout. Pinned rather than left to GDAL, which sizes
+#: strips by *bytes* and so would give an int16 grid and a uint8 class raster on
+#: the same geometry different strip heights — the §7/§9 "identical profile to
+#: dem_context.tif" checks compare that. Past ~256 rows the compression ratio is
+#: flat (<0.5 % [measured 2026-08-22]).
+WEB_ROWS_PER_STRIP = 256
 # The quantization steps the contract allows (docs/data-formats.md §11): 0.1 m for
 # core/context, 0.5 m for rings 3-5, 1.0 m for rings 6-7.
 ALLOWED_SCALES = (0.1, 0.5, 1.0)
@@ -72,36 +93,172 @@ class Grid:
 # --------------------------------------------------------------------------- #
 
 
-def fill_nodata(array: np.ndarray, nodata: float | None, max_search_distance: float = 200.0):
-    """Interpolate across nodata cells. Returns (filled float32 array, cells filled).
+def fill_nodata(
+    array: np.ndarray,
+    nodata: float | None,
+    max_search_distance: float = 200.0,
+    sea_level_m: float = 0.0,
+):
+    """Repair nodata cells. Returns (filled float32 array, cells filled).
 
     Runs BEFORE quantization so the written int16 grid has no nodata at all.
+
+    Two different repairs, because nodata means two different things in a
+    *ground* model (the same distinction the §11 ring step already makes):
+
+      * a hole **enclosed** by valid data — a pond, a building shadow, a gap in
+        the returns — is interpolated across, which is what `fillnodata` is for;
+      * a region reaching the grid **edge** whose surrounding land is at shore
+        height is **water**. The DTM has no returns there because there is no
+        ground. It is filled at sea level, not interpolated: interpolating a
+        4x4 km stretch of Baltic would invent terrain out of nothing, and at a
+        coastal site that is most of the window.
+
+    A region reaching the edge but bounded by *high* ground is neither, and is
+    refused: that is terrain beyond the tile set (another country), and filling
+    it at 0 m would render the false flat horizon §2b exists to prevent.
     """
     array = np.asarray(array, dtype=np.float32)
     if nodata is None:
-        return array.copy(), 0
+        return array.copy(), 0, {"total": 0, "seaFilled": 0, "stillWater": 0, "interpolated": 0}
     invalid = np.isnan(array) if np.isnan(nodata) else (array == nodata)
     invalid |= ~np.isfinite(array)
     count = int(invalid.sum())
     if count == 0:
-        return array.copy(), 0
+        return array.copy(), 0, {"total": 0, "seaFilled": 0, "stillWater": 0, "interpolated": 0}
     if invalid.all():
         raise ValueError("cannot fill nodata: the whole array is nodata")
-    filled = fillnodata(
-        array.copy(),
-        mask=(~invalid).astype(np.uint8),
-        max_search_distance=max_search_distance,
-        smoothing_iterations=0,
-    ).astype(np.float32)
-    still_invalid = ~np.isfinite(filled)
+
+    from .qa import classify_region, classify_uncovered
+
+    working = array.copy()
+    valid = ~invalid
+    regions = classify_uncovered(valid, np.where(valid, array, nodata), nodata=nodata)
+
+    # Sea first, so the interpolation that follows never has to reach across it.
+    sea = np.zeros(array.shape, dtype=bool)
+    from scipy import ndimage
+
+    labels, _n = ndimage.label(invalid)
+    reach = _reach(invalid)
+    refused = []
+    lakes = []
+    for region in _relabel(regions, labels, invalid):
+        # Anything `fillnodata` can genuinely reach across is a hole, whatever
+        # its boundary looks like. This is what keeps the one-pixel slivers a
+        # windowed read leaves along a ring's edge from being solemnly
+        # classified as terrain beyond the border: they are two cells wide,
+        # they sit next to valid data, and interpolating them is exactly right.
+        if _narrow_enough_to_interpolate(region["mask"], reach, max_search_distance):
+            continue
+        verdict = classify_region(region["stats"])
+        if verdict == "sea":
+            sea |= region["mask"]
+        elif verdict == "gap":
+            lakes.append(region)
+        elif verdict == "foreign-land":
+            refused.append(region["stats"])
+    if refused:
+        worst = max(refused, key=lambda r: r["cells"])
+        raise ValueError(
+            f"{worst['cells']} nodata cells reach the grid edge bounded by land at "
+            f"{worst.get('boundaryMedianM')} m, not by a shoreline — that is terrain "
+            f"outside the tile set, and filling it at {sea_level_m} m would render a "
+            f"false flat horizon (docs/national-scaleout.md §2b)"
+        )
+
+    sea_cells = int(sea.sum())
+    working[sea] = sea_level_m
+    lake_cells = 0
+    for region in lakes:
+        # An enclosed region too wide to interpolate across, in a ground model,
+        # bounded by land all round: a lake or a fjord arm with no returns. Its
+        # surface is flat at the height of the shore around it — which is what
+        # the boundary median measures. Interpolating instead would tent the
+        # middle upward, and `fillnodata` cannot reach it anyway.
+        level = region["stats"].get("boundaryMedianM")
+        if level is None:
+            continue
+        working[region["mask"]] = float(level)
+        lake_cells += int(region["mask"].sum())
+
+    remaining = invalid & ~sea
+    if lake_cells:
+        for region in lakes:
+            remaining &= ~region["mask"]
+    if remaining.any():
+        working = fillnodata(
+            working,
+            mask=(~remaining).astype(np.uint8),
+            max_search_distance=max_search_distance,
+            smoothing_iterations=0,
+        ).astype(np.float32)
+    working = working.astype(np.float32)
+
+    still_invalid = ~np.isfinite(working)
     if not np.isnan(nodata):
-        still_invalid |= filled == nodata
+        still_invalid |= working == nodata
     if still_invalid.any():
         raise ValueError(
             f"{int(still_invalid.sum())} nodata cells survived fillnodata "
             f"(max_search_distance={max_search_distance}); refusing to ship a grid with holes"
         )
-    return filled, count
+    interpolated = count - sea_cells - lake_cells
+    if sea_cells or lake_cells:
+        print(
+            f"  nodata: {sea_cells:,} at sea level, {lake_cells:,} at still-water level, "
+            f"{interpolated:,} interpolated"
+        )
+    stats = {"total": count, "seaFilled": sea_cells, "stillWater": lake_cells, "interpolated": interpolated}
+    return working, count, stats
+
+
+def _reach(invalid: np.ndarray) -> np.ndarray:
+    """Per invalid cell, the distance to the nearest valid cell (in cells).
+
+    Exactly the quantity `fillnodata`'s `max_search_distance` is compared
+    against, so "can it reach across this region" stops being a guess. A
+    bounding box cannot answer it: a one-pixel nodata sliver running along two
+    edges of a grid has a bounding box the size of the whole grid, and is still
+    everywhere one cell from real data.
+    """
+    from scipy import ndimage
+
+    return ndimage.distance_transform_edt(invalid)
+
+
+def _narrow_enough_to_interpolate(
+    mask: np.ndarray, reach: np.ndarray, max_search_distance: float
+) -> bool:
+    """True when every cell of the region is within `fillnodata`'s reach."""
+    if not mask.any():
+        return True
+    return float(reach[mask].max()) <= max_search_distance
+
+
+def _relabel(regions: list[dict], labels: np.ndarray, invalid: np.ndarray):
+    """Pair each classified region with its mask, in the order `classify_uncovered` used.
+
+    `classify_uncovered` sorts its output biggest-first for reporting, so the
+    masks have to be matched back by size and edge-membership rather than by
+    position. Matching on cell count is exact here: `ndimage.label` produced
+    both, so the counts are the same multiset.
+    """
+    from scipy import ndimage
+
+    del invalid  # labels already encode it
+    sizes = ndimage.sum_labels(np.ones(labels.shape), labels, range(1, labels.max() + 1))
+    by_size: dict[int, list[int]] = {}
+    for label_index, size in enumerate(sizes, start=1):
+        by_size.setdefault(int(size), []).append(label_index)
+    paired = []
+    for stats in regions:
+        candidates = by_size.get(stats["cells"])
+        if not candidates:
+            continue
+        label_index = candidates.pop(0)
+        paired.append({"stats": stats, "mask": labels == label_index})
+    return paired
 
 
 def crop_to_bounds(
@@ -222,7 +379,9 @@ def check_height_sanity(
             f"read path — do NOT offset the values."
         )
     center = sample_nearest(heights_m, transform, cfg.center_e, cfg.center_n)
-    if not check_center:
+    if not check_center or cfg.center_height_range is None:
+        # A registry-driven site has no hand-verified crown height to compare
+        # against; the range gate above is what catches a vertical shift.
         return center
     clo, chi = cfg.center_height_range
     if not (clo <= center <= chi):
@@ -297,11 +456,25 @@ def build_grids(
     source: np.ndarray, source_transform: Affine, nodata: float | None, cfg: SiteConfig
 ) -> dict[str, Grid]:
     """Full array path: fill nodata once, then derive every grid in the site config."""
-    filled, filled_cells = fill_nodata(source, nodata)
-    return {
+    return build_grids_with_fill(source, source_transform, nodata, cfg)[0]
+
+
+def build_grids_with_fill(
+    source: np.ndarray, source_transform: Affine, nodata: float | None, cfg: SiteConfig
+) -> tuple[dict, dict]:
+    """`build_grids`, plus how the nodata was repaired.
+
+    Split out rather than folded into `build_grids`'s return type because the
+    breakdown has exactly one consumer — the QA gate, which needs to know how
+    many cells had a height *invented* for them as opposed to filled at a water
+    surface. Everything else just wants the grids.
+    """
+    filled, filled_cells, fill_stats = fill_nodata(source, nodata)
+    grids = {
         spec.name: build_grid(filled, source_transform, spec, cfg, filled_cells)
         for spec in cfg.grids
     }
+    return grids, fill_stats
 
 
 def grid_bounds(shape: tuple[int, int], transform: Affine) -> tuple[float, float, float, float]:
@@ -327,44 +500,79 @@ def read_grid(path: Path) -> tuple[np.ndarray, Affine, tuple[float, float, float
     return data, transform, grid_bounds(data.shape, transform)
 
 
-def write_grid(path: Path, grid: Grid) -> Path:
-    """Write one grid as a COG per docs/data-formats.md §1."""
-    if grid.data.dtype != np.int16:
-        raise ValueError(f"expected int16 data, got {grid.data.dtype}")
+def _open_writer(path: Path, layout: str, width: int, height: int, dtype: str, transform: Affine, *, cog_resampling: str):
+    """Open a rasterio dataset for one of the two §1a layouts.
+
+    Both layouts write the same samples with DEFLATE + predictor 2 and the same
+    horizontal-only CRS tag. `LAYOUT_WEB` (what bundles ship) is a plain striped
+    GeoTIFF at full resolution; `LAYOUT_COG` is the archival tiled COG with an
+    overview pyramid, which only `data-cache/` copies use.
+    """
+    if layout not in LAYOUTS:
+        raise ValueError(f"unknown grid layout {layout!r}; expected one of {LAYOUTS}")
     path.parent.mkdir(parents=True, exist_ok=True)
-    with rasterio.open(
-        path,
-        "w",
-        driver="COG",
-        width=grid.width,
-        height=grid.height,
+    common = dict(
+        width=width,
+        height=height,
         count=1,
-        dtype="int16",
+        dtype=dtype,
         # Horizontal only. Never a compound/vertical CRS (PLAN.md §2.1).
         crs=CRS.from_epsg(EPSG_HORIZONTAL),
-        transform=grid.transform,
+        transform=transform,
         compress="DEFLATE",
-        predictor="YES",  # -> PREDICTOR=2 (horizontal differencing) for integer data
-        blocksize=BLOCKSIZE,
-        overview_resampling="average",
-        # No `nodata=`: the contract says the committed file carries no nodata tag.
+        # No `nodata=`: the contract says the written file carries no nodata tag.
+    )
+    if layout == LAYOUT_COG:
+        return rasterio.open(
+            path,
+            "w",
+            driver="COG",
+            predictor="YES",  # -> PREDICTOR=2 (horizontal differencing) for integer data
+            blocksize=BLOCKSIZE,
+            overview_resampling=cog_resampling,
+            **common,
+        )
+    return rasterio.open(
+        path,
+        "w",
+        driver="GTiff",
+        predictor=2,  # horizontal differencing, as for the COG layout
+        tiled=False,  # striped: the app decodes the whole band in one pass
+        blockysize=min(WEB_ROWS_PER_STRIP, height),
+        zlevel=WEB_ZLEVEL,
+        **common,
+    )
+
+
+def write_grid(path: Path, grid: Grid, layout: str = LAYOUT_WEB) -> Path:
+    """Write one grid per docs/data-formats.md §1 (+ §1a for the layout)."""
+    if grid.data.dtype != np.int16:
+        raise ValueError(f"expected int16 data, got {grid.data.dtype}")
+    with _open_writer(
+        path,
+        layout,
+        grid.width,
+        grid.height,
+        "int16",
+        grid.transform,
+        cog_resampling="average",
     ) as dst:
         dst.write(grid.data, 1)
         dst.update_tags(1, SCALE=str(grid.spec.quant_scale))
     return path
 
 
-def write_class_grid(path: Path, data: np.ndarray, transform: Affine) -> Path:
-    """Write a uint8 class-index raster as a COG per docs/data-formats.md §9.
+def write_class_grid(path: Path, data: np.ndarray, transform: Affine, layout: str = LAYOUT_WEB) -> Path:
+    """Write a uint8 class-index raster per docs/data-formats.md §9.
 
-    The same COG machinery as `write_grid` — DEFLATE + predictor 2, 512x512 tiles,
+    The same machinery as `write_grid` — DEFLATE + predictor 2, the §1a layout,
     EPSG:3006 horizontal only, no nodata — with three deliberate differences:
 
       * **uint8** class indices instead of int16 decimeters;
       * **no `SCALE` tag**: an index is a label, not a measurement, and a GIS that
         multiplied it by 0.1 would be lying;
-      * **nearest** overview resampling — averaging class indices would invent
-        classes that no rule produced.
+      * **nearest** overview resampling in the archival layout — averaging class
+        indices would invent classes that no rule produced.
 
     Everything else matches the elevation grids byte-for-byte in profile terms, so
     a class raster on the context geometry passes the same identical-profile check
@@ -375,22 +583,14 @@ def write_class_grid(path: Path, data: np.ndarray, transform: Affine) -> Path:
         raise ValueError(f"expected uint8 class indices, got {data.dtype}")
     if data.ndim != 2:
         raise ValueError(f"expected a 2D class raster, got shape {data.shape}")
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with rasterio.open(
+    with _open_writer(
         path,
-        "w",
-        driver="COG",
-        width=int(data.shape[1]),
-        height=int(data.shape[0]),
-        count=1,
-        dtype="uint8",
-        crs=CRS.from_epsg(EPSG_HORIZONTAL),
-        transform=transform,
-        compress="DEFLATE",
-        predictor="YES",  # -> PREDICTOR=2, as for the integer elevation grids
-        blocksize=BLOCKSIZE,
-        overview_resampling="nearest",
-        # No `nodata=`: contract §9 says every cell is classified.
+        layout,
+        int(data.shape[1]),
+        int(data.shape[0]),
+        "uint8",
+        transform,
+        cog_resampling="nearest",
     ) as dst:
         dst.write(data, 1)
     return path

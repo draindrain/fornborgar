@@ -53,6 +53,12 @@ export interface GridManifest {
    * stays on the §7 context connect grid.
    */
   waterConnect?: string;
+  /**
+   * v1.5 §12, ring entries only: the same grid in delta form
+   * (`connect = dem_ring + delta`). Preferred over `waterConnect` when both are
+   * declared — it is ~10x smaller and reconstructs exactly.
+   */
+  waterConnectDelta?: string;
 }
 
 /** v1.4 §11: the informational ladder-depth derivation, for the methods panel. */
@@ -195,20 +201,25 @@ function validateRings(raw: unknown, context: GridManifest): GridManifest[] {
         `manifest.${name}.resolution ${ring.resolution} must be coarser than ${previousName}'s ${previous.resolution} (§11)`,
       );
     }
-    const connect = (entry as Record<string, unknown>)['waterConnect'];
-    if (connect !== undefined) {
+    // v1.5 §12: either encoding counts as "this ring carries far water", and at
+    // most one ring may (§11).
+    let carriesFarWater = false;
+    for (const key of ['waterConnect', 'waterConnectDelta'] as const) {
+      const connect = (entry as Record<string, unknown>)[key];
+      if (connect === undefined) continue;
       if (typeof connect !== 'string' || connect.length === 0 || connect.startsWith('/') || connect.includes('..')) {
-        throw new ManifestError(`manifest.${name}.waterConnect must be a relative path with no ".."`);
+        throw new ManifestError(`manifest.${name}.${key} must be a relative path with no ".."`);
       }
-      ring.waterConnect = connect;
-      waterConnects += 1;
+      ring[key] = connect;
+      carriesFarWater = true;
     }
+    if (carriesFarWater) waterConnects += 1;
     previous = ring;
     previousName = name;
     return ring;
   });
   if (waterConnects > 1) {
-    throw new ManifestError('manifest.grids.rings: at most one ring may carry waterConnect (§11)');
+    throw new ManifestError('manifest.grids.rings: at most one ring may carry a far-water connect grid (§11)');
   }
   return rings;
 }

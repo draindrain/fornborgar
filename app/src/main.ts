@@ -25,6 +25,7 @@ import {
   loadRingConnect,
   loadRingGrid,
   loadSites,
+  loadSiteIndex,
   loadWaterAssets,
   siteIdFromLocation,
 } from './state/loader';
@@ -39,6 +40,7 @@ import { Legend } from './ui/legend';
 import { buildMethodsModel } from './ui/methodsModel';
 import { MethodsPanel } from './ui/methodsPanel';
 import { SitePanel } from './ui/sitePanel';
+import { SitePicker } from './ui/sitePicker';
 import { ViewshedController } from './viewshed/controller';
 import { ObserverMarker } from './viewshed/observer';
 import { ViewshedOverlay } from './viewshed/overlay';
@@ -382,8 +384,12 @@ async function start(): Promise<void> {
   // dynamic sea and shore band are derived from it at the current level); the water
   // *layer* is still attached after the tint, below, because attach order is shading
   // order and contract §9 fixes that as viewshed -> landcover -> water.
-  const assets = await loadWaterAssets(siteId, manifest, (f) =>
-    hud.setProgress('Loading paleo-shoreline model…', 0.94 + f * 0.03),
+  const assets = await loadWaterAssets(
+    siteId,
+    manifest,
+    (f) => hud.setProgress('Loading paleo-shoreline model…', 0.94 + f * 0.03),
+    // v1.5 §12: the connectivity grid ships as a delta against this DEM.
+    contextGrid,
   );
 
   // --- Phase 7 (first half): the land-cover ground tint ---------------------
@@ -539,6 +545,33 @@ async function start(): Promise<void> {
   hud.setProgress('Ready', 1);
   hud.finishLoading();
 
+  // --- Phase 9 §6: the national site picker ---------------------------------
+  // Off unless the build has somewhere to fetch an index from, which is a
+  // repo-relative build's normal state (it ships two fixtures — there is
+  // nothing to pick between). Loaded after `finishLoading` so it never delays
+  // the scene: the fort the user asked for is the point, the picker is how they
+  // find the next one.
+  let picker: SitePicker | null = null;
+  void loadSiteIndex().then((index) => {
+    if (!index || index.sites.length === 0) return;
+    picker = new SitePicker(document.body, index, siteId);
+    picker.onPick = (slug) => {
+      if (slug === siteId) {
+        picker?.hide();
+        return;
+      }
+      // A full navigation, not an in-place swap: `?site=` is the deep link the
+      // app already supports, and reloading through it means a picked site and
+      // a pasted URL take exactly the same code path.
+      const url = new URL(window.location.href);
+      url.searchParams.set('site', slug);
+      window.location.assign(url.toString());
+    };
+    hud.setSitePickerToggle(() => picker?.toggle());
+    window.__app = { ...(window.__app ?? {}), siteIndex: index, picker };
+  });
+  // -------------------------------------------------------------------------
+
   // --- v1.4 §11: far-field rings, lazily, inside-out ------------------------
   // Startup above is byte-identical to a ringless build; the rings stream in
   // behind it, each one extending the terrain, the fog line and the far plane.
@@ -554,8 +587,9 @@ async function start(): Promise<void> {
     const rings = manifest.grids.rings;
     if (!rings?.length) return;
     for (let i = 0; i < rings.length; i++) {
+      let ringGrid: HeightGrid;
       try {
-        const ringGrid = await loadRingGrid(siteId, manifest, i);
+        ringGrid = await loadRingGrid(siteId, manifest, i);
         await terrain.setRing(i, ringGrid);
         ringsStatus.loaded += 1;
         rig.setFarHorizon(terrain.outerHalfExtent());
@@ -573,9 +607,9 @@ async function start(): Promise<void> {
       }
       // §11 far water: the ring that carries a connect grid extends the
       // paleo-water plane out to its bounds, faded toward its edge.
-      if (rings[i].waterConnect && water) {
+      if ((rings[i].waterConnect || rings[i].waterConnectDelta) && water) {
         try {
-          const farConnect = await loadRingConnect(siteId, rings[i]);
+          const farConnect = await loadRingConnect(siteId, rings[i], () => {}, ringGrid);
           water.setFarConnect(farConnect);
           ringsStatus.farWater = true;
         } catch (error) {

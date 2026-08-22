@@ -30,7 +30,7 @@ async function decodeBand(path: string): Promise<ArrayLike<number>> {
 }
 
 describe('ringed synthetic fixture (contract §11)', () => {
-  it('declares two rings, inside-out, with waterConnect on the outer one', () => {
+  it('declares two rings, inside-out, with far water on the outer one', () => {
     const rings = manifest.grids.rings;
     expect(rings).toHaveLength(2);
     expect(rings?.[0]).toMatchObject({ path: 'dem_ring3.tif', resolution: 4 });
@@ -38,7 +38,13 @@ describe('ringed synthetic fixture (contract §11)', () => {
     expect(rings?.[0].encoding.scale).toBe(0.5);
     expect(rings?.[1].encoding.scale).toBe(1.0);
     expect(rings?.[0].waterConnect).toBeUndefined();
-    expect(rings?.[1].waterConnect).toBe('water_connect_ring4.tif');
+    expect(rings?.[0].waterConnectDelta).toBeUndefined();
+    // v1.5 §12: this fixture ships the delta form (the plain `testsite` keeps
+    // the absolute §7 grid, so both encodings stay covered by committed data).
+    expect(rings?.[1].waterConnect).toBeUndefined();
+    expect(rings?.[1].waterConnectDelta).toBe('water_connect_delta_ring4.tif');
+    expect(manifest.assets?.['waterConnect']).toBeUndefined();
+    expect(manifest.assets?.['waterConnectDelta']).toBe('water_connect_delta.tif');
   });
 
   it('carries a numeric horizon block', () => {
@@ -69,16 +75,32 @@ describe('ringed synthetic fixture (contract §11)', () => {
     }
   });
 
-  it('far-water connect satisfies connect >= dem on the ring geometry', async () => {
+  it('the far-water delta is non-negative and reconstructs connect >= dem', async () => {
     const ring = manifest.grids.rings?.[1] as GridManifest;
     const dem = await decodeBand(ring.path);
-    const connect = await decodeBand(ring.waterConnect!);
-    expect(connect.length).toBe(dem.length);
+    const delta = await decodeBand(ring.waterConnectDelta!);
+    expect(delta.length).toBe(dem.length);
+    let lifted = 0;
     for (let i = 0; i < dem.length; i++) {
-      if ((connect[i] as number) < (dem[i] as number)) {
-        throw new Error(`connect < dem at ${i}: ${connect[i]} < ${dem[i]}`);
-      }
+      const lift = delta[i] as number;
+      if (lift < 0) throw new Error(`§12 delta is negative at ${i}: ${lift}`);
+      if (lift > 0) lifted++;
     }
+    // A delta that is zero everywhere would pass the check above while proving
+    // nothing — this fixture's basins must actually raise some cells.
+    expect(lifted).toBeGreaterThan(0);
+  });
+
+  it('the delta grids are much smaller than the absolute grids would be', async () => {
+    // The §12 saving is the whole reason the encoding exists. The fixture's
+    // TIFFs are uncompressed, so compare the *entropy* proxy the encoding
+    // targets: how many samples are non-zero.
+    const context = manifest.grids.context;
+    const delta = await decodeBand(manifest.assets?.['waterConnectDelta'] as string);
+    let nonZero = 0;
+    for (let i = 0; i < delta.length; i++) if (delta[i] !== 0) nonZero++;
+    expect(delta.length).toBe(context.width * context.height);
+    expect(nonZero).toBeLessThan(delta.length / 2);
   });
 
   it('the plain testsite fixture stays ringless (rings are optional)', async () => {

@@ -61,10 +61,41 @@ class SiteConfig:
     # Hard sanity band for every height in the outputs (m RH 2000). A Swedish
     # lowland site outside this range means a geoid shift crept in (PLAN.md §2.1).
     elevation_range: tuple[float, float] = (-10.0, 200.0)
-    # Hard sanity band for the height at the site center (m RH 2000).
-    center_height_range: tuple[float, float] = (40.0, 60.0)
+    # Hard sanity band for the height at the site center (m RH 2000). `None`
+    # skips the center test: a registry-driven site has no hand-verified crown
+    # height to compare against, and inventing one would either never fire or
+    # fire on perfectly good data. The *range* gate — which is what actually
+    # catches the geoid shift — always runs.
+    center_height_range: tuple[float, float] | None = (40.0, 60.0)
     raa: dict | None = None
     kmr_fetched: str = ""
+    # Where the bundle is written. `None` = the committed `app/public/data/<id>/`
+    # (Broborg and the testsite); batch builds point it at a scratch directory
+    # so a national run never touches the repository.
+    out_dir_override: Path | None = None
+    # Informational, from the registry: which §5.2 extent preset produced the
+    # grid specs above, and the KMR extent bbox the preset was chosen from.
+    extent_preset: str = "standard"
+    county: str = ""
+    # True for a site built from `registry.json` rather than configured by hand
+    # here. It is what tells the KMR extract step that the *national* GeoPackage
+    # is required: the Uppsala county file is a legitimate fallback for the
+    # hand-configured Uppland sites and would silently return an empty overlay
+    # for a fort anywhere else in the country.
+    from_registry: bool = False
+    # Literature anchors for the §6 shoreline table: (yearCE, low, high) in
+    # metres above present sea level. Broborg carries the PLAN.md §2.4 estimates
+    # for the Uppsala/Knivsta area, which are a genuine independent cross-check
+    # *there*. `None` means the site has no local literature to check against —
+    # which is every registry site, because post-glacial uplift ranges from
+    # roughly nothing in Skåne to ~9 mm/yr in Norrland and no single band can be
+    # right in both. Those sites get `shoreline.check_derivation` instead: the
+    # region-independent structural checks, plus the site's own terrain.
+    shoreline_anchors: tuple[tuple[int, float, float], ...] | None = None
+    # How far a century level may be clamped down to stay non-increasing before
+    # the derivation is called broken (m). A shallow, gently-shelving coast
+    # genuinely wobbles more between centuries than Broborg's valley does.
+    shoreline_max_clamp_m: float = 0.5
 
     @property
     def grids(self) -> tuple[GridSpec, ...]:
@@ -104,7 +135,7 @@ class SiteConfig:
 
     @property
     def out_dir(self) -> Path:
-        return APP_DATA_DIR / self.id
+        return self.out_dir_override or (APP_DATA_DIR / self.id)
 
 
 def _standard_grids() -> dict:
@@ -112,6 +143,48 @@ def _standard_grids() -> dict:
         "core": GridSpec("core", half_extent=1000.0, resolution=1.0, path="dem_core.tif"),
         "context": GridSpec("context", half_extent=2000.0, resolution=2.0, path="dem_context.tif"),
     }
+
+
+def _large_grids() -> dict:
+    """The §5.2 `large` preset: twice the ground, same 2000x2000 pixel budget.
+
+    Only the three registered forts wider than a kilometre need it (Halleberg,
+    Ramundersborg, Torsburgen). Grid *sizes* are unchanged, so every performance
+    and memory budget in the app holds exactly as for a standard site.
+    """
+    return {
+        "core": GridSpec("core", half_extent=2000.0, resolution=2.0, path="dem_core.tif"),
+        "context": GridSpec("context", half_extent=4000.0, resolution=4.0, path="dem_context.tif"),
+    }
+
+
+#: §5.2 extent presets, by name. `source_resolution` is the resolution of the raw
+#: mosaic the clip step reads: 1 m for a standard site, 2 m for a `large` one
+#: (whose finest output grid is 2 m — fetching 1 m would quadruple the transfer
+#: for data that gets block-averaged away).
+EXTENT_PRESETS: dict[str, dict] = {
+    "standard": {"grids": _standard_grids, "source_resolution": 1.0},
+    "large": {"grids": _large_grids, "source_resolution": 2.0},
+}
+
+#: National height band (m RH 2000) for a registry-driven site.
+#:
+#: Broborg's tight [-10, 200] band was tuned to one Uppland valley. Nationally it
+#: has to hold everything a legitimate ladder covers, and the first three
+#: registry sites built showed both ends of that: a fort near Örebro has ring
+#: cells at 208 m (Kilsbergen is real terrain), and one on Öland has ring cells
+#: at -16 m, where a 64 km box reaches Baltic water and the ground model carries
+#: interpolated and occasionally negative values there. Neither is a bug.
+#:
+#: **This band is a gross-corruption check, not the geoid tripwire.** That is
+#: the honest consequence of widening it: the EPSG:5845 bug shifts heights
+#: *up* by 23-36 m, and on a lowland site that lands a 0..60 m range at 25..85 m
+#: — comfortably inside any band wide enough for Norrland. What actually catches
+#: a vertical shift nationally is `qa.check_ring_agreement`: the rings are read
+#: through a different code path from core/context (decimated overview reads vs.
+#: the 1 m mosaic), so the two disagreeing over their shared footprint is a
+#: direct, site-independent signal that one of them warped the data.
+NATIONAL_ELEVATION_RANGE = (-100.0, 2200.0)
 
 
 # The far-field ring ladder (docs/data-formats.md §11, docs/national-scaleout.md
@@ -148,9 +221,28 @@ BROBORG = SiteConfig(
         "fornsokUrl": "https://pub.raa.se/visa/objekt/lamning/184ca0f6-16f9-4de8-bbec-99aa959f9824",
     },
     kmr_fetched="2026-08-20",
+    shoreline_anchors=(
+        (-500, 13.0, 16.0),
+        (1, 10.0, 12.5),
+        (500, 8.0, 10.0),
+        (1000, 5.0, 6.5),
+    ),
 )
 
 SITES: dict[str, SiteConfig] = {BROBORG.id: BROBORG}
+
+
+def register_site(cfg: SiteConfig) -> SiteConfig:
+    """Make `cfg` resolvable by `get_site` for the rest of this process.
+
+    Every pipeline step takes a `site_id` and looks it up here, which is exactly
+    what makes a batch build possible without touching those steps: `build_site`
+    turns a registry entry into a `SiteConfig`, registers it, and then runs the
+    ordinary per-site pipeline. Nothing is persisted — the hand-written entries
+    above stay the only ones that survive a restart.
+    """
+    SITES[cfg.id] = cfg
+    return cfg
 
 
 def get_site(site_id: str) -> SiteConfig:

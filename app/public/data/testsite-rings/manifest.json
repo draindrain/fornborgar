@@ -113,7 +113,7 @@
         },
         "minElevation": -9,
         "maxElevation": 35,
-        "waterConnect": "water_connect_ring4.tif"
+        "waterConnectDelta": "water_connect_delta_ring4.tif"
       }
     ]
   },
@@ -125,7 +125,7 @@
   },
   "assets": {
     "shoreline": "shoreline.json",
-    "waterConnect": "water_connect.tif"
+    "waterConnectDelta": "water_connect_delta.tif"
   },
   "layers": [
     {
@@ -146,13 +146,14 @@
     }
   ],
   "provenance": {
-    "generated": "2026-08-21T20:50:23Z",
+    "generated": "2026-08-22T07:33:42Z",
     "pipeline": "app/scripts/make-test-dem.mjs",
     "sources": [],
     "processing": [
       "procedural height function sampled over the core/context pair and two far-field rings",
       "per-ring int16 quantization (0.5 m / 1.0 m) per contract §11",
       "priority-flood sea connectivity over the context grid and the outer ring",
+      "connectivity shipped as an int16 delta vs. the DEM (contract §12)",
       "synthetic century -> level table on SGU-shaped BP centuries"
     ]
   }

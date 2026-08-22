@@ -68,6 +68,7 @@ const GRIDS = {
 };
 
 const CONNECT_PATH = 'water_connect.tif';
+const CONNECT_DELTA_PATH = 'water_connect_delta.tif';
 const SHORELINE_PATH = 'shoreline.json';
 const RAMPART_PATH = 'rampart.json';
 const LANDCOVER_PATH = 'landcover.tif';
@@ -974,8 +975,31 @@ const RINGS_OUT_DIR = join(HERE, '..', 'public', 'data', 'testsite-rings');
 
 const RING_GRIDS = [
   { path: 'dem_ring3.tif', size: 256, resolution: 4, quantScale: 0.5 },
-  { path: 'dem_ring4.tif', size: 256, resolution: 8, quantScale: 1.0, waterConnect: 'water_connect_ring4.tif' },
+  {
+    path: 'dem_ring4.tif',
+    size: 256,
+    resolution: 8,
+    quantScale: 1.0,
+    waterConnectDelta: 'water_connect_delta_ring4.tif',
+  },
 ];
+
+/**
+ * v1.5 §12: `connect - dem` on the shared quantization lattice. The ringed
+ * fixture ships this delta form for both its connectivity grids while the plain
+ * `testsite` keeps the absolute §7/§11 grids — between them the committed
+ * fixtures cover *both* encodings, which is what keeps the pre-v1.5 bundles
+ * (and Broborg, until it is regenerated) honest.
+ */
+function connectDelta(connect, dem) {
+  const out = new Int16Array(dem.length);
+  for (let i = 0; i < dem.length; i++) {
+    const lift = connect[i] - dem[i];
+    if (lift < 0) throw new Error(`connect < dem at ${i}: ${connect[i]} < ${dem[i]}`);
+    out[i] = lift;
+  }
+  return out;
+}
 
 function mainRings() {
   mkdirSync(RINGS_OUT_DIR, { recursive: true });
@@ -999,7 +1023,13 @@ function mainRings() {
   // §7 context connect + §6 table, same derivations as the plain fixture.
   const context = built.context;
   const connect = priorityFlood(context.grid.raw, context.spec.size, context.spec.size);
-  writeTiff(join(RINGS_OUT_DIR, CONNECT_PATH), connect, context.spec.size, context.spec.resolution, context.grid.bounds3006);
+  writeTiff(
+    join(RINGS_OUT_DIR, CONNECT_DELTA_PATH),
+    connectDelta(connect, context.grid.raw),
+    context.spec.size,
+    context.spec.resolution,
+    context.grid.bounds3006,
+  );
   const steps = buildShorelineSteps();
   writeFileSync(
     join(RINGS_OUT_DIR, SHORELINE_PATH),
@@ -1025,8 +1055,8 @@ function mainRings() {
   const outer = rings[rings.length - 1];
   const ringConnect = priorityFlood(outer.grid.raw, outer.spec.size, outer.spec.size);
   writeTiff(
-    join(RINGS_OUT_DIR, outer.spec.waterConnect),
-    ringConnect,
+    join(RINGS_OUT_DIR, outer.spec.waterConnectDelta),
+    connectDelta(ringConnect, outer.grid.raw),
     outer.spec.size,
     outer.spec.resolution,
     outer.grid.bounds3006,
@@ -1060,11 +1090,11 @@ function mainRings() {
       context: gridManifest(built.context),
       rings: rings.map((ring) => ({
         ...gridManifest(ring),
-        ...(ring.spec.waterConnect ? { waterConnect: ring.spec.waterConnect } : {}),
+        ...(ring.spec.waterConnectDelta ? { waterConnectDelta: ring.spec.waterConnectDelta } : {}),
       })),
     },
     horizon: { crownM, floorM: Number(floorM.toFixed(1)), eyeM: 2.0, distanceKm },
-    assets: { shoreline: SHORELINE_PATH, waterConnect: CONNECT_PATH },
+    assets: { shoreline: SHORELINE_PATH, waterConnectDelta: CONNECT_DELTA_PATH },
     layers: [
       { id: 'terrain', name: 'Terrain (synthetic)', provenance: 'model' },
       { id: 'water', name: 'Paleo-shoreline (synthetic model)', provenance: 'model' },
@@ -1083,6 +1113,7 @@ function mainRings() {
         'procedural height function sampled over the core/context pair and two far-field rings',
         'per-ring int16 quantization (0.5 m / 1.0 m) per contract §11',
         'priority-flood sea connectivity over the context grid and the outer ring',
+        'connectivity shipped as an int16 delta vs. the DEM (contract §12)',
         'synthetic century -> level table on SGU-shaped BP centuries',
       ],
     },

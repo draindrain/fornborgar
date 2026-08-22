@@ -36,6 +36,7 @@ from rasterio.errors import RasterioIOError
 from rasterio.transform import from_origin
 from rasterio.windows import from_bounds
 
+from .qa import classify_uncovered
 from .sites import DTM_COLLECTION, DTM_NODATA, EPSG_HORIZONTAL, STAC_ROOT, SiteConfig
 
 USER_AGENT = "fornborg-pipeline/0.1 (+https://github.com/; hobby project)"
@@ -234,7 +235,14 @@ def _cache_is_valid(cfg: SiteConfig) -> dict | None:
 
 
 def fetch_source_mosaic(cfg: SiteConfig, force: bool = False) -> tuple[Path, dict]:
-    """Ensure `cfg.cache_path` holds the site's raw 1 m mosaic; return (path, meta).
+    """Ensure `cfg.cache_path` holds the site's raw source mosaic; return (path, meta).
+
+    Reads at `cfg.source_resolution`, which is 1 m for a standard site and 2 m
+    for a §5.2 `large` one — whose finest output grid is 2 m, so fetching 1 m
+    would quadruple both the transfer and the memory for data that gets
+    block-averaged away immediately. At a coarser resolution the read goes
+    through the same decimated path the rings use (average resampling served
+    from the source COGs' overviews).
 
     Reuses a valid cached file instead of re-downloading unless `force` is set.
     """
@@ -259,20 +267,38 @@ def fetch_source_mosaic(cfg: SiteConfig, force: bool = False) -> tuple[Path, dic
 
     mosaic = np.full((height, width), DTM_NODATA, dtype=np.float32)
     used_items: list[str] = []
+    decimated = not _close_enough(res, 1.0)
 
     with _gdal_env(user, password):
         for item in items:
             href = item["assets"]["data"]["href"]
-            result = _read_window("/vsicurl/" + href, cfg.source_bounds)
-            if result is None:
-                print(f"  {item['id']}: no overlap with the clip, skipped")
-                continue
-            data, (iw, is_, ie, in_) = result
-            row0 = int(round((north - in_) / res))
-            col0 = int(round((iw - west) / res))
-            mosaic[row0 : row0 + data.shape[0], col0 : col0 + data.shape[1]] = data
+            if decimated:
+                # The ring reader already places the window on the mosaic
+                # lattice for us, which is what keeps a 2 m read from landing
+                # half a pixel off the grid the clip step expects.
+                ring_result = _read_window_decimated("/vsicurl/" + href, cfg.source_bounds, res)
+                if ring_result is None:
+                    print(f"  {item['id']}: no overlap with the clip, skipped")
+                    continue
+                data, (row0, col0), _bounds = ring_result
+                data[data < -1000.0] = DTM_NODATA
+                window = mosaic[row0 : row0 + data.shape[0], col0 : col0 + data.shape[1]]
+                fresh = window == DTM_NODATA
+                window[fresh] = data[fresh]
+            else:
+                result = _read_window("/vsicurl/" + href, cfg.source_bounds)
+                if result is None:
+                    print(f"  {item['id']}: no overlap with the clip, skipped")
+                    continue
+                data, (iw, is_, ie, in_) = result
+                row0 = int(round((north - in_) / res))
+                col0 = int(round((iw - west) / res))
+                mosaic[row0 : row0 + data.shape[0], col0 : col0 + data.shape[1]] = data
             used_items.append(item["id"])
-            print(f"  {item['id']}: read {data.shape[1]}x{data.shape[0]} px window")
+            print(
+                f"  {item['id']}: read {data.shape[1]}x{data.shape[0]} px window"
+                + (f" @ {res} m (decimated)" if decimated else "")
+            )
 
     if not used_items:
         raise FetchError("no STAC item overlapped the clip — nothing was downloaded")
@@ -426,6 +452,10 @@ def _read_window_decimated(
     return None
 
 
+def _close_enough(a: float, b: float, tol: float = 1e-9) -> bool:
+    return abs(a - b) <= tol
+
+
 def fetch_ring_mosaic(cfg: SiteConfig, spec, force: bool = False) -> tuple[Path, dict]:
     """Ensure the cache holds one ring's mosaic at ring resolution; return (path, meta).
 
@@ -491,6 +521,10 @@ def fetch_ring_mosaic(cfg: SiteConfig, spec, force: bool = False) -> tuple[Path,
 
     sea_filled = ~covered
     sea_filled_cells = int(sea_filled.sum())
+    # Classify BEFORE the fill, while the covered mask and the real heights are
+    # both still here: afterwards every uncovered cell reads 0.0 and there is no
+    # way left to tell open Baltic from Norwegian fjäll (contract §11, §2b).
+    uncovered_regions = classify_uncovered(covered, mosaic, nodata=DTM_NODATA)
     mosaic[sea_filled] = 0.0
     nodata_cells = int((mosaic == DTM_NODATA).sum())
     valid = mosaic[mosaic != DTM_NODATA]
@@ -498,6 +532,17 @@ def fetch_ring_mosaic(cfg: SiteConfig, spec, force: bool = False) -> tuple[Path,
         f"{spec.name} mosaic {size}x{size} @ {res} m | sea-filled {sea_filled_cells} | "
         f"nodata {nodata_cells} | z {valid.min():.2f}..{valid.max():.2f} m"
     )
+    for region in uncovered_regions[:3]:
+        print(
+            f"  uncovered region: {region['cells']:,} cells, "
+            f"{'edge-connected' if region['touchesEdge'] else 'ENCLOSED'}, boundary "
+            f"{100 * region['boundaryValidShare']:.0f} % valid ground"
+            + (
+                f" at {region['boundaryMedianM']} m (p90 {region['boundaryP90M']} m)"
+                if region["boundaryMedianM"] is not None
+                else " (all nodata — water)"
+            )
+        )
 
     cache_path = cfg.ring_cache_path(spec)
     cache_path.parent.mkdir(parents=True, exist_ok=True)
@@ -529,6 +574,10 @@ def fetch_ring_mosaic(cfg: SiteConfig, spec, force: bool = False) -> tuple[Path,
         "resolution": res,
         "nodataCells": nodata_cells,
         "seaFilledCells": sea_filled_cells,
+        # What the uncovered cells actually are (§11 coverage seam). The QA gate
+        # reads this rather than a bare count: a count cannot tell open sea from
+        # foreign land, and those need opposite outcomes.
+        "uncoveredRegions": uncovered_regions,
     }
     cfg.ring_cache_meta_path(spec).write_text(
         json.dumps(meta, indent=2, ensure_ascii=False) + "\n"
