@@ -2,9 +2,7 @@ export const meta = {
   name: 'pilot-batch',
   description: 'Build and publish a list of registry fornborg sites to the object host',
   whenToUse:
-    'Phase 9b/9c batch runs: pass a list of registry slugs and this builds, QA-gates ' +
-    'and uploads each one, then rebuilds the national index and QA contact sheet. ' +
-    'Resumable — a site whose R2 bundle already matches its local state is skipped.',
+    'Phase 9b/9c batch runs: pass a list of registry slugs and this builds, QA-gates and uploads each one, then rebuilds the national index and QA contact sheet. Resumable — a site whose R2 bundle already matches its local state is skipped.',
   phases: [
     { title: 'Build', detail: 'one agent per site, running the batch CLI', model: 'haiku' },
     { title: 'Publish', detail: 'national index.json + QA contact sheet' },
