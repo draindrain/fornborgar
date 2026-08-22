@@ -219,14 +219,19 @@ export async function loadRingGrid(
  * Fetch + decode a ring's §11 far-water connectivity grid. Like the §7 grid, the
  * file carries no manifest entry of its own — the ring entry is authoritative
  * for its geometry and encoding scale. Rendering only.
+ *
+ * v1.5 §12: when the ring declares `waterConnectDelta`, that is what ships and
+ * the surface is reconstructed against the ring's own DEM, which the caller has
+ * just loaded. Passing no DEM restricts this to the absolute form.
  */
 export async function loadRingConnect(
   siteId: string,
   ring: GridManifest,
   onProgress: (f: number) => void = () => {},
+  ringDem: HeightGrid | null = null,
 ): Promise<ConnectGrid> {
-  const path = ring.waterConnect;
-  if (!path) throw new Error(`ring ${ring.path} declares no waterConnect grid.`);
+  const { path, delta } = connectAssetFor(ring, ringDem !== null);
+  if (!path) throw new Error(`ring ${ring.path} declares no far-water connect grid.`);
 
   const url = `${siteDataUrl(siteId)}${path}`;
   const band = await loadBand(
@@ -238,7 +243,9 @@ export async function loadRingConnect(
     `the ${ring.path} ring entry (authoritative for its geometry, docs/data-formats.md §11)`,
   );
 
-  const values = decodeHeights(band, ring.encoding.scale);
+  const values = delta
+    ? reconstructConnect(band, ringDem!, ring.encoding.scale, path)
+    : decodeHeights(band, ring.encoding.scale);
   onProgress(1);
   return {
     width: ring.width,
@@ -247,6 +254,58 @@ export async function loadRingConnect(
     boundsLocal: ring.boundsLocal,
     values,
   };
+}
+
+// ------------------------------------- v1.5 §12: delta-encoded connectivity --
+
+/**
+ * Which connectivity file to fetch for a grid that may declare either encoding.
+ *
+ * The §12 delta wins when it is declared *and* the caller has the DEM to
+ * reconstruct against; otherwise the absolute §7/§11 grid does. A bundle that
+ * declares only the delta while the caller has no DEM has no usable connect
+ * grid — that is a programming error here, not a data problem, and the callers
+ * below always pass the DEM.
+ */
+function connectAssetFor(
+  source: { waterConnect?: string; waterConnectDelta?: string },
+  haveDem: boolean,
+): { path: string | undefined; delta: boolean } {
+  if (source.waterConnectDelta && haveDem) return { path: source.waterConnectDelta, delta: true };
+  if (source.waterConnect) return { path: source.waterConnect, delta: false };
+  return { path: source.waterConnectDelta, delta: source.waterConnectDelta !== undefined };
+}
+
+/**
+ * `connect = dem + delta * scale` (docs/data-formats.md §12), in one pass.
+ *
+ * The delta is exact on the DEM's own quantization lattice, so this reproduces
+ * the absolute grid the pipeline would otherwise have shipped. `dem.heights` is
+ * already `raw * scale`, so the delta only has to be scaled the same way.
+ */
+function reconstructConnect(
+  band: ArrayLike<number>,
+  dem: HeightGrid,
+  scale: number,
+  path: string,
+): Float32Array {
+  if (band.length !== dem.heights.length) {
+    throw new Error(
+      `${path}: ${band.length} delta samples but the grid it deltas against has ${dem.heights.length} ` +
+        '(docs/data-formats.md §12 — a delta shares its DEM grid\'s geometry exactly).',
+    );
+  }
+  const out = new Float32Array(band.length);
+  for (let i = 0; i < band.length; i++) {
+    const lift = band[i];
+    if (lift < 0) {
+      throw new Error(
+        `${path}: sample ${i} is ${lift}; a §12 delta is never negative (connect ≥ dem).`,
+      );
+    }
+    out[i] = dem.heights[i] + lift * scale;
+  }
+  return out;
 }
 
 // ------------------------------------------------- Phase 4: water assets ----
@@ -286,9 +345,27 @@ export async function loadConnectGrid(
   siteId: string,
   manifest: SiteManifest,
   onProgress: (f: number) => void = () => {},
+  contextDem: HeightGrid | null = null,
 ): Promise<ConnectGrid> {
-  const path = manifest.assets?.['waterConnect'];
-  if (!path) throw new Error('manifest.assets.waterConnect is not declared for this site.');
+  const { path, delta } = connectAssetFor(
+    {
+      waterConnect: manifest.assets?.['waterConnect'],
+      waterConnectDelta: manifest.assets?.['waterConnectDelta'],
+    },
+    contextDem !== null,
+  );
+  if (!path) {
+    throw new Error(
+      'neither manifest.assets.waterConnect (§7) nor manifest.assets.waterConnectDelta (§12) ' +
+        'is declared for this site.',
+    );
+  }
+  if (delta && !contextDem) {
+    throw new Error(
+      `${path} is a §12 delta grid, which needs the context DEM to reconstruct; ` +
+        'loadConnectGrid was called without it.',
+    );
+  }
   const g = manifest.grids.context;
 
   const url = `${siteDataUrl(siteId)}${path}`;
@@ -301,7 +378,9 @@ export async function loadConnectGrid(
     'grids.context (authoritative for its geometry, docs/data-formats.md §7)',
   );
 
-  const values = decodeHeights(band, g.encoding.scale);
+  const values = delta
+    ? reconstructConnect(band, contextDem!, g.encoding.scale, path)
+    : decodeHeights(band, g.encoding.scale);
   onProgress(1);
   return {
     width: g.width,
@@ -322,15 +401,19 @@ export async function loadWaterAssets(
   siteId: string,
   manifest: SiteManifest,
   onProgress: (f: number) => void = () => {},
+  contextDem: HeightGrid | null = null,
 ): Promise<WaterAssets | null> {
   const hasTable = Boolean(manifest.assets?.['shoreline']);
-  const hasConnect = Boolean(manifest.assets?.['waterConnect']);
+  // v1.5 §12: either encoding of the connectivity grid satisfies the pair.
+  const hasConnect =
+    Boolean(manifest.assets?.['waterConnect']) || Boolean(manifest.assets?.['waterConnectDelta']);
   if (!hasTable || !hasConnect) {
     if (hasTable !== hasConnect) {
       console.warn(
-        `[fornborg] ${siteId}: assets.shoreline and assets.waterConnect are a pair ` +
-          `(docs/data-formats.md §6/§7); only ${hasTable ? 'shoreline' : 'waterConnect'} is declared, ` +
-          'so the paleo-shoreline layer stays off.',
+        `[fornborg] ${siteId}: assets.shoreline and a connectivity grid ` +
+          `(assets.waterConnect §7 or assets.waterConnectDelta §12) are a pair ` +
+          `(docs/data-formats.md §6/§7); only ${hasTable ? 'shoreline' : 'the connectivity grid'} is ` +
+          'declared, so the paleo-shoreline layer stays off.',
       );
     }
     return null;
@@ -338,7 +421,7 @@ export async function loadWaterAssets(
 
   try {
     const table = await loadShorelineTable(siteId, manifest);
-    const connect = await loadConnectGrid(siteId, manifest, onProgress);
+    const connect = await loadConnectGrid(siteId, manifest, onProgress, contextDem);
     return { table, connect };
   } catch (error) {
     // A broken optional asset must not take the whole site down with it.

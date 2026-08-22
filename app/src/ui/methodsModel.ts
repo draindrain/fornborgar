@@ -177,7 +177,8 @@ function horizonDisclosure(manifest: SiteManifest): string | null {
       `surrounding floor ${h.floorM} m gives a refracted horizon at ~${h.distanceKm} km, ` +
       `and rings extend until they close it.`
     : '';
-  const hasFarWater = rings.some((r) => r.waterConnect);
+  // v1.5 §12: far water ships as either the absolute grid or the delta.
+  const hasFarWater = rings.some((r) => r.waterConnect || r.waterConnectDelta);
   return (
     `Far-field rings extend the terrain beyond the context window: ${ladder}. Outer rings are ` +
     `block-averaged reads from the source elevation model's overview levels — silhouettes, not ` +

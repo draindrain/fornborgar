@@ -204,18 +204,34 @@ def _insert_layer(layers: list[dict], layer: dict, before: tuple[str, ...]) -> N
 def add_water_assets(
     manifest: dict,
     shoreline_path: str,
-    connect_path: str,
+    connect_path: str | None = None,
     source: dict | None = None,
     processing: Iterable[str] = (),
+    delta_path: str | None = None,
 ) -> dict:
     """Patch the v1.1 water pair into an existing manifest, in place. Idempotent.
 
     Additive per the contract's versioning policy — `schemaVersion` stays 1. The
     shoreline asset, the SGU attribution entry and the `water` layer travel
     together (see `validate_manifest`).
+
+    v1.5 §12: the connectivity half of the pair may be shipped as the absolute
+    grid (`connect_path`), as the delta (`delta_path`), or both — the app prefers
+    the delta. Whichever form this call does *not* pass is removed, so a rebuild
+    that switches encoding never leaves the manifest pointing at a stale file.
     """
-    manifest.setdefault("assets", {})["shoreline"] = shoreline_path
-    manifest["assets"]["waterConnect"] = connect_path
+    if connect_path is None and delta_path is None:
+        raise ValueError(
+            "add_water_assets needs a connectivity asset: pass connect_path (§7), "
+            "delta_path (§12) or both"
+        )
+    assets = manifest.setdefault("assets", {})
+    assets["shoreline"] = shoreline_path
+    for key, value in (("waterConnect", connect_path), ("waterConnectDelta", delta_path)):
+        if value is None:
+            assets.pop(key, None)
+        else:
+            assets[key] = value
 
     # Contract order: terrain, sites, water, landcover, palisade.
     _insert_layer(manifest.setdefault("layers", []), WATER_LAYER, ("landcover", "palisade"))
@@ -279,8 +295,19 @@ def add_rings(
     return manifest
 
 
-def set_ring_water_connect(manifest: dict, ring_path: str, connect_path: str) -> dict:
-    """Reference a §11 far-water connect grid from the ring entry with `ring_path`."""
+def set_ring_water_connect(
+    manifest: dict,
+    ring_path: str,
+    connect_path: str | None = None,
+    delta_path: str | None = None,
+) -> dict:
+    """Reference a §11 far-water connect grid from the ring entry with `ring_path`.
+
+    Same v1.5 §12 choice as `add_water_assets`: absolute grid, delta, or both,
+    with the unused key removed so a re-encode leaves nothing stale behind.
+    """
+    if connect_path is None and delta_path is None:
+        raise ValueError("set_ring_water_connect needs connect_path (§11), delta_path (§12) or both")
     rings = manifest.get("grids", {}).get("rings", [])
     entry = next((ring for ring in rings if ring.get("path") == ring_path), None)
     if entry is None:
@@ -288,7 +315,11 @@ def set_ring_water_connect(manifest: dict, ring_path: str, connect_path: str) ->
             f"no ring entry with path {ring_path!r} — add_rings must run before the "
             f"far-water step"
         )
-    entry["waterConnect"] = connect_path
+    for key, value in (("waterConnect", connect_path), ("waterConnectDelta", delta_path)):
+        if value is None:
+            entry.pop(key, None)
+        else:
+            entry[key] = value
     return manifest
 
 
@@ -438,17 +469,24 @@ def _validate_rings(manifest: dict, grids: dict, oe: float, on: float) -> None:
                 f"{name}: resolution {ring['resolution']} must be coarser than "
                 f"{previous_name}'s {previous['resolution']} (contract §11)"
             )
-        connect = ring.get("waterConnect")
-        if connect is not None:
+        # v1.5 §12: either encoding of the far-water grid counts as "this ring
+        # carries far water", and at most one ring may.
+        carries_far_water = False
+        for key in ("waterConnect", "waterConnectDelta"):
+            connect = ring.get(key)
+            if connect is None:
+                continue
             if not isinstance(connect, str) or connect.startswith("/") or ".." in connect:
                 raise ValueError(
-                    f"{name}: waterConnect path {connect!r} must be relative with no '..'"
+                    f"{name}: {key} path {connect!r} must be relative with no '..'"
                 )
             if "shoreline" not in manifest.get("assets", {}):
                 raise ValueError(
-                    f"{name}: waterConnect requires the §6/§7 water pair to be present "
+                    f"{name}: {key} requires the §6/§7 water pair to be present "
                     f"(contract §11 — far water renders the same shoreline table)"
                 )
+            carries_far_water = True
+        if carries_far_water:
             water_connects += 1
         previous_name, previous = name, ring
     if water_connects > 1:
@@ -471,11 +509,16 @@ def _has_sgu_attribution(manifest: dict) -> bool:
 def _validate_water(manifest: dict, assets: dict) -> None:
     """v1.1 §6/§7 rules: the water assets, layer and attribution travel together."""
     has_shoreline = "shoreline" in assets
-    has_connect = "waterConnect" in assets
+    # v1.5 §12: the connectivity half ships as the absolute grid, the delta, or
+    # both — any one of them satisfies the pair rule.
+    has_connect = "waterConnect" in assets or "waterConnectDelta" in assets
     if has_shoreline != has_connect:
         raise ValueError(
-            "assets.shoreline and assets.waterConnect are a pair (contract v1.1 preamble): "
-            f"shoreline={assets.get('shoreline')!r}, waterConnect={assets.get('waterConnect')!r}"
+            "assets.shoreline and a connectivity grid (assets.waterConnect §7 or "
+            "assets.waterConnectDelta §12) are a pair (contract v1.1 preamble): "
+            f"shoreline={assets.get('shoreline')!r}, "
+            f"waterConnect={assets.get('waterConnect')!r}, "
+            f"waterConnectDelta={assets.get('waterConnectDelta')!r}"
         )
 
     water = next((layer for layer in manifest["layers"] if layer.get("id") == "water"), None)

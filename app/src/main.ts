@@ -382,8 +382,12 @@ async function start(): Promise<void> {
   // dynamic sea and shore band are derived from it at the current level); the water
   // *layer* is still attached after the tint, below, because attach order is shading
   // order and contract §9 fixes that as viewshed -> landcover -> water.
-  const assets = await loadWaterAssets(siteId, manifest, (f) =>
-    hud.setProgress('Loading paleo-shoreline model…', 0.94 + f * 0.03),
+  const assets = await loadWaterAssets(
+    siteId,
+    manifest,
+    (f) => hud.setProgress('Loading paleo-shoreline model…', 0.94 + f * 0.03),
+    // v1.5 §12: the connectivity grid ships as a delta against this DEM.
+    contextGrid,
   );
 
   // --- Phase 7 (first half): the land-cover ground tint ---------------------
@@ -554,8 +558,9 @@ async function start(): Promise<void> {
     const rings = manifest.grids.rings;
     if (!rings?.length) return;
     for (let i = 0; i < rings.length; i++) {
+      let ringGrid: HeightGrid;
       try {
-        const ringGrid = await loadRingGrid(siteId, manifest, i);
+        ringGrid = await loadRingGrid(siteId, manifest, i);
         await terrain.setRing(i, ringGrid);
         ringsStatus.loaded += 1;
         rig.setFarHorizon(terrain.outerHalfExtent());
@@ -573,9 +578,9 @@ async function start(): Promise<void> {
       }
       // §11 far water: the ring that carries a connect grid extends the
       // paleo-water plane out to its bounds, faded toward its edge.
-      if (rings[i].waterConnect && water) {
+      if ((rings[i].waterConnect || rings[i].waterConnectDelta) && water) {
         try {
-          const farConnect = await loadRingConnect(siteId, rings[i]);
+          const farConnect = await loadRingConnect(siteId, rings[i], () => {}, ringGrid);
           water.setFarConnect(farConnect);
           ringsStatus.farWater = true;
         } catch (error) {

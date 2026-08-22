@@ -9,6 +9,7 @@ import rasterio
 from affine import Affine
 from conftest import NODATA, NODATA_HOLES, NODATA_SPECKLES, analytic_surface
 
+from fornborg_pipeline import clip_dem
 from fornborg_pipeline.clip_dem import (
     DECIMETER_SCALE,
     VerticalDatumError,
@@ -234,13 +235,43 @@ def test_written_files_have_the_contract_profile(written_grids):
 
             profile = src.profile
             assert profile["compress"].lower() == "deflate"
-            assert profile["tiled"] is True
-            assert profile["blockxsize"] % 16 == 0 and profile["blockysize"] % 16 == 0
+            # §1a (v1.5): bundles ship the striped, overview-free web layout.
+            assert profile["tiled"] is False
+            assert profile["blockysize"] == min(clip_dem.WEB_ROWS_PER_STRIP, grid.height)
+            assert src.overviews(1) == []
             structure = src.tags(ns="IMAGE_STRUCTURE")
             assert structure.get("COMPRESSION") == "DEFLATE"
             assert structure.get("PREDICTOR") == "2"
-            assert structure.get("LAYOUT") == "COG"
+            assert structure.get("LAYOUT") is None  # not a COG any more
             assert src.tags(1).get("SCALE") == "0.1"
+
+
+def test_archival_layout_still_writes_a_tiled_cog_with_overviews(tmp_path, written_grids):
+    """§1a: `LAYOUT_COG` keeps the pre-v1.5 archival file for GIS inspection."""
+    _path, grid = written_grids["context"]
+    archival = write_grid(tmp_path / "archival.tif", grid, layout=clip_dem.LAYOUT_COG)
+    with rasterio.open(archival) as src:
+        assert src.profile["tiled"] is True
+        assert src.tags(ns="IMAGE_STRUCTURE").get("LAYOUT") == "COG"
+        # (This fixture is smaller than one COG block, so it gets no overview
+        # pyramid — the real 2000x2000 grids do. Tiling is the testable part.)
+        # Same samples, same georeferencing — only the container differs.
+        np.testing.assert_array_equal(src.read(1), grid.data)
+        assert src.transform == grid.transform
+        assert src.crs.to_epsg() == 3006
+
+
+def test_web_layout_is_smaller_than_the_archival_cog(tmp_path, written_grids):
+    """The whole point of §1a: overviews + tiling are ~a third of every shipped byte."""
+    web_path, grid = written_grids["context"]
+    archival = write_grid(tmp_path / "archival.tif", grid, layout=clip_dem.LAYOUT_COG)
+    assert web_path.stat().st_size < archival.stat().st_size
+
+
+def test_unknown_layout_is_rejected(tmp_path, written_grids):
+    _path, grid = written_grids["core"]
+    with pytest.raises(ValueError, match="unknown grid layout"):
+        write_grid(tmp_path / "nope.tif", grid, layout="tiled-cog-with-sprinkles")
 
 
 def test_written_crs_is_horizontal_epsg3006_only(written_grids):

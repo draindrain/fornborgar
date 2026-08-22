@@ -6,7 +6,7 @@
   "datumNote": "Levels are meters in the fixture's notional RH 2000 datum.",
   "source": {
     "product": "Synthetic — app/scripts/make-test-dem.mjs",
-    "fetched": "2026-08-21"
+    "fetched": "2026-08-22"
   },
   "steps": [
     {

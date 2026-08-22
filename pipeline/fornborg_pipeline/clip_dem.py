@@ -6,7 +6,10 @@ state — so the whole encoding path is testable on synthetic fixtures.
 Output contract (docs/data-formats.md §1), enforced by `write_grid`:
   * int16, value = height in decimeters (`height_m = raw * 0.1`), no offset
   * no nodata cells and no nodata tag
-  * DEFLATE + predictor 2, tiled 512x512, COG layout with overviews
+  * DEFLATE + predictor 2, **no tiling and no overviews** (v1.5 §1a: the app
+    reads full resolution only, so the 512x512 tile grid and the overview
+    pyramid were ~35 % of every shipped byte). `LAYOUT_COG` still writes the
+    archival COG — for GIS inspection, into `data-cache/`, never into a bundle.
   * CRS tag EPSG:3006, HORIZONTAL ONLY (never the compound EPSG:5845 of the
     source tiles — see the vertical-shift guard below)
   * band metadata SCALE=0.1 for GIS interop (the manifest stays authoritative)
@@ -33,6 +36,24 @@ from rasterio.fill import fillnodata
 from .sites import EPSG_HORIZONTAL, GridSpec, SiteConfig
 
 DECIMETER_SCALE = 0.1  # height_m = raw * SCALE (core/context; rings carry their own)
+
+# Grid layouts (docs/data-formats.md §1a, v1.5). Same pixels, same CRS, same
+# band metadata in both — they differ only in what a reader has to skip past.
+#: Shipped in bundles: striped, full resolution only, no overview pyramid.
+LAYOUT_WEB = "web"
+#: Archival: the pre-v1.5 tiled COG with overviews, for GIS inspection.
+LAYOUT_COG = "cog"
+LAYOUTS = (LAYOUT_WEB, LAYOUT_COG)
+#: DEFLATE level for the web layout. The grids are written once and downloaded
+#: many times, so the extra compression time is free where it matters (-14 % vs
+#: the default 6 on the real Broborg grids [measured 2026-08-22]).
+WEB_ZLEVEL = 9
+#: Rows per strip in the web layout. Pinned rather than left to GDAL, which sizes
+#: strips by *bytes* and so would give an int16 grid and a uint8 class raster on
+#: the same geometry different strip heights — the §7/§9 "identical profile to
+#: dem_context.tif" checks compare that. Past ~256 rows the compression ratio is
+#: flat (<0.5 % [measured 2026-08-22]).
+WEB_ROWS_PER_STRIP = 256
 # The quantization steps the contract allows (docs/data-formats.md §11): 0.1 m for
 # core/context, 0.5 m for rings 3-5, 1.0 m for rings 6-7.
 ALLOWED_SCALES = (0.1, 0.5, 1.0)
@@ -327,44 +348,79 @@ def read_grid(path: Path) -> tuple[np.ndarray, Affine, tuple[float, float, float
     return data, transform, grid_bounds(data.shape, transform)
 
 
-def write_grid(path: Path, grid: Grid) -> Path:
-    """Write one grid as a COG per docs/data-formats.md §1."""
-    if grid.data.dtype != np.int16:
-        raise ValueError(f"expected int16 data, got {grid.data.dtype}")
+def _open_writer(path: Path, layout: str, width: int, height: int, dtype: str, transform: Affine, *, cog_resampling: str):
+    """Open a rasterio dataset for one of the two §1a layouts.
+
+    Both layouts write the same samples with DEFLATE + predictor 2 and the same
+    horizontal-only CRS tag. `LAYOUT_WEB` (what bundles ship) is a plain striped
+    GeoTIFF at full resolution; `LAYOUT_COG` is the archival tiled COG with an
+    overview pyramid, which only `data-cache/` copies use.
+    """
+    if layout not in LAYOUTS:
+        raise ValueError(f"unknown grid layout {layout!r}; expected one of {LAYOUTS}")
     path.parent.mkdir(parents=True, exist_ok=True)
-    with rasterio.open(
-        path,
-        "w",
-        driver="COG",
-        width=grid.width,
-        height=grid.height,
+    common = dict(
+        width=width,
+        height=height,
         count=1,
-        dtype="int16",
+        dtype=dtype,
         # Horizontal only. Never a compound/vertical CRS (PLAN.md §2.1).
         crs=CRS.from_epsg(EPSG_HORIZONTAL),
-        transform=grid.transform,
+        transform=transform,
         compress="DEFLATE",
-        predictor="YES",  # -> PREDICTOR=2 (horizontal differencing) for integer data
-        blocksize=BLOCKSIZE,
-        overview_resampling="average",
-        # No `nodata=`: the contract says the committed file carries no nodata tag.
+        # No `nodata=`: the contract says the written file carries no nodata tag.
+    )
+    if layout == LAYOUT_COG:
+        return rasterio.open(
+            path,
+            "w",
+            driver="COG",
+            predictor="YES",  # -> PREDICTOR=2 (horizontal differencing) for integer data
+            blocksize=BLOCKSIZE,
+            overview_resampling=cog_resampling,
+            **common,
+        )
+    return rasterio.open(
+        path,
+        "w",
+        driver="GTiff",
+        predictor=2,  # horizontal differencing, as for the COG layout
+        tiled=False,  # striped: the app decodes the whole band in one pass
+        blockysize=min(WEB_ROWS_PER_STRIP, height),
+        zlevel=WEB_ZLEVEL,
+        **common,
+    )
+
+
+def write_grid(path: Path, grid: Grid, layout: str = LAYOUT_WEB) -> Path:
+    """Write one grid per docs/data-formats.md §1 (+ §1a for the layout)."""
+    if grid.data.dtype != np.int16:
+        raise ValueError(f"expected int16 data, got {grid.data.dtype}")
+    with _open_writer(
+        path,
+        layout,
+        grid.width,
+        grid.height,
+        "int16",
+        grid.transform,
+        cog_resampling="average",
     ) as dst:
         dst.write(grid.data, 1)
         dst.update_tags(1, SCALE=str(grid.spec.quant_scale))
     return path
 
 
-def write_class_grid(path: Path, data: np.ndarray, transform: Affine) -> Path:
-    """Write a uint8 class-index raster as a COG per docs/data-formats.md §9.
+def write_class_grid(path: Path, data: np.ndarray, transform: Affine, layout: str = LAYOUT_WEB) -> Path:
+    """Write a uint8 class-index raster per docs/data-formats.md §9.
 
-    The same COG machinery as `write_grid` — DEFLATE + predictor 2, 512x512 tiles,
+    The same machinery as `write_grid` — DEFLATE + predictor 2, the §1a layout,
     EPSG:3006 horizontal only, no nodata — with three deliberate differences:
 
       * **uint8** class indices instead of int16 decimeters;
       * **no `SCALE` tag**: an index is a label, not a measurement, and a GIS that
         multiplied it by 0.1 would be lying;
-      * **nearest** overview resampling — averaging class indices would invent
-        classes that no rule produced.
+      * **nearest** overview resampling in the archival layout — averaging class
+        indices would invent classes that no rule produced.
 
     Everything else matches the elevation grids byte-for-byte in profile terms, so
     a class raster on the context geometry passes the same identical-profile check
@@ -375,22 +431,14 @@ def write_class_grid(path: Path, data: np.ndarray, transform: Affine) -> Path:
         raise ValueError(f"expected uint8 class indices, got {data.dtype}")
     if data.ndim != 2:
         raise ValueError(f"expected a 2D class raster, got shape {data.shape}")
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with rasterio.open(
+    with _open_writer(
         path,
-        "w",
-        driver="COG",
-        width=int(data.shape[1]),
-        height=int(data.shape[0]),
-        count=1,
-        dtype="uint8",
-        crs=CRS.from_epsg(EPSG_HORIZONTAL),
-        transform=transform,
-        compress="DEFLATE",
-        predictor="YES",  # -> PREDICTOR=2, as for the integer elevation grids
-        blocksize=BLOCKSIZE,
-        overview_resampling="nearest",
-        # No `nodata=`: contract §9 says every cell is classified.
+        layout,
+        int(data.shape[1]),
+        int(data.shape[0]),
+        "uint8",
+        transform,
+        cog_resampling="nearest",
     ) as dst:
         dst.write(data, 1)
     return path
