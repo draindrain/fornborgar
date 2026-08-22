@@ -323,6 +323,27 @@ def set_ring_water_connect(
     return manifest
 
 
+def attach_ring_landcover(manifest: dict, ring_path: str, landcover_path: str) -> dict:
+    """Reference a v1.6 §13 far-field class raster from the ring entry with `ring_path`.
+
+    The same pattern as `set_ring_water_connect`: the ring's own entry stays
+    authoritative for the raster's geometry, so the key carries a path and nothing
+    else. Additive — `schemaVersion` stays 1 — and idempotent. §13 allows the key
+    only where the site also ships the §9/§10 near-field pair (the far field
+    extends the modelled-landscape layer and shares its toggle and badge);
+    `_validate_rings` is what enforces that.
+    """
+    rings = manifest.get("grids", {}).get("rings", [])
+    entry = next((ring for ring in rings if ring.get("path") == ring_path), None)
+    if entry is None:
+        raise ValueError(
+            f"no ring entry with path {ring_path!r} — add_rings must run before the "
+            f"far-field land-cover step"
+        )
+    entry["landcover"] = landcover_path
+    return manifest
+
+
 def add_rampart_asset(
     manifest: dict,
     rampart_path: str,
@@ -523,6 +544,34 @@ def _validate_rings(
             carries_far_water = True
         if carries_far_water:
             water_connects += 1
+
+        # v1.6 §13: the optional far-field class raster. Per-ring and independent
+        # (a ring without it simply renders untinted), but it may not exist at all
+        # without the §9/§10 pair — it extends the modelled-landscape layer and
+        # shares its toggle, badge and first-toggle caveat.
+        far_landcover = ring.get("landcover")
+        if far_landcover is not None:
+            if (
+                not isinstance(far_landcover, str)
+                or not far_landcover
+                or far_landcover.startswith("/")
+                or ".." in far_landcover
+            ):
+                raise ValueError(
+                    f"{name}: landcover path {far_landcover!r} must be a non-empty "
+                    f"relative path with no '..' (contract §13)"
+                )
+            if not far_landcover.endswith(".tif"):
+                raise ValueError(
+                    f"{name}: landcover must name a .tif class raster on this ring's "
+                    f"geometry, got {far_landcover!r} (contract §13)"
+                )
+            if "landcover" not in manifest.get("assets", {}):
+                raise ValueError(
+                    f"{name}: landcover requires the §9/§10 near-field pair "
+                    f"(assets.landcover) — the far field extends the modelled-landscape "
+                    f"layer and cannot exist without it (contract §13)"
+                )
         previous_name, previous = name, ring
     if water_connects > 1:
         raise ValueError("at most one ring entry may carry waterConnect (contract §11)")

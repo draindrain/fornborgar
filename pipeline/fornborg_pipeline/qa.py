@@ -559,7 +559,10 @@ def check_required_files(out_dir: Path, manifest: dict) -> Check:
     referenced = [manifest["grids"]["core"]["path"], manifest["grids"]["context"]["path"]]
     for ring in manifest.get("grids", {}).get("rings") or []:
         referenced.append(ring["path"])
-        for key in ("waterConnect", "waterConnectDelta"):
+        # v1.6 §13 adds `landcover` to the per-ring asset keys; a manifest naming a
+        # ring raster the bundle does not have is the same broken promise as a
+        # missing far-water grid.
+        for key in ("waterConnect", "waterConnectDelta", "landcover"):
             if ring.get(key):
                 referenced.append(ring[key])
     referenced += [path for path in manifest.get("assets", {}).values() if isinstance(path, str)]

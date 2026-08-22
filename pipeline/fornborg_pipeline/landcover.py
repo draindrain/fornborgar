@@ -1536,6 +1536,93 @@ def validate_legend(legend: dict) -> None:
             f"landcover_legend.json: areaFraction entries sum to {total:.4f}, not 1 ± 0.001 (§10)"
         )
 
+    if "farField" in legend:
+        _validate_far_field(legend["farField"])
+
+
+def _validate_far_field(far_field) -> None:
+    """The v1.6 §13 `farField` block. Absent = a pre-v1.6 legend, which never lands here.
+
+    Mirrors the §10 class rules above where they overlap and diverges where §13
+    says they must: no `areaFraction` (the rasters vary per ring, so one share
+    would be meaningless) and no `dynamic` (the far field is fully static — far
+    *water* rendering stays §11's job). Both are refused rather than ignored: a
+    legend carrying them would promise the app behaviour §13 does not define.
+    """
+    if not isinstance(far_field, dict):
+        raise LandcoverError("landcover_legend.json: farField must be an object (§13)")
+    method = far_field.get("method")
+    if not method or not isinstance(method, str):
+        raise LandcoverError(
+            "landcover_legend.json: farField.method must be a non-empty string (§13)"
+        )
+
+    classes = far_field.get("classes")
+    if not isinstance(classes, list) or not classes:
+        raise LandcoverError(
+            "landcover_legend.json: farField.classes must be a non-empty array (§13)"
+        )
+    if len(classes) > MAX_CLASSES:
+        raise LandcoverError(
+            f"landcover_legend.json: farField declares {len(classes)} classes, more than the "
+            f"{MAX_CLASSES} the contract allows (§13)"
+        )
+
+    seen: set[str] = set()
+    for position, entry in enumerate(classes):
+        label = f"farField.classes[{position}]"
+        if entry.get("index") != position:
+            raise LandcoverError(
+                f"landcover_legend.json: {label}.index is {entry.get('index')!r}; indices must "
+                f"be contiguous and ascending from 0 (§13)"
+            )
+        for key in ("id", "name", "rule"):
+            if not entry.get(key) or not isinstance(entry[key], str):
+                raise LandcoverError(
+                    f"landcover_legend.json: {label}.{key} must be a non-empty string (§13)"
+                )
+        if entry["id"] in seen:
+            raise LandcoverError(
+                f"landcover_legend.json: duplicate farField class id {entry['id']!r} (§13)"
+            )
+        seen.add(entry["id"])
+        if not _is_hex_color(entry.get("color")):
+            raise LandcoverError(
+                f"landcover_legend.json: {label}.color must be '#rrggbb', got "
+                f"{entry.get('color')!r} (§13)"
+            )
+
+        billboard = entry.get("billboard")
+        if billboard is not None:
+            if not isinstance(billboard, dict):
+                raise LandcoverError(
+                    f"landcover_legend.json: {label}.billboard must be an object when present (§13)"
+                )
+            if billboard.get("type") not in VEGETATION_TYPES:
+                raise LandcoverError(
+                    f"landcover_legend.json: {label}.billboard.type must be one of "
+                    f"{VEGETATION_TYPES}, got {billboard.get('type')!r} (§13)"
+                )
+            density = billboard.get("densityPerHa")
+            if (
+                not isinstance(density, (int, float))
+                or isinstance(density, bool)
+                or not np.isfinite(density)
+                or density <= 0
+            ):
+                raise LandcoverError(
+                    f"landcover_legend.json: {label}.billboard.densityPerHa must be a finite "
+                    f"number > 0, got {density!r} (§13)"
+                )
+
+        for forbidden in ("areaFraction", "dynamic"):
+            if forbidden in entry:
+                raise LandcoverError(
+                    f"landcover_legend.json: {label}.{forbidden} is not allowed — §13 far-field "
+                    f"classes carry no area fraction (the rasters vary per ring) and no dynamic "
+                    f"marker (the far field is static; far water is §11's)"
+                )
+
 
 def write_legend(path: Path, legend: dict) -> Path:
     validate_legend(legend)

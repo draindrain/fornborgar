@@ -193,3 +193,78 @@ describe('manifest validation — far-field rings (contract §11)', () => {
     }
   });
 });
+
+// --------------------------------------------------------------------------- //
+// v1.6 §13 — far-field land cover on a ring
+// --------------------------------------------------------------------------- //
+
+describe('manifest validation — far-field land cover (contract §13)', () => {
+  const nearField = { assets: { landcover: 'landcover.tif', landcoverLegend: 'landcover_legend.json' } };
+
+  it('keeps a valid per-ring landcover path when the site ships the near field', () => {
+    const m = validateManifest(
+      ringedManifest(
+        [
+          ringGrid(8, 4, 'dem_ring3.tif', { landcover: 'landcover_ring3.tif' }),
+          ringGrid(16, 8, 'dem_ring4.tif', {
+            waterConnect: 'water_connect_ring4.tif',
+            landcover: 'landcover_ring4.tif',
+          }),
+          ringGrid(32, 16, 'dem_ring5.tif'),
+        ],
+        nearField,
+      ),
+    );
+    expect(m.grids.rings?.[0].landcover).toBe('landcover_ring3.tif');
+    expect(m.grids.rings?.[1].landcover).toBe('landcover_ring4.tif');
+    // Optional per ring: the outermost one simply renders untinted (§13).
+    expect(m.grids.rings?.[2].landcover).toBeUndefined();
+    // The §11/§12 water reference is untouched by it.
+    expect(m.grids.rings?.[1].waterConnect).toBe('water_connect_ring4.tif');
+  });
+
+  it.each([['../secrets.tif'], ['/etc/passwd'], ['']])(
+    'drops the rings when a landcover path is %j',
+    (landcover) => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      try {
+        const bad = [ringGrid(8, 4, 'dem_ring3.tif', { landcover })];
+        expect(validateManifest(ringedManifest(bad, nearField)).grids.rings).toBeUndefined();
+        expect(warn).toHaveBeenCalledWith(expect.stringContaining('rings dropped'));
+      } finally {
+        warn.mockRestore();
+      }
+    },
+  );
+
+  it('drops only the landcover keys when the site ships no assets.landcover', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      // §13: the far field extends the §9/§10 layer and cannot exist without it.
+      const m = validateManifest(
+        ringedManifest([
+          ringGrid(8, 4, 'dem_ring3.tif', { landcover: 'landcover_ring3.tif' }),
+          ringGrid(16, 8, 'dem_ring4.tif', { landcover: 'landcover_ring4.tif' }),
+        ]),
+      );
+      // Narrowest degradation: the rings themselves still render, untinted.
+      expect(m.grids.rings).toHaveLength(2);
+      expect(m.grids.rings?.[0].landcover).toBeUndefined();
+      expect(m.grids.rings?.[1].landcover).toBeUndefined();
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('assets.landcover'));
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it('says nothing about a ringed site that declares no far-field land cover at all', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const m = validateManifest(ringedManifest([ringGrid(8, 4, 'dem_ring3.tif')]));
+      expect(m.grids.rings).toHaveLength(1);
+      expect(warn).not.toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+    }
+  });
+});

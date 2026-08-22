@@ -1,9 +1,10 @@
 # Far-field vegetation — the Phase-9d design
 
-**Status: design, 2026-08-22. Docs before code — nothing here is implemented, and
-the contract amendment sketched in §6 is recorded in `docs/data-formats.md` only
-when the code that writes it lands.** Companion research document (zones,
-species, openness): `docs/vegetation-zones.md`.
+**Status: design 2026-08-22; implemented the same session — §9 records the
+as-built state and the one measured design correction. The §6 contract sketch
+was recorded as `docs/data-formats.md` v1.6 §13 before the implementing code.**
+Companion research document (zones, species, openness):
+`docs/vegetation-zones.md`.
 
 **The problem.** The modelled landscape (contract §9/§10) stops dead at the 4×4 km
 context edge while terrain runs to 64 km (§11 rings). Standing on a rampart with
@@ -188,6 +189,35 @@ context raster.
 |---|---|
 | Billboard band still visible as a "band" (10/ha vs perspective-thinned 3D forest at the seam) | The 200 m cross-fade (§2) plus matched class colours; judged on the contact sheet, tuned there |
 | Far-field mosaic ratio inherits a context anomaly (e.g. a mostly-sea context extent) | Ratio computed over *land* cells only; islands fall back to zone-typical fractions, disclosed in the legend |
-| The flatness-based mire proxy is the weakest rule (no soils data at ring scale) | Said so verbatim in its rule string; it drives tint only, never analysis |
+| The flatness-based mire proxy is the weakest rule (no soils data at ring scale) | **Confirmed and corrected as built (below):** bare flatness failed its first contact with data and was replaced by a measured component test |
 | Low-end devices | Billboards attach to ring3/ring4 arrival and inherit lazy loading — a device that stops at 8×8 km simply gets a shorter band, same graceful rule as terrain (§11) |
 | §2 orientation revisited later | Resolved (camera-facing, 2026-08-22); both options are costed above and neither is a rewrite of the other if profiling forces a change |
+
+## 9. As built (2026-08-22, same session)
+
+Both halves are implemented, contract v1.6 §13 having been recorded first:
+pipeline `far_landcover.py` writes `landcover_ring<N>.tif` per ring plus the
+legend's `farField` block; the app adds the per-ring tint (each tinted ring gets
+its own material — the §11 no-overlay rule keeps holding for everything else)
+and the camera-facing billboard layer with its own `FAR_MAX_INSTANCES = 80_000`
+budget, lazy-built on first toggle. Verified against the published Eketorp and
+Tarsta berg bundles end-to-end.
+
+**One design correction, forced by measurement.** §4's flatness-based water
+proxy failed its first contact with real data: at ring quantization (0.5 m
+steps) the alvar pavement is *exactly* level, and the proxy read **60 % of
+Eketorp's ring3 as "lake"** — precisely the confident-wrong-answer failure this
+phase exists to prevent, caught because the smoke run prints class shares. As
+built, still water is instead a **connected component of ≥ 200 ha lying at one
+exact elevation**: measured across the Eketorp, Tarsta and Träleborg rings, no
+non-lake component reaches that size at 0.5 m quantization while Kvismaren-,
+Hjälmaren- and Vänern-scale surfaces exceed it by one to three orders of
+magnitude. At 1.0 m quantization (rings 6–7) flat plains blow past any
+threshold, so the test is honestly not applied there — far lakes on the
+outermost rings read as open land, and both limits are disclosed verbatim in
+the class's rule string.
+
+**Measured asset sizes:** 20–112 kB per ring raster on the two smoke sites
+(Eketorp rings 3–5: 41/35/20 kB; Tarsta rings 3–7: 82/71/85/76/112 kB) —
+comfortably inside §5's ≤ 0.2 MB bound; the false-lake speckle had been
+costing 3–6× that before the correction.

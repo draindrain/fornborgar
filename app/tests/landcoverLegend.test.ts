@@ -18,6 +18,7 @@ import {
   LandcoverError,
   MAX_CLASSES,
   dynamicClass,
+  farBillboardClasses,
   staticVegetationClasses,
   validateLandcoverLegend,
   vegetationClasses,
@@ -397,5 +398,208 @@ describe('landcover_legend.json dynamic classes (contract §10 v1.3)', () => {
       const found = dynamicClass(legend, kind);
       if (found) expect(dynamicIds).toContain(found.id);
     }
+  });
+});
+
+// ------------------------------------ v1.6 §13: the `farField` block --------
+
+/**
+ * A self-contained v1.6 far field — one class that only tints and one that also
+ * stands billboards up — so these cases stay independent of whatever the
+ * committed testsite fixture declares (which, being pre-v1.6, is no far field).
+ */
+const farDoc = () => {
+  const doc = base();
+  doc['farField'] = {
+    method:
+      'Terrain-derived and deliberately cruder than the §9 engine: no soil or evidence inputs, ' +
+      'slope/elevation thresholds only. Billboards stand roughly one tree in ten as a stand-in for the stand.',
+    classes: [
+      {
+        index: 0,
+        id: 'sea',
+        name: 'Open sea (modern)',
+        color: '#2d4a5b',
+        rule: 'below the modern shoreline',
+      },
+      {
+        index: 1,
+        id: 'forest_broadleaf',
+        name: 'Broadleaf forest',
+        color: '#4f7a3a',
+        rule: 'below 40 m, slope < 12°',
+        billboard: { type: 'broadleaf', densityPerHa: 10 },
+      },
+    ] as Record<string, unknown>[],
+  };
+  return doc;
+};
+
+const farClasses = (doc: Record<string, unknown>) =>
+  (doc['farField'] as Record<string, unknown>)['classes'] as Record<string, unknown>[];
+
+describe('landcover_legend.json far field (contract §13 v1.6)', () => {
+  it('leaves a pre-v1.6 legend with no far field at all', () => {
+    const legend = validateLandcoverLegend(testsiteLegend);
+    expect(legend.farField).toBeUndefined();
+    expect(farBillboardClasses(legend)).toEqual([]);
+  });
+
+  it('accepts a far-field block and preserves it verbatim', () => {
+    const legend = validateLandcoverLegend(farDoc(), 'landcover_legend.json');
+    expect(legend.farField?.method).toContain('cruder');
+    expect(legend.farField?.classes).toHaveLength(2);
+    expect(legend.farField?.classes.map((c) => c.index)).toEqual([0, 1]);
+    // A tint-only class stands nothing up; the rule text survives unparaphrased.
+    expect(legend.farField?.classes[0].billboard).toBeUndefined();
+    expect(legend.farField?.classes[0].rule).toBe('below the modern shoreline');
+    expect(legend.farField?.classes[1].billboard).toEqual({ type: 'broadleaf', densityPerHa: 10 });
+    // The near field is untouched by the presence of a far one.
+    expect(legend.classes.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('lists exactly the billboard-carrying far classes', () => {
+    const legend = validateLandcoverLegend(farDoc());
+    expect(farBillboardClasses(legend).map((c) => c.id)).toEqual(['forest_broadleaf']);
+    expect(farBillboardClasses(legend)[0].billboard.densityPerHa).toBe(10);
+  });
+
+  it('tolerates unknown extra keys inside the block (forward compatibility)', () => {
+    const doc = farDoc();
+    (doc['farField'] as Record<string, unknown>)['futureFarKey'] = 7;
+    farClasses(doc)[0]['futureFarClassKey'] = true;
+    const legend = validateLandcoverLegend(doc);
+    expect(legend.farField?.['futureFarKey']).toBe(7);
+    expect(legend.farField?.classes[0]['futureFarClassKey']).toBe(true);
+  });
+
+  it.each([
+    [
+      'a far field that is not an object',
+      () => {
+        const doc = farDoc();
+        doc['farField'] = 'later';
+        return doc;
+      },
+      /farField must be an object or absent/,
+    ],
+    [
+      'a missing far-field method',
+      () => {
+        const doc = farDoc();
+        delete (doc['farField'] as Record<string, unknown>)['method'];
+        return doc;
+      },
+      /farField\.method must be a non-empty string/,
+    ],
+    [
+      'an empty far-field method',
+      () => {
+        const doc = farDoc();
+        (doc['farField'] as Record<string, unknown>)['method'] = '';
+        return doc;
+      },
+      /farField\.method must be a non-empty string/,
+    ],
+    [
+      'no far-field classes',
+      () => {
+        const doc = farDoc();
+        (doc['farField'] as Record<string, unknown>)['classes'] = [];
+        return doc;
+      },
+      /farField\.classes must be a non-empty array/,
+    ],
+    [
+      'non-contiguous far-field indices',
+      () => {
+        const doc = farDoc();
+        farClasses(doc)[1]['index'] = 4;
+        return doc;
+      },
+      /contiguous from 0/,
+    ],
+    [
+      'duplicate far-field ids',
+      () => {
+        const doc = farDoc();
+        farClasses(doc)[1]['id'] = farClasses(doc)[0]['id'];
+        return doc;
+      },
+      /duplicate farField class id/,
+    ],
+    [
+      'a far-field colour that is not #rrggbb',
+      () => {
+        const doc = farDoc();
+        farClasses(doc)[0]['color'] = 'seagreen';
+        return doc;
+      },
+      /must be an "#rrggbb" sRGB hex/,
+    ],
+    [
+      'an unknown billboard type',
+      () => {
+        const doc = farDoc();
+        farClasses(doc)[1]['billboard'] = { type: 'mangrove', densityPerHa: 10 };
+        return doc;
+      },
+      /billboard\.type "mangrove" is not one of/,
+    ],
+    [
+      'a billboard with densityPerHa 0',
+      () => {
+        const doc = farDoc();
+        farClasses(doc)[1]['billboard'] = { type: 'conifer', densityPerHa: 0 };
+        return doc;
+      },
+      /billboard\.densityPerHa must be > 0/,
+    ],
+    // §13: far classes are tint + billboard only. The three near-field markers
+    // are refused rather than ignored — each means a pipeline that thinks it is
+    // writing the §9 near field.
+    [
+      'a far class carrying vegetation',
+      () => {
+        const doc = farDoc();
+        farClasses(doc)[1]['vegetation'] = { type: 'conifer', densityPerHa: 10 };
+        return doc;
+      },
+      /vegetation is not allowed on a far-field class/,
+    ],
+    [
+      'a far class carrying a dynamic marker',
+      () => {
+        const doc = farDoc();
+        farClasses(doc)[0]['dynamic'] = { kind: 'water' };
+        return doc;
+      },
+      /dynamic is not allowed on a far-field class/,
+    ],
+    [
+      'a far class carrying an areaFraction',
+      () => {
+        const doc = farDoc();
+        farClasses(doc)[0]['areaFraction'] = 0.5;
+        return doc;
+      },
+      /areaFraction is not allowed on a far-field class/,
+    ],
+    [
+      'more than 32 far-field classes',
+      () => {
+        const doc = farDoc();
+        const template = farClasses(doc)[0];
+        (doc['farField'] as Record<string, unknown>)['classes'] = Array.from(
+          { length: MAX_CLASSES + 1 },
+          (_, i) => ({ ...JSON.parse(JSON.stringify(template)), index: i, id: `far${i}` }),
+        );
+        return doc;
+      },
+      /exceeds the 32-class limit/,
+    ],
+  ])('rejects %s', (_label, make, message) => {
+    expect(() => validateLandcoverLegend(make(), 'landcover_legend.json')).toThrow(LandcoverError);
+    expect(() => validateLandcoverLegend(make(), 'landcover_legend.json')).toThrow(message as RegExp);
   });
 });

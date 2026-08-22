@@ -33,7 +33,7 @@ from pathlib import Path
 
 import click
 
-from . import landcover, rampart, rings, water
+from . import far_landcover, landcover, rampart, rings, water
 from .clip_dem import (
     LAYOUT_COG,
     VerticalDatumError,
@@ -44,6 +44,7 @@ from .clip_dem import (
     write_grid,
 )
 from .connectivity import read_connect_grid
+from .far_landcover import FarLandcoverError
 from .fetch_dem import FetchError, fetch_source_mosaic, read_source_mosaic
 from .fetch_sites import SitesError
 from .fetch_sites import run as fetch_sites_run
@@ -482,11 +483,27 @@ def run(
 
     if with_landcover:
         print("-- land cover (contract §9/§10)")
+        near_field = False
         try:
             manifest = landcover.run(cfg.id, force_download=force_download)
+            near_field = True
             result.steps.append(StepResult("landcover", "ok"))
         except (LandcoverError, FetchError, ValueError, OSError) as exc:
             result.steps.append(StepResult("landcover", "skipped", f"{type(exc).__name__}: {exc}"))
+
+        if near_field:
+            # §13: the far field extends the near field and cannot exist without
+            # it, so this only runs where the step above wrote the pair. A site
+            # with no rings (a failed or skipped ring step) simply has no far
+            # field — "missing asset = feature off", per ring.
+            print("-- far-field land cover (contract §13)")
+            try:
+                manifest = far_landcover.run(cfg.id)
+                result.steps.append(StepResult("far-landcover", "ok"))
+            except (FarLandcoverError, LandcoverError, ValueError, OSError) as exc:
+                result.steps.append(
+                    StepResult("far-landcover", "skipped", f"{type(exc).__name__}: {exc}")
+                )
 
     manifest = json.loads((out_dir / "manifest.json").read_text(encoding="utf-8"))
 
