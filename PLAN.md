@@ -565,4 +565,28 @@ horizon guarantee (contract v1.4 — ring pipeline + curvature/log-depth/lazy-ri
 rendering); Phase 9 = national scope. Broborg rebuilt with its ring ladder
 2026-08-21: rings 3–6 out to 64×64 km, horizon d ≈ 24.8 km (crown 50.4 m inside the
 KMR extent + 2 m eye, floor 10.5 m), far-water connect on the 16 km ring, zero
-sea-filled cells. Next step: 9a (encoding wins + batch machinery).*
+sea-filled cells.*
+
+***Phase 9a + 9b shipped 2026-08-22** (`docs/national-scaleout.md` §7.1–§7.2).
+Contract **v1.5**, additive: §1a drops the COG container from bundle grids and §12
+ships sea-connectivity as an int16 delta against the DEM — together taking the
+Broborg bundle from 15.96 MB to **7.5 MB**, with every pre-v1.5 bundle still
+loading unchanged (the committed `testsite` is the fixture that proves it). Batch
+machinery: `registry.json` (**1,304 fornborgar**, independently reproducing every
+measured figure in scale-out §1 from a stdlib GeoPackage reader), `build_site`,
+QA gates, hillshade contact sheet, R2 sync with per-site resumable state, and
+`VITE_DATA_BASE_URL` + a national site picker in the app. **9b pilot: 27 sites
+across 15 counties published to R2**, mean 7.0 MB/site — a revised national
+projection of ~9 GB against the ~12 GB estimate. Horizons 13.3–52.8 km, all well
+inside the 128 km cap, and ring 7 used once (Ramundersborg), so the rare case is
+real.*
+
+*Two national-scope corrections the pilot forced, both of which had been failing
+**silently**: the §2.4 shoreline literature band is Uppland's and was rejecting
+correct derivations across the country (while the methods panel claimed a check it
+had not run), and the elevation band can no longer catch a geoid shift once
+widened for Norrland — that tripwire moved to a ring↔context agreement check,
+measured at 0.00–0.20 m across the pilot. Copernicus GLO-30 remains deferred: no
+pilot site needed it, the gate that would demand it is tested and fails loudly,
+and Värmland's border-facing rings did not trip it. Next step: 9c (county-by-county
+fill), which wants scale-out §4.2's shared tile cache first.*
