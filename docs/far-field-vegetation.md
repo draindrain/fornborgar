@@ -53,9 +53,9 @@ considered and rejected on that ground.
 `large`-preset sites (context 8×8 km, 3 sites): the band runs from *their*
 context edge (±4 km) to ±8 km; the arithmetic only shrinks.
 
-## 2. Billboard orientation (decision needed — recommendation: camera-facing)
+## 2. Billboard orientation (decided 2026-08-22: camera-facing; choice delegated by owner)
 
-Two candidates, per the owner's note:
+Two candidates were weighed, per the owner's note:
 
 - **Fixed side-on to the site centre.** Cheapest (static geometry), and exactly
   right for the first-person viewpoint the horizon guarantee is defined for
@@ -70,13 +70,12 @@ Two candidates, per the owner's note:
   Deterministic placement is untouched (position/height from the seed; only the
   facing is view-dependent).
 
-**Recommendation: camera-facing.** The side-on optimization saves nothing that
-matters and fails a first-class documented mode; a forest that exists or not
-depending on camera azimuth is precisely the kind of silent visual lie this
-project refuses. If profiling on low-end devices ever contradicts the "noise"
-claim (it should not — this is standard impostor technique), the fallback is
-side-on *in first-person only*, never in orbit. Held for the owner's sign-off
-rather than silently picked, per the phase brief.
+**Decision: camera-facing** (owner delegated the call, 2026-08-22). The side-on
+optimization saves nothing that matters and fails a first-class documented mode;
+a forest that exists or not depending on camera azimuth is precisely the kind of
+silent visual lie this project refuses. If profiling on low-end devices ever
+contradicts the "noise" claim (it should not — this is standard impostor
+technique), the fallback is side-on *in first-person only*, never in orbit.
 
 Shading: flat class colour slightly darkened versus the ground tint, no texture;
 at 2–8 km a billboard is 1–6 px tall, so silhouette and colour are the entire
@@ -191,4 +190,4 @@ context raster.
 | Far-field mosaic ratio inherits a context anomaly (e.g. a mostly-sea context extent) | Ratio computed over *land* cells only; islands fall back to zone-typical fractions, disclosed in the legend |
 | The flatness-based mire proxy is the weakest rule (no soils data at ring scale) | Said so verbatim in its rule string; it drives tint only, never analysis |
 | Low-end devices | Billboards attach to ring3/ring4 arrival and inherit lazy loading — a device that stops at 8×8 km simply gets a shorter band, same graceful rule as terrain (§11) |
-| Owner disagreement on §2 orientation | Blocking decision; both options costed above, neither is a rewrite of the other |
+| §2 orientation revisited later | Resolved (camera-facing, 2026-08-22); both options are costed above and neither is a rewrite of the other if profiling forces a change |

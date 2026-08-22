@@ -15,10 +15,13 @@ was confirmed against the live Crossref API is marked **[metadata measured]** �
 
 **Network status for this session [measured 2026-08-22]:** reachable —
 `api.neotomadb.org` (the decisive one), `api.crossref.org`, `doi.org`,
-`pub.epsilon.slu.se`, `api.sgu.se`. Blocked — `www.diva-portal.org`,
-`europepmc.org`, `doi.pangaea.de` / `www.pangaea.de`, `essd.copernicus.org`,
-`www.eea.europa.eu`. The blocked set matters in exactly one place: §3 (quantified
-openness), where the one dataset that could settle the question lives on PANGAEA.
+`pub.epsilon.slu.se`, `api.sgu.se`; opened later the same day on request —
+`doi.pangaea.de`, `essd.copernicus.org`. Blocked — `www.diva-portal.org`,
+`europepmc.org`, `www.pangaea.de`, **`download.pangaea.de`** (PANGAEA's file
+server — a separate hostname from the `doi.pangaea.de` landing pages),
+`www.eea.europa.eu`. The blocked set matters in exactly one place: §3
+(quantified openness), where the metadata and paper are now confirmed fetched
+but the gridded data files themselves sit on `download.pangaea.de`.
 
 ---
 
@@ -32,12 +35,14 @@ openness), where the one dataset that could settle the question lives on PANGAEA
    regional, and partly [measured] in this session. The headline: **at 500 CE
    Norway spruce had not yet colonized southern Sweden** — a "conifer forest" of
    120 spruce-form stems/ha south of the spruce front is a confident anachronism.
-3. **Openness per zone (§3):** do **not** vary it. A quantified (REVEALS-type)
-   per-region openness table for Iron Age Sweden exists in the literature but could
-   not be fetched (PANGAEA blocked), and raw pollen ratios must not be dressed up
-   as one. Hold the current single openness behaviour, disclose it per zone, and
-   let per-site KMR evidence density (which we measure) do the local varying —
-   exactly what the engine already does. A named upgrade path exists.
+3. **Openness per zone (§3):** do **not** vary it yet. A quantified
+   (REVEALS-type) per-region openness table for Iron Age Sweden exists — its
+   metadata is now confirmed fetched, with a 250–750 CE window — but the values
+   themselves sit on PANGAEA's still-blocked file server, and raw pollen ratios
+   must not be dressed up as a substitute. Hold the current single openness
+   behaviour, disclose it per zone, and let per-site KMR evidence density (which
+   we measure) do the local varying — exactly what the engine already does. The
+   upgrade path is now a single named URL (§3).
 4. **Alvar (§5):** fix it. All four island pilot sites sit on SGU classes the
    current soil table does not map, so today's rules would render **spruce forest
    on Stora Alvaret** [measured]. The fix needs no new dataset — SGU already
@@ -306,23 +311,33 @@ Age Sweden, per region, that per-zone calibration could rest on?
 - **Trondman et al. (2015)**, *Global Change Biology* 21:676–697,
   doi:10.1111/gcb.12737 — gridded (1°) REVEALS reconstructions of open-land vs
   forest cover for north-central Europe including Sweden, for *selected* Holocene
-  time windows. Whether any published window covers 300–700 CE could not be
-  checked — the full text is behind the blocked hosts.
+  time windows. **None of them covers the Iron Age [measured 2026-08-22]**: the
+  first-generation archive (Gaillard 2019, doi:10.1594/PANGAEA.897303, metadata
+  fetched after the host was opened) holds five windows between 6 ka BP and
+  present, none containing 1,450 BP.
 - **Githumbi et al. (2022)**, *Earth System Science Data* 14:1581–1619,
-  doi:10.5194/essd-14-1581-2022 — the successor dataset: REVEALS land-cover
-  (including an open-land fraction) for Europe at 1°, in time windows spanning
-  the whole Holocene, which by construction includes the Iron Age. **The data
-  live on PANGAEA and the paper on essd.copernicus.org — both blocked in this
-  session [measured: connection refused at the proxy].**
+  doi:10.5194/essd-14-1581-2022 — the successor dataset. After
+  `essd.copernicus.org` and `doi.pangaea.de` were opened on request, the paper
+  full text and the dataset metadata (Fyfe et al. 2021,
+  doi:10.1594/PANGAEA.937075) were fetched, which upgrades the key facts to
+  [measured 2026-08-22]: REVEALS estimates for Europe at 1°×1° in **25
+  consecutive Holocene time windows, one of which is 1,200–1,700 cal BP =
+  250–750 CE** — squarely our window — with three land-cover types: open land
+  (OL), evergreen trees (ET), summer-green trees (ST). What could *not* be
+  fetched is the data itself: the per-cell values live in
+  `LANDCLIMII.RV.results.JUN2021.zip`, served from **`download.pangaea.de` — a
+  third hostname, still blocked** [measured: proxy 403 on CONNECT]. The
+  landing-page host and the file host are different machines; opening the first
+  does not open the second.
 - **Hultberg et al.**, *Vegetation History and Archaeobotany* 24:253–266,
   doi:10.1007/s00334-014-0469-8 — LRA/REVEALS openness applied in southern
   Sweden. Note: this is almost certainly the paper PLAN §2.5 cites as "Hultberg
   et al. (2019)" with the 90–97 % agrarian-Scania openness figure; Crossref
   returns no 2019 Hultberg VHA paper. The figure itself stays [reported].
 
-**So the answer is: yes, such an estimate exists — and no, we could not obtain
-it.** The one dataset that would let per-zone openness be [measured]
-(Githumbi et al. 2022) is one blocked host away. Two things follow:
+**So the answer is: yes, such an estimate exists — confirmed against the
+dataset's own metadata, with exactly the right time window — and the values
+themselves remain one blocked hostname away.** Two things follow:
 
 1. **Do not substitute raw pollen ratios.** The AP/NAP gradient in §2.2 (nemoral
    median 92 % AP → southern boreal 98 %) is real and measured, but raw AP % is
@@ -342,13 +357,17 @@ it.** The one dataset that would let per-zone openness be [measured]
    calibration paragraph, stating that the opening rules were calibrated at
    Broborg and that no quantified regional openness figure has been applied.
 
-**The named upgrade path:** allow `doi.pangaea.de` (and ideally
-`essd.copernicus.org`) in this environment, fetch the Githumbi et al. (2022)
-table, extract the Swedish 1° cells for the window containing 500 CE, and average
-them per §1.2 zone. That single fetch converts §3 from "hold and disclose" to a
-[measured] per-zone openness anchor, and would also settle whether the 300/700 m
-radii need zone scaling. Estimated effort once the host is reachable: hours. This
-is recorded as the phase's one open question rather than guessed at.
+**The named upgrade path** (narrowed 2026-08-22 after the first two hosts were
+opened): allow **`download.pangaea.de`** — the PANGAEA file server, distinct
+from the already-opened `doi.pangaea.de` landing host — then fetch
+`https://download.pangaea.de/dataset/937075/files/LANDCLIMII.RV.results.JUN2021.zip`
+(CC-BY-4.0), take the 1,200–1,700 BP means file, extract the Swedish 1° cells'
+open-land (OL) fraction, and average per §1.2 zone. Everything else is already
+verified: the window is right, the variable is right, the licence permits it.
+That single fetch converts §3 from "hold and disclose" to a [measured] per-zone
+openness anchor, and would also settle whether the 300/700 m radii need zone
+scaling. Estimated effort once the host is reachable: hours. This remains the
+phase's one open question rather than a guess.
 
 ## 4. Species composition per zone — the parameter sets
 
@@ -507,8 +526,11 @@ remains [reported] — full text was unreachable for all of them.
 - Trondman, A.-K. et al. (2015): Gridded REVEALS, N-C Europe. Glob. Change Biol.
   21:676–697. doi:10.1111/gcb.12737 ✓
 - Githumbi, E. et al. (2022): European REVEALS reconstructions, full Holocene.
-  ESSD 14:1581–1619. doi:10.5194/essd-14-1581-2022 ✓ — data on PANGAEA,
-  **blocked this session**; the §3 upgrade path.
+  ESSD 14:1581–1619. doi:10.5194/essd-14-1581-2022 — paper full text fetched
+  2026-08-22 after the host was opened; time windows and LCT definitions
+  [measured] from it. Data archive: Fyfe, R.M. et al. (2021),
+  doi:10.1594/PANGAEA.937075 (CC-BY-4.0) — metadata fetched; the data zip is on
+  the still-blocked `download.pangaea.de` (the §3 upgrade path).
 - Hultberg, T. et al. (2015): LRA openness, southern Sweden. Veget. Hist.
   Archaeobot. 24:253–266. doi:10.1007/s00334-014-0469-8 ✓ — evidently PLAN
   §2.5's "Hultberg et al. (2019)"; PLAN's entry should be corrected when next
