@@ -16,12 +16,12 @@ was confirmed against the live Crossref API is marked **[metadata measured]** �
 **Network status for this session [measured 2026-08-22]:** reachable —
 `api.neotomadb.org` (the decisive one), `api.crossref.org`, `doi.org`,
 `pub.epsilon.slu.se`, `api.sgu.se`; opened later the same day on request —
-`doi.pangaea.de`, `essd.copernicus.org`. Blocked — `www.diva-portal.org`,
-`europepmc.org`, `www.pangaea.de`, **`download.pangaea.de`** (PANGAEA's file
-server — a separate hostname from the `doi.pangaea.de` landing pages),
-`www.eea.europa.eu`. The blocked set matters in exactly one place: §3
-(quantified openness), where the metadata and paper are now confirmed fetched
-but the gridded data files themselves sit on `download.pangaea.de`.
+`doi.pangaea.de`, `essd.copernicus.org`, and finally `download.pangaea.de`
+(PANGAEA's file server, a separate hostname from the landing pages — the third
+ask, and the one that held the actual data). Still blocked but no longer
+material: `www.diva-portal.org`, `europepmc.org`, `www.pangaea.de`,
+`www.eea.europa.eu`. With the file server open, the quantified-openness dataset
+was fetched and §3 carries measured numbers — and a measured coverage gap.
 
 ---
 
@@ -35,14 +35,18 @@ but the gridded data files themselves sit on `download.pangaea.de`.
    regional, and partly [measured] in this session. The headline: **at 500 CE
    Norway spruce had not yet colonized southern Sweden** — a "conifer forest" of
    120 spruce-form stems/ha south of the spruce front is a confident anachronism.
-3. **Openness per zone (§3):** do **not** vary it yet. A quantified
-   (REVEALS-type) per-region openness table for Iron Age Sweden exists — its
-   metadata is now confirmed fetched, with a 250–750 CE window — but the values
-   themselves sit on PANGAEA's still-blocked file server, and raw pollen ratios
-   must not be dressed up as a substitute. Hold the current single openness
-   behaviour, disclose it per zone, and let per-site KMR evidence density (which
-   we measure) do the local varying — exactly what the engine already does. The
-   upgrade path is now a single named URL (§3).
+3. **Openness per zone (§3):** the quantified (REVEALS-type) dataset is now
+   **fetched and measured** — Iron Age open-land is ~39 % across the nemoral
+   cells, ~33 % across the covered boreonemoral cells, ~7 % southern boreal.
+   But **the cells holding 913 of 1,304 registry sites (70 %) — the whole
+   Mälaren valley, Gotland, Östergötland — are absent from the product
+   entirely**, Broborg's included, and within-zone spread (11–59 % in
+   boreonemoral) exceeds the between-zone differences. Recommendation
+   unchanged in substance, upgraded in disclosure: engine rules and radii stay
+   national; each site whose 1° cell has an estimate gets that **cell's own
+   OL ± SE quoted in its legend calibration paragraph** as the regional anchor
+   (report, never force-fit — PLAN §4.7); uncovered cells keep the honest
+   "no quantified estimate covers this cell".
 4. **Alvar (§5):** fix it. All four island pilot sites sit on SGU classes the
    current soil table does not map, so today's rules would render **spruce forest
    on Stora Alvaret** [measured]. The fix needs no new dataset — SGU already
@@ -303,7 +307,8 @@ Documented gaps, which are results in their own right:
 **The question:** is there a quantified, REVEALS-type openness estimate for Iron
 Age Sweden, per region, that per-zone calibration could rest on?
 
-**What exists [metadata measured 2026-08-22; content reported]:**
+**What exists [metadata measured 2026-08-22; content [reported] except where a
+bullet states otherwise]:**
 
 - The REVEALS method itself: Sugita (2007), *The Holocene* 17,
   doi:10.1177/0959683607075837, with the standard European PPE set of Mazier
@@ -316,58 +321,78 @@ Age Sweden, per region, that per-zone calibration could rest on?
   fetched after the host was opened) holds five windows between 6 ka BP and
   present, none containing 1,450 BP.
 - **Githumbi et al. (2022)**, *Earth System Science Data* 14:1581–1619,
-  doi:10.5194/essd-14-1581-2022 — the successor dataset. After
-  `essd.copernicus.org` and `doi.pangaea.de` were opened on request, the paper
-  full text and the dataset metadata (Fyfe et al. 2021,
-  doi:10.1594/PANGAEA.937075) were fetched, which upgrades the key facts to
-  [measured 2026-08-22]: REVEALS estimates for Europe at 1°×1° in **25
-  consecutive Holocene time windows, one of which is 1,200–1,700 cal BP =
-  250–750 CE** — squarely our window — with three land-cover types: open land
-  (OL), evergreen trees (ET), summer-green trees (ST). What could *not* be
-  fetched is the data itself: the per-cell values live in
-  `LANDCLIMII.RV.results.JUN2021.zip`, served from **`download.pangaea.de` — a
-  third hostname, still blocked** [measured: proxy 403 on CONNECT]. The
-  landing-page host and the file host are different machines; opening the first
-  does not open the second.
+  doi:10.5194/essd-14-1581-2022 — the successor dataset (archive: Fyfe et al.
+  2021, doi:10.1594/PANGAEA.937075, CC-BY-4.0). After the three hosts involved
+  were opened on request — `essd.copernicus.org`, `doi.pangaea.de`, and finally
+  `download.pangaea.de`, the file server — the paper, the metadata **and the
+  data were all fetched [measured 2026-08-22]**: REVEALS estimates for Europe
+  at 1°×1° in 25 consecutive Holocene time windows, one of which is
+  **1,200–1,700 cal BP = 250–750 CE** — squarely our window (file `TW5`;
+  ordering verified against the Skåne cell, where the modern window carries
+  11 % spruce and 4.6 % cereals against the Iron Age window's 0.1 % and 1.1 %) —
+  with three land-cover types: open land (OL), evergreen trees (ET),
+  summer-green trees (ST).
 - **Hultberg et al.**, *Vegetation History and Archaeobotany* 24:253–266,
   doi:10.1007/s00334-014-0469-8 — LRA/REVEALS openness applied in southern
   Sweden. Note: this is almost certainly the paper PLAN §2.5 cites as "Hultberg
   et al. (2019)" with the 90–97 % agrarian-Scania openness figure; Crossref
   returns no 2019 Hultberg VHA paper. The figure itself stays [reported].
 
-**So the answer is: yes, such an estimate exists — confirmed against the
-dataset's own metadata, with exactly the right time window — and the values
-themselves remain one blocked hostname away.** Two things follow:
+### 3.1 The measured answer [measured 2026-08-22]
 
-1. **Do not substitute raw pollen ratios.** The AP/NAP gradient in §2.2 (nemoral
-   median 92 % AP → southern boreal 98 %) is real and measured, but raw AP % is
-   not openness % — the whole point of REVEALS is that the correction is large
-   and taxon-dependent (grassland at 60 % AP can be majority-open ground). Using
-   AP/NAP as a *number* would be inventing a calibration while appearing to cite
-   one. It is used here only as a gradient and a bound.
-2. **Recommendation — hold openness at the current behaviour, disclosed.** The
-   engine's openness is not a single dial but the emergent result of
-   evidence-radius rules (grazing 300 m, farmland 700 m) applied to *per-site KMR
-   evidence density*, which we measure everywhere. That mechanism already
-   produces the right qualitative behaviour: evidence-dense Mälaren sites open
-   up, evidence-sparse Norrland sites stay closed — the same direction as the
-   measured AP gradient (§2.3), driven by data we actually have per site rather
-   than a zone constant recalled from an unfetchable table. Keep the radii
-   national. Add one disclosure sentence per non-Uppland zone to the legend's
-   calibration paragraph, stating that the opening rules were calibrated at
-   Broborg and that no quantified regional openness figure has been applied.
+Method: every 1° cell containing at least one registry site was selected (41
+cells), assigned the majority §1.2 zone of its sites, and read out of the
+1,200–1,700 BP means and standard-errors files. Two results, equally important.
 
-**The named upgrade path** (narrowed 2026-08-22 after the first two hosts were
-opened): allow **`download.pangaea.de`** — the PANGAEA file server, distinct
-from the already-opened `doi.pangaea.de` landing host — then fetch
-`https://download.pangaea.de/dataset/937075/files/LANDCLIMII.RV.results.JUN2021.zip`
-(CC-BY-4.0), take the 1,200–1,700 BP means file, extract the Swedish 1° cells'
-open-land (OL) fraction, and average per §1.2 zone. Everything else is already
-verified: the window is right, the variable is right, the licence permits it.
-That single fetch converts §3 from "hold and disclose" to a [measured] per-zone
-openness anchor, and would also settle whether the 300/700 m radii need zone
-scaling. Estimated effort once the host is reachable: hours. This remains the
-phase's one open question rather than a guess.
+**First, the coverage gap.** 25 of the 41 cells — holding **913 of 1,304
+registry sites (70 %)** — are **absent from the LandClimII product entirely**,
+in every one of its 25 time windows, not just ours: no suitable pollen record
+existed to feed REVEALS there. The absences are exactly where the forts are
+densest: the Mälaren valley (the cells around 59.5°N/16–18°E alone hold 477
+sites, Broborg's cell among them), Östergötland, Gotland, inland Västergötland.
+This is the same east-coast silence the Neotoma pull hit (§2.5) seen from the
+other side, and it means **no quantified openness estimate exists for the
+region holding most Swedish fornborgar** — a documented negative, not a
+fetch failure.
+
+**Second, where cells are covered** (16 cells, 391 sites):
+
+| Zone (covered cells only) | Cells | Registry sites in them | Open land, mean | OL range across cells | mean SE | Evergreen trees | Summer-green trees |
+|---|---|---|---|---|---|---|---|
+| nemoral | 5 | 20 | **39.3 %** | 14.5–50.1 % | ±12.0 | 5.5 % | 55.2 % |
+| boreonemoral | 9 | 366 | **32.8 %** | 10.7–58.8 % | ±9.4 | 28.6 % | 38.6 % |
+| southern boreal | 2 | 5 | **6.5 %** | 4.7–8.2 % | ±0.9 | 72.0 % | 21.5 % |
+
+Cross-checks, both passed: REVEALS Picea across these zones runs 0.1 % / 10.1 %
+/ 41.2 % — the same front §2.4 measured independently from raw assemblages —
+and the correction's size vindicates §2.1's warning: the nemoral zone's raw
+pollen is 92 % AP (median) yet its REVEALS openness is ~40 %; raw ratios
+understate openness by a factor of five here, which is why they were never
+allowed to stand in as numbers.
+
+### 3.2 What follows for the model
+
+1. **Raw pollen ratios stay banned as calibration numbers** — now demonstrated
+   by the data rather than argued (§3.1).
+2. **Engine rules and radii stay national.** Within-zone spread across covered
+   cells (10.7–58.8 % in boreonemoral) is larger than the between-zone
+   differences, the per-cell SEs run to ±25, and a 100×100 km cell mean is the
+   wrong scale to force onto a 4×4 km fort context that the evidence rules
+   already open locally. Fitting radii per zone to these means would be
+   precision theatre.
+3. **The upgrade that is real: per-cell disclosure.** The pipeline gains the
+   TW5 OL ± SE lookup (the two CSVs, ~0.2 MB each, committed with CC-BY-4.0
+   attribution in `DATA-LICENSES.md`). A site whose cell is covered gets one
+   sentence in its legend calibration paragraph — *"the REVEALS reconstruction
+   for this site's 100 km grid cell estimates N ± SE % open land in 250–750
+   CE (Githumbi et al. 2022); the model's context fraction is M %"* — reported,
+   never fitted (PLAN §4.7). A site in an absent cell keeps the honest line
+   that no quantified estimate covers it. Broborg's methods panel is unchanged
+   in substance: its cell is one of the absent ones, so the §2.5-era statement
+   "no quantified openness figure for Iron Age Uppland" is now *measured*, not
+   just unfound. One concrete gain for the alvar pair: Eketorp and Ismantorp
+   share the covered cell at 16.5°E/56.5°N — **43.4 ± 7.1 % open land** — the
+   first quantified regional anchor behind the open-alvar rendering (§5).
 
 ## 4. Species composition per zone — the parameter sets
 
@@ -485,6 +510,9 @@ sites extract.
    radii, densities, thresholds, `REFERENCE_YEAR_CE` — is deliberately identical
    across zones, with the §3 disclosure line stating so.
 3. Alvar overlay: per-site from the soils extract (§5.3), independent of zone.
+4. REVEALS anchor: look up the site's 1° cell in the committed TW5 OL means/SE
+   tables (§3.2); covered cell → the quoted anchor sentence in the calibration
+   paragraph, absent cell → the no-estimate disclosure. Pure lookup, no tuning.
 
 **Checks** (batch QA gates + the contact sheet, per scale-out §4.4):
 
@@ -502,8 +530,9 @@ sites extract.
 
 **What cannot be automated, named explicitly:** the zone thresholds themselves
 (§1.2 — a modelling choice pending fetchable boundary sources); the alvar species
-list and its stems/ha (literature-based, [reported]); the decision to hold
-openness national (§3 — revisit only via the named PANGAEA upgrade path); and the
+list and its stems/ha (literature-based, [reported]); the decision to keep
+engine openness rules national rather than fitted to the REVEALS cell means
+(§3.2 — a judgement about scale and spread, now made on measured data); and the
 final visual judgement of the contact sheet.
 
 ## 7. Sources
@@ -527,10 +556,11 @@ remains [reported] — full text was unreachable for all of them.
   21:676–697. doi:10.1111/gcb.12737 ✓
 - Githumbi, E. et al. (2022): European REVEALS reconstructions, full Holocene.
   ESSD 14:1581–1619. doi:10.5194/essd-14-1581-2022 — paper full text fetched
-  2026-08-22 after the host was opened; time windows and LCT definitions
-  [measured] from it. Data archive: Fyfe, R.M. et al. (2021),
-  doi:10.1594/PANGAEA.937075 (CC-BY-4.0) — metadata fetched; the data zip is on
-  the still-blocked `download.pangaea.de` (the §3 upgrade path).
+  2026-08-22. Data archive: Fyfe, R.M. et al. (2021),
+  doi:10.1594/PANGAEA.937075 (CC-BY-4.0) — **fetched in full 2026-08-22** after
+  all three hostnames were opened; §3.1's per-cell numbers are computed from
+  its TW5 (1,200–1,700 cal BP) means and standard-error files. **[measured —
+  primary data]**
 - Hultberg, T. et al. (2015): LRA openness, southern Sweden. Veget. Hist.
   Archaeobot. 24:253–266. doi:10.1007/s00334-014-0469-8 ✓ — evidently PLAN
   §2.5's "Hultberg et al. (2019)"; PLAN's entry should be corrected when next
@@ -644,9 +674,11 @@ except Kassjön (`c14`, see §2.1). Zone by the §1.2 rule. Dataset DOIs resolve
 
 *Summary: three zones and one soil overlay cover all 1,304 sites from data the
 pipeline already has. Species identity varies by zone on measured evidence — above
-all the 500 CE spruce front. Openness does not vary, on the honestly stated ground
-that the one quantified regional dataset is unreachable from this environment, and
-raw pollen ratios are not a substitute; per-site KMR evidence density keeps doing
-the local work it already does. The alvar is a measured, structural exception that
-today's soil table would silently render as spruce forest — the exact class of
-error this phase exists to prevent.*
+all the 500 CE spruce front. Openness is now quantified where the REVEALS record
+reaches — ~39 % open nemoral, ~33 % covered boreonemoral, ~7 % southern boreal —
+but the record is measured to be absent for the cells holding 70 % of the
+registry, Broborg's included, so the engine's rules stay national and each site
+reports its own cell's anchor or the honest lack of one. Per-site KMR evidence
+density keeps doing the local work it already does. The alvar is a measured,
+structural exception that today's soil table would silently render as spruce
+forest — the exact class of error this phase exists to prevent.*
