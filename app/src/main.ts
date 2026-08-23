@@ -25,14 +25,19 @@ import { bakeImpostorAtlas, type ImpostorAtlas } from './landcover/impostors';
 import { VegetationLayer } from './landcover/vegetation';
 import { PalisadeLayer } from './overlays/palisade';
 import { Atmosphere } from './sky/atmosphere';
+import { moonPosition, phaseLabel, type LunarPosition } from './sky/lunar';
+import { NightSky } from './sky/nightSky';
 import {
   dateFromDayOfYear,
   daylight,
+  localApparentSiderealDeg,
   MONTH_NAMES,
+  julianDayAt,
   seasonLabel,
   solarPosition,
   type SolarPosition,
 } from './sky/solar';
+import { loadStarCatalogue } from './sky/stars';
 import {
   debugEnabled,
   loadGrid,
@@ -46,6 +51,7 @@ import {
   loadSiteIndex,
   loadWaterAssets,
   siteIdFromLocation,
+  skyDataUrl,
 } from './state/loader';
 import type { SiteManifest } from './state/manifest';
 import type { HeightGrid } from './terrain/heightGrid';
@@ -111,6 +117,15 @@ scene.add(terrain.group, lighting.group);
 // exposure. Constructed with a high-sun default, so the first frame before any
 // site data lands looks exactly like the flat '#8fa3b4' sky this app shipped with.
 const atmosphere = new Atmosphere(scene, renderer, lighting);
+
+/**
+ * The things in the sky: the sun's disc, the moon and the stars, plus the
+ * uniforms the water plane reads to reflect them. The dome paints over
+ * `scene.background` rather than replacing it, so a site that never gets this
+ * far still shows the flat sky the atmosphere sets.
+ */
+const nightSky = new NightSky(renderer.getPixelRatio());
+scene.add(nightSky.group);
 
 /** `?debug=1` — the old lil-gui rig, plus the pre-redesign layer defaults. */
 const debug = debugEnabled();
@@ -292,6 +307,14 @@ let sun: SolarPosition = solarPosition({
 
 let timeBar: TimeBar | null = null;
 
+/** The moon as last computed, for the readouts and the `window.__app` hook. */
+let moon: LunarPosition = moonPosition({
+  latDeg: siteLat,
+  yearCE: controlState.time.yearCE,
+  dayOfYear: controlState.time.dayOfYear,
+  solarHour: controlState.time.solarHour,
+});
+
 /**
  * Single funnel for the sun: the three time sliders, the debug panel's manual
  * override, and the `window.__app.time` hooks all land here.
@@ -310,6 +333,13 @@ function applySunSettings(): void {
     solarHour: t.solarHour,
   });
 
+  moon = moonPosition({
+    latDeg: siteLat,
+    yearCE: t.yearCE,
+    dayOfYear: t.dayOfYear,
+    solarHour: t.solarHour,
+  });
+
   if (controlState.sunManual) {
     // Sky and fill still come from the atmosphere at the hand-set elevation, so a
     // manually lowered sun gets a coherent sunset rather than a noon sky. Only the
@@ -322,6 +352,26 @@ function applySunSettings(): void {
     controlState.sunElevation = sun.apparentAltitudeDeg;
     atmosphere.apply(sun.apparentAltitudeDeg, sun.azimuthDeg);
   }
+
+  // The drawn sun follows whichever sun is lighting the scene, override
+  // included — a disc in one place and a shadow from another would be worse
+  // than no disc. The moon keeps its real position either way: the override is
+  // a lighting rig, not a different sky.
+  const drawnSun = controlState.sunManual
+    ? {
+        altitudeDeg: controlState.sunElevation,
+        apparentAltitudeDeg: controlState.sunElevation,
+        azimuthDeg: controlState.sunAzimuth,
+      }
+    : sun;
+  nightSky.apply({
+    sky: atmosphere.state,
+    sun: drawnSun,
+    moon,
+    latDeg: siteLat,
+    siderealDeg: localApparentSiderealDeg(t.solarHour, sun.rightAscensionDeg),
+    jd: julianDayAt(t.yearCE, t.dayOfYear, t.solarHour),
+  });
 
   // The water plane lights itself (a raw ShaderMaterial with lights disabled),
   // so without this it stays a glowing teal slab after sunset.
@@ -343,11 +393,29 @@ function applyTimeSettings(): void {
   applySunSettings();
 }
 
+/**
+ * The moon, in one line: its phase, and whether it is up.
+ *
+ * It rides the *time of year* slider rather than the time of day one because
+ * that is the slider that walks it through its phases — a month of day-of-year
+ * is a full lunation, where an hour of solar time barely moves it.
+ */
+function moonReadout(): string {
+  const lit = `${Math.round(moon.illuminatedFraction * 100)} %`;
+  const phase = phaseLabel(moon.illuminatedFraction, moon.waxing);
+  const where =
+    moon.apparentAltitudeDeg > -0.5
+      ? formatAltitude(moon.apparentAltitudeDeg, 'moon')
+      : 'moon below the horizon';
+  return `${phase} ${lit} · ${where}`;
+}
+
 /** What the three sliders say, assembled once per change. */
 function timeReadouts(): {
   year: string;
   yearNote: string;
   season: string;
+  seasonNote: string;
   day: string;
   dayNote: string;
 } {
@@ -365,6 +433,7 @@ function timeReadouts(): {
     year: `${formatYear(t.yearCE)} · ${period.name}`,
     yearNote: water ? formatLevel(water.levelAt(t.yearCE)) : '',
     season: `${day} ${MONTH_NAMES[month - 1]} · ${seasonLabel(sun.solarLongitudeDeg)}`,
+    seasonNote: moonReadout(),
     day: `${formatSolarTime(t.solarHour)} solar time · ${formatAltitude(sun.apparentAltitudeDeg)}`,
     dayNote,
   };
@@ -468,6 +537,31 @@ function describeSite(manifest: SiteManifest): string {
   );
 }
 
+/**
+ * The star catalogue, in the background.
+ *
+ * Deliberately not awaited and deliberately not fatal. The sky is up on the
+ * first frame with its sun and its moon; the stars are 80 kB that arrive a
+ * moment later and simply appear. A site whose host is missing the file gets a
+ * starless night and a console warning, not a failed load — the catalogue is
+ * app-shipped, so if it is missing something is wrong with the deployment
+ * rather than with the site.
+ */
+async function loadStars(): Promise<void> {
+  try {
+    const catalogue = await loadStarCatalogue(skyDataUrl());
+    const t = controlState.time;
+    nightSky.attachStars(catalogue, julianDayAt(t.yearCE, t.dayOfYear, t.solarHour));
+    applySunSettings();
+    console.info(
+      `[fornborg] stars: ${catalogue.count} to V=${catalogue.limitingMagnitude} ` +
+        `(${catalogue.source.catalogue})`,
+    );
+  } catch (error) {
+    console.warn('[fornborg] star catalogue unavailable; the night sky will have no stars', error);
+  }
+}
+
 async function start(): Promise<void> {
   const siteId = siteIdFromLocation();
   console.info(`[fornborg] site=${siteId} base=${import.meta.env.BASE_URL}`);
@@ -480,6 +574,7 @@ async function start(): Promise<void> {
   // piece of projection math is allowed to live in the browser.
   ({ latDeg: siteLat, lonDeg: siteLon } = siteLatLon(manifest));
   applySunSettings();
+  void loadStars();
 
   hud.setSite(manifest.site.name, describeSite(manifest));
   hud.setAttribution(manifest.attribution ?? []);
@@ -963,6 +1058,13 @@ async function start(): Promise<void> {
       daylight: () => daylight(siteLat, controlState.time.yearCE, controlState.time.dayOfYear),
       period: () => periodAt(controlState.time.yearCE),
       sky: () => atmosphere.state,
+      moon: () =>
+        moonPosition({
+          latDeg: siteLat,
+          yearCE: controlState.time.yearCE,
+          dayOfYear: controlState.time.dayOfYear,
+          solarHour: controlState.time.solarHour,
+        }),
       setYear(yearCE: number) {
         controlState.time.yearCE = yearCE;
         applyTimeSettings();
@@ -976,6 +1078,34 @@ async function start(): Promise<void> {
         applyTimeSettings();
       },
       apply: applyTimeSettings,
+    },
+    /**
+     * What is drawn in the sky, as opposed to where it is — `time.sun()` and
+     * `time.moon()` answer the astronomy, this answers the rendering. Same
+     * convention as the layer hooks: always present, `stars: 0` meaning the
+     * catalogue has not arrived rather than that the feature is missing.
+     */
+    sky: {
+      layer: nightSky,
+      dome: nightSky.dome.mesh,
+      uniforms: nightSky.uniforms,
+      stars: () => ({
+        count: nightSky.starCount,
+        loaded: nightSky.hasStars,
+        source: nightSky.catalogueSource,
+        fade: atmosphere.state.starFade,
+      }),
+      siderealDeg: () =>
+        localApparentSiderealDeg(controlState.time.solarHour, sun.rightAscensionDeg),
+      /** Where the discs actually are, read back off the uniforms. */
+      drawn: () => ({
+        sun: nightSky.uniforms.uSunDir.value.toArray(),
+        sunIntensity: nightSky.uniforms.uSunDiscIntensity.value,
+        moon: nightSky.uniforms.uMoonDir.value.toArray(),
+        moonBrightness: nightSky.uniforms.uMoonBrightness.value,
+        moonLit: nightSky.uniforms.uMoonLitFraction.value,
+        starFade: nightSky.uniforms.uStarFade.value,
+      }),
     },
     // Phase 4. Present (with `layer: null`) even when the site ships no water
     // assets, so a headless check can tell "feature off" from "not wired up".
