@@ -40,6 +40,26 @@ export function siteIdFromLocation(search: string = window.location.search): str
 }
 
 /**
+ * `?debug` / `?debug=1` / `?debug=true` — the gate on the old lil-gui control
+ * surface.
+ *
+ * The simple three-slider bar is what the app shows by default; everything that
+ * used to be in the panel (seeds, densities, viewshed parameters, the manual sun)
+ * is a debugging affordance and lives behind this flag. `?debug=0` and a bare
+ * `?debugx=1` are both off, so the check cannot be tripped by accident.
+ *
+ * Debug mode also restores the pre-redesign **layer defaults** — every model and
+ * conjecture layer starts off, the way PLAN §6.1 originally required — because
+ * the debug workflow is "start from nothing and toggle", and because the headless
+ * verifiers were written against exactly that.
+ */
+export function debugEnabled(search: string = window.location.search): boolean {
+  const raw = new URLSearchParams(search).get('debug');
+  if (raw === null) return false;
+  return raw === '' || raw === '1' || raw.toLowerCase() === 'true';
+}
+
+/**
  * The root every bundle hangs off, always ending in "/".
  *
  * Unset `VITE_DATA_BASE_URL` (local dev, and the GitHub Pages build as it

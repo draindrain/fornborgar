@@ -320,6 +320,44 @@ multiple locations moved to Phase 9 below.)*
   QA contact sheet) → ~25-site curated pilot on R2 → county-by-county fill to 1,304 →
   intervisibility stretch (76 % of forts have a neighbor within their context extent).
 
+### Phase 10 — The time axis: three sliders and a real sun — ✅ DONE 2026-08-23
+*(Owner decision 2026-08-23: the lil-gui panel is a debugging rig, not a way to look at
+a hillfort. It moves behind `?debug=1` and a much simpler default menu replaces it.)*
+- **The default control surface is three sliders** (`app/src/ui/timeBar.ts`, bottom
+  centre): **year**, **time of year**, **time of day**. Nothing else — the seeds, the
+  density multiplier, the vertical exaggeration and the viewshed parameters are all
+  debugging affordances and are only reachable with `?debug=1`.
+- **Water, palisade and vegetation are on by default**, at their default values. See the
+  §6.1 amendment below for what happens to the opt-in caveat rule.
+- **The sun is astronomical** (`app/src/sky/solar.ts`), computed from the site's real
+  latitude for the year, day and hour the sliders set. Local apparent solar time as the
+  time primitive (so 12:00 *is* the sun on the meridian, and ΔT — three hours of
+  uncertainty at 1000 BCE — never enters); Meeus ch. 25 for the apparent solar
+  longitude; **Laskar (1986)** for the obliquity, because Meeus's own polynomial is
+  stated only for ±2000 yr and this slider reaches 3050 years before J2000. Obliquity is
+  the year slider's effect on the sun: 23.82° at 1050 BCE against 23.44° today, a quarter
+  degree of midsummer noon altitude. Better than ~0.1° in the sun's direction anywhere
+  in range.
+- **Latitude comes from the manifest origin** by inverse SWEREF 99 TM
+  (`app/src/lib/sweref.ts`) — the one exception to §4.3's "the browser never does
+  projection math", allowed because its output lights the scene and places nothing. A
+  `site.latLon` field in the manifest wins where one exists, so the pipeline can start
+  shipping it without an app change; the two synthetic fixtures declare one, because
+  their round-number `{e: 0, n: 0}` origin is on the equator.
+- **The sun can now set**, so the scene needs a night (`app/src/sky/atmosphere.ts`): a
+  stop table keyed on refracted solar altitude drives the background, the fog colour,
+  both lights and a simulated dark-adapted `toneMappingExposure`. A table rather than
+  physical extinction, deliberately — per-channel Rayleigh with Kasten–Young air mass
+  puts the sun at pure crimson and near-zero output at 2° altitude, i.e. it destroys the
+  raking light §4.2 exists to provide. The `h = 50°` sky stop is pinned to the old flat
+  `#8fa3b4`, so the daytime look is preserved as the top of the ramp.
+- **Archaeological periods are data** (`app/src/lib/periods.ts`), so the year slider can
+  name the age it is scrubbing through — with the standing note that the boundaries are
+  conventions in general Swedish use, not events.
+- Exit criterion (met): at Broborg the sliders reproduce 16.63°/288.58° at the default
+  pose, sunrise 02:34 and sunset 21:26 at midsummer, a midnight sun 6.6° below the
+  horizon (the white night must never render as night), and 6.6° noon at midwinter.
+
 ---
 
 ## 4. Technical decisions & rationale
@@ -541,8 +579,30 @@ panel, the legend's calibration text, and species composition tied to the zone e
 (docs/vegetation-zones.md §2/§4). Provenance lives in the badges and the panel, not in
 how rough the trees look.
 
+**Amended 2026-08-23 (owner decision): model and conjecture layers default ON.** The
+original rule made every model and conjecture layer opt-in, so a first-time visitor
+landed on bare grey terrain and had to find four checkboxes before the scene meant
+anything. Water, the palisade and the modelled landscape now come up already on. The
+first-enable caveat cannot carry the honesty budget in that world — three toasts would
+race a single 9-second timer and two would be overwritten in the same frame — so it is
+replaced by **one combined caveat at load**: *"Measured terrain, with a modelled water
+level and landscape and a conjectural palisade shown on top. Open Methods for what is
+which."* Everything else that carries provenance is unchanged and unweakened: the legend
+badges, the permanent notes beside each control, the methods panel, and the per-layer
+caveats, which still fire the first time a layer is toggled in the debug panel.
+`?debug=1` keeps the original opt-in defaults, so the debug rig — and the headless
+verifiers written against it — see the pre-2026-08-23 app exactly.
+
+The sun (Phase 10) is a **model** by the same test the shoreline meets: it is computed,
+not measured, and not read from an asset. It carries the badge, states its own accuracy
+in the methods panel, and says plainly which parts are not modelled at all — that night
+is drawn with a simulated dark-adapted exposure and is far brighter than a real moonless
+Iron Age night, and that the twilight colours are an artistic ramp keyed to the computed
+solar altitude rather than radiative transfer.
+
 UI rules: the methods panel is one click from anywhere; toggling any model/conjecture
-layer on for the first time surfaces its one-line caveat; vertical exaggeration ≠ 1.0 is
+layer on for the first time surfaces its one-line caveat (see the 2026-08-23 amendment
+for the default-on case); vertical exaggeration ≠ 1.0 is
 always indicated on screen ("terrain ×1.5"); the viewshed panel states its algorithm,
 observer/target heights and curvature setting; screenshots (if we add an export button)
 bake the active caveats into the image margin.
@@ -560,6 +620,9 @@ bake the active caveats into the image margin.
 - Dating honesty: RAÄ records rarely carry per-site dating; period attribution is by site
   type ("typisk datering") unless a cited excavation says otherwise (Broborg: ~400–550 CE
   per excavation literature).
+- How the sun is computed (site latitude from the manifest origin, apparent solar time,
+  Meeus ch. 25 and Laskar 1986), with its accuracy claim and the disclosure that the
+  night lighting and the twilight palette are legibility choices rather than physics.
 - Full citation list (incl. Broborg excavation/vitrification literature) and a link to
   this repository.
 

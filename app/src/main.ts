@@ -8,12 +8,15 @@
  * from — one analysis grid, one source of truth.
  */
 
+import type GUI from 'lil-gui';
 import * as THREE from 'three';
 import './style.css';
 
 import { CameraModes, type EnterOptions } from './camera/modes';
 import { createOrbitRig } from './camera/orbitCamera';
 import * as coords from './lib/coords';
+import { periodAt } from './lib/periods';
+import { siteLatLon } from './lib/sweref';
 import { FarLandcoverTint } from './landcover/farTint';
 import { FarVegetationLayer } from './landcover/farVegetation';
 import type { LandcoverGrid } from './landcover/landcoverGrid';
@@ -21,7 +24,17 @@ import { LandcoverTint } from './landcover/tint';
 import { bakeImpostorAtlas, type ImpostorAtlas } from './landcover/impostors';
 import { VegetationLayer } from './landcover/vegetation';
 import { PalisadeLayer } from './overlays/palisade';
+import { Atmosphere } from './sky/atmosphere';
 import {
+  dateFromDayOfYear,
+  daylight,
+  MONTH_NAMES,
+  seasonLabel,
+  solarPosition,
+  type SolarPosition,
+} from './sky/solar';
+import {
+  debugEnabled,
   loadGrid,
   loadLandcoverAssets,
   loadManifest,
@@ -36,10 +49,18 @@ import {
 } from './state/loader';
 import type { SiteManifest } from './state/manifest';
 import type { HeightGrid } from './terrain/heightGrid';
-import { Lighting } from './terrain/lighting';
+import { legibilityIntensity, LEGIBILITY_SUN_COLOR, Lighting } from './terrain/lighting';
 import { Terrain } from './terrain/terrain';
 import { SitesLayer } from './overlays/sites';
-import { addLandcoverControls, addPalisadeControls, addSitesControls, addWaterControls, createControls } from './ui/controls';
+import {
+  addLandcoverControls,
+  addPalisadeControls,
+  addSitesControls,
+  addWaterControls,
+  createControls,
+  createControlState,
+} from './ui/controls';
+import { formatAltitude, formatSolarTime, TimeBar } from './ui/timeBar';
 import { Hud } from './ui/hud';
 import { Legend } from './ui/legend';
 import { buildMethodsModel } from './ui/methodsModel';
@@ -50,6 +71,7 @@ import { ViewshedController } from './viewshed/controller';
 import { ObserverMarker } from './viewshed/observer';
 import { ViewshedOverlay } from './viewshed/overlay';
 import { connectAtLocal } from './water/connectGrid';
+import { formatLevel, formatYear } from './water/shoreline';
 import { WaterLayer } from './water/water';
 
 declare global {
@@ -80,11 +102,23 @@ renderer.toneMappingExposure = 1.0;
 viewport.append(renderer.domElement);
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color().setStyle('#8fa3b4', THREE.SRGBColorSpace);
 
 const terrain = new Terrain();
 const lighting = new Lighting();
 scene.add(terrain.group, lighting.group);
+
+// Owns `scene.background`, `scene.fog`, both lights and the tone-mapping
+// exposure. Constructed with a high-sun default, so the first frame before any
+// site data lands looks exactly like the flat '#8fa3b4' sky this app shipped with.
+const atmosphere = new Atmosphere(scene, renderer, lighting);
+
+/** `?debug=1` — the old lil-gui rig, plus the pre-redesign layer defaults. */
+const debug = debugEnabled();
+/**
+ * The one mutable settings object. It exists whether or not a GUI is ever built,
+ * and `window.__app.*.state` still points straight at its slices.
+ */
+const controlState = createControlState({ debug });
 
 const rig = createOrbitRig(renderer.domElement, window.innerWidth / window.innerHeight);
 scene.add(rig.camera);
@@ -239,6 +273,104 @@ function applyLandcoverSettings(): void {
 }
 // -----------------------------------------------------------------------------
 
+// --- The sun, and everything the sun drags with it ---------------------------
+/**
+ * The site's real latitude and longitude, derived from the manifest's SWEREF 99
+ * TM origin. Set in start(); until then the sun runs at Broborg's parallel so the
+ * pre-manifest frames are not lit from nowhere.
+ */
+let siteLat = 59.7556;
+let siteLon = 17.9516;
+
+/** The sun as last computed, for the readouts and the `window.__app` hook. */
+let sun: SolarPosition = solarPosition({
+  latDeg: siteLat,
+  yearCE: controlState.time.yearCE,
+  dayOfYear: controlState.time.dayOfYear,
+  solarHour: controlState.time.solarHour,
+});
+
+let timeBar: TimeBar | null = null;
+
+/**
+ * Single funnel for the sun: the three time sliders, the debug panel's manual
+ * override, and the `window.__app.time` hooks all land here.
+ *
+ * The astronomy is in sky/solar.ts and the look in sky/atmosphere.ts; this only
+ * decides which of the two sources of sun to believe and pushes the result at
+ * the scene. Note it does *not* touch the water — the year drives that through
+ * `applyWaterSettings`, which calls back here.
+ */
+function applySunSettings(): void {
+  const t = controlState.time;
+  sun = solarPosition({
+    latDeg: siteLat,
+    yearCE: t.yearCE,
+    dayOfYear: t.dayOfYear,
+    solarHour: t.solarHour,
+  });
+
+  if (controlState.sunManual) {
+    // Sky and fill still come from the atmosphere at the hand-set elevation, so a
+    // manually lowered sun gets a coherent sunset rather than a noon sky. Only the
+    // beam is overridden, back to the pre-astronomy legibility curve — the point
+    // of the override is a light that stays strong while grazing.
+    atmosphere.apply(controlState.sunElevation, controlState.sunAzimuth);
+    lighting.setSunLight(LEGIBILITY_SUN_COLOR, legibilityIntensity(controlState.sunElevation));
+  } else {
+    controlState.sunAzimuth = sun.azimuthDeg;
+    controlState.sunElevation = sun.apparentAltitudeDeg;
+    atmosphere.apply(sun.apparentAltitudeDeg, sun.azimuthDeg);
+  }
+
+  // The water plane lights itself (a raw ShaderMaterial with lights disabled),
+  // so without this it stays a glowing teal slab after sunset.
+  water?.setDaylight(atmosphere.daylight);
+
+  timeBar?.update();
+  sunControls?.update();
+}
+
+/**
+ * Everything the year slider means. The water funnel owns the level, so the year
+ * is written into `controlState.water.yearCE` — the number that already drives
+ * the water plane, the reed belt, the vegetation suppression and the sea tint —
+ * and the sun is recomputed because obliquity depends on the year too.
+ */
+function applyTimeSettings(): void {
+  controlState.water.yearCE = controlState.time.yearCE;
+  applyWaterSettings();
+  applySunSettings();
+}
+
+/** What the three sliders say, assembled once per change. */
+function timeReadouts(): {
+  year: string;
+  yearNote: string;
+  season: string;
+  day: string;
+  dayNote: string;
+} {
+  const t = controlState.time;
+  const period = periodAt(t.yearCE);
+  const { month, day } = dateFromDayOfYear(t.yearCE, t.dayOfYear);
+  const light = daylight(siteLat, t.yearCE, t.dayOfYear);
+
+  let dayNote: string;
+  if (light.polarDay) dayNote = 'midnight sun — the sun does not set';
+  else if (light.polarNight) dayNote = 'polar night — the sun does not rise';
+  else dayNote = `sunrise ${formatSolarTime(light.sunriseHour ?? 0)} · sunset ${formatSolarTime(light.sunsetHour ?? 0)}`;
+
+  return {
+    year: `${formatYear(t.yearCE)} · ${period.name}`,
+    yearNote: water ? formatLevel(water.levelAt(t.yearCE)) : '',
+    season: `${day} ${MONTH_NAMES[month - 1]} · ${seasonLabel(sun.solarLongitudeDeg)}`,
+    day: `${formatSolarTime(t.solarHour)} solar time · ${formatAltitude(sun.apparentAltitudeDeg)}`,
+    dayNote,
+  };
+}
+// -----------------------------------------------------------------------------
+
 /** Ask the worker for a mask at the marker's position (latest-wins throttled). */
 function requestViewshed(): void {
   if (!viewshed || !terrain.contextGrid) return;
@@ -248,8 +380,17 @@ function requestViewshed(): void {
 }
 
 const hud = new Hud(document.body);
-const { gui, state: controlState } = createControls(document.body, {
-  onSunChange: (azimuth, elevation) => lighting.setSun(azimuth, elevation),
+
+/**
+ * The debug panel, or null. Every `addXControls` below takes `GUI | null` and
+ * hands back a no-op readout when there is none, so these call sites read the
+ * same in both modes.
+ */
+let gui: GUI | null = null;
+let sunControls: { update(): void } | null = null;
+if (debug) {
+  const built = createControls(document.body, controlState, {
+  onSunChange: () => applySunSettings(),
   onExaggerationChange: (value) => {
     terrain.setExaggeration(value);
     hud.setExaggeration(value);
@@ -262,7 +403,10 @@ const { gui, state: controlState } = createControls(document.body, {
   },
   onToggleFirstPerson: () => modes.toggle(groundAt, terrain.getExaggeration()),
   onViewshedChange: () => applyViewshedSettings(),
-});
+  });
+  gui = built.gui;
+  sunControls = built.sun;
+}
 
 const ORBIT_HINT = 'F — first person';
 const FP_HINT = 'WASD walk · Shift run · click to lock mouse & look · F back to orbit';
@@ -278,7 +422,7 @@ window.addEventListener('keydown', (event) => {
 
 terrain.setExaggeration(controlState.exaggeration);
 hud.setExaggeration(controlState.exaggeration);
-lighting.setSun(controlState.sunAzimuth, controlState.sunElevation);
+applySunSettings();
 
 /** Keep the orbit target sitting on the ground when exaggeration changes. */
 function refit(): void {
@@ -330,6 +474,13 @@ async function start(): Promise<void> {
   hud.setProgress('Reading manifest…', 0.02);
 
   const manifest = await loadManifest(siteId);
+
+  // Where on Earth this is. The manifest only ships a projected SWEREF 99 TM
+  // origin, and the sun needs a parallel — see lib/sweref.ts for why that one
+  // piece of projection math is allowed to live in the browser.
+  ({ latDeg: siteLat, lonDeg: siteLon } = siteLatLon(manifest));
+  applySunSettings();
+
   hud.setSite(manifest.site.name, describeSite(manifest));
   hud.setAttribution(manifest.attribution ?? []);
 
@@ -358,12 +509,11 @@ async function start(): Promise<void> {
   // outermost edge hazes over. Re-run after every ring arrives (§11).
   function updateFog(): void {
     const outer = terrain.outerHalfExtent();
-    const bg = scene.background as THREE.Color;
     if (terrain.ringCount === 0) {
       const half = (contextExtent.maxX - contextExtent.minX) / 2;
-      scene.fog = new THREE.Fog(bg, half * 1.1, half * 3.4);
+      atmosphere.setFogBand(half * 1.1, half * 3.4);
     } else {
-      scene.fog = new THREE.Fog(bg, outer * 0.75, outer * 1.02);
+      atmosphere.setFogBand(outer * 0.75, outer * 1.02);
     }
   }
   updateFog();
@@ -462,6 +612,12 @@ async function start(): Promise<void> {
     terrain.group.add(water.mesh);
     for (const material of terrain.overlayMaterials) water.attachTerrain(material);
 
+    // The clock has to sit inside the model's own extent before anything reads
+    // it — the default is mid-fort-era, but a site whose table starts later must
+    // not open on a year its shoreline says nothing about.
+    const [oldestYear, newestYear] = water.years;
+    controlState.time.yearCE = Math.min(newestYear, Math.max(oldestYear, controlState.time.yearCE));
+
     const layerName = manifest.layers?.find((l) => l.id === 'water')?.name ?? 'Paleo-shoreline';
     const caveat = assets.table.uncertainty ?? 'Modeled water level — see the methods panel.';
     waterCaveat = { badge: 'model', text: `${layerName}. ${caveat}` };
@@ -469,12 +625,15 @@ async function start(): Promise<void> {
       name: layerName,
       years: water.years,
       uncertainty: caveat,
-      // Start in the middle of the fort era rather than at an endpoint.
-      initialYear: 400,
       levelAt: (yearCE) => water?.levelAt(yearCE) ?? 0,
-      onChange: () => applyWaterSettings(),
+      // The debug year slider writes `water.yearCE`; mirror it back onto the
+      // clock so the time bar and the panel can never disagree.
+      onChange: () => {
+        controlState.time.yearCE = controlState.water.yearCE;
+        applyTimeSettings();
+      },
     });
-    applyWaterSettings();
+    applyTimeSettings();
   }
 
   // --- Phase 5: registered-sites overlay (optional asset; absent = off) -----
@@ -571,6 +730,18 @@ async function start(): Promise<void> {
   }
   // -------------------------------------------------------------------------
 
+  // --- The default control surface: three sliders ---------------------------
+  // Built after the optional water assets have resolved, so the year slider spans
+  // the site's own shoreline table where it ships one. Sites without a table get
+  // the same span the tables use, and the year readout drops the water clause.
+  timeBar = new TimeBar(document.body, controlState.time, {
+    years: water?.years ?? [-1050, 1150],
+    onChange: () => applyTimeSettings(),
+    readouts: () => timeReadouts(),
+  });
+  applyTimeSettings();
+  // -------------------------------------------------------------------------
+
   // --- Phase 6: methods panel + legend (PLAN §6.1/§6.2) ---------------------
   // Built after every optional asset has resolved, so the panel describes only
   // the layers this site actually ships, in the data's own words.
@@ -580,7 +751,24 @@ async function start(): Promise<void> {
 
   const legend = new Legend(document.body);
   legend.setContent(manifest.layers ?? [], sitesFile?.sites ?? null, landcover?.legend ?? null);
+  timeBar.setExplain(() => methods.show());
   // -------------------------------------------------------------------------
+
+  // PLAN §6.1 requires a model or conjecture layer to surface its caveat the
+  // first time it is switched on. Outside debug they are on from the start, and
+  // three staggered toasts would overwrite one another inside a single frame —
+  // `showCaveatOnce` shows one at a time on a 9 s timer. So the honesty budget
+  // moves to one combined line at load; the per-layer caveats still fire for a
+  // debug-panel toggle, and the legend badges and methods panel are unchanged.
+  if (!debug) {
+    for (const id of ['water', 'landcover', 'palisade']) hud.markCaveatShown(id);
+    hud.showCaveatOnce(
+      'startup',
+      'model + conjecture',
+      'Measured terrain, with a modelled water level and landscape and a conjectural ' +
+        'palisade shown on top. Open Methods for what is which.',
+    );
+  }
 
   // The sites overlay is cartographic (flat map symbols): standing on the
   // ground it reads as floating sheets, so it hides in first person.
@@ -754,6 +942,41 @@ async function start(): Promise<void> {
       },
       apply: applyViewshedSettings,
     },
+    /**
+     * The three time sliders and the sun they produce. Same convention as the
+     * layer hooks: always present, so a headless check can tell "off" from "not
+     * wired up". `sun()` recomputes rather than returning a cached value, so a
+     * driver that wrote `state` directly still reads the truth.
+     */
+    time: {
+      state: controlState.time,
+      latLon: { latDeg: siteLat, lonDeg: siteLon },
+      debug,
+      bar: timeBar,
+      sun: () =>
+        solarPosition({
+          latDeg: siteLat,
+          yearCE: controlState.time.yearCE,
+          dayOfYear: controlState.time.dayOfYear,
+          solarHour: controlState.time.solarHour,
+        }),
+      daylight: () => daylight(siteLat, controlState.time.yearCE, controlState.time.dayOfYear),
+      period: () => periodAt(controlState.time.yearCE),
+      sky: () => atmosphere.state,
+      setYear(yearCE: number) {
+        controlState.time.yearCE = yearCE;
+        applyTimeSettings();
+      },
+      setDayOfYear(dayOfYear: number) {
+        controlState.time.dayOfYear = dayOfYear;
+        applyTimeSettings();
+      },
+      setSolarHour(solarHour: number) {
+        controlState.time.solarHour = solarHour;
+        applyTimeSettings();
+      },
+      apply: applyTimeSettings,
+    },
     // Phase 4. Present (with `layer: null`) even when the site ships no water
     // assets, so a headless check can tell "feature off" from "not wired up".
     water: {
@@ -761,9 +984,11 @@ async function start(): Promise<void> {
       state: controlState.water,
       table: assets?.table ?? null,
       connect: assets?.connect ?? null,
+      // Kept as an alias for the clock: the year is one number with one owner,
+      // and this hook predates the time bar.
       setYear(yearCE: number) {
-        controlState.water.yearCE = yearCE;
-        applyWaterSettings();
+        controlState.time.yearCE = yearCE;
+        applyTimeSettings();
       },
       setEnabled(on: boolean) {
         controlState.water.show = on;

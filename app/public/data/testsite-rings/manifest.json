@@ -2,7 +2,11 @@
   "schemaVersion": 1,
   "site": {
     "id": "testsite-rings",
-    "name": "Synthetic test site (ringed)"
+    "name": "Synthetic test site (ringed)",
+    "latLon": {
+      "latDeg": 59.5,
+      "lonDeg": 17.0
+    }
   },
   "crs": {
     "horizontal": "EPSG:3006",

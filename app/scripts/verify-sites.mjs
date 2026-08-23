@@ -79,7 +79,10 @@ for (const site of SITES) {
     failedRequests.push(`${response.status()} ${response.url()}`);
   });
 
-  const url = `${BASE}/?site=${encodeURIComponent(site)}`;
+  // `&debug=1` keeps the model layers off, so this stays a check of *loading*
+  // rather than a render benchmark — the software rasterizer these runs use
+  // saturates on the ~10^5 vegetation instances the default view now shows.
+  const url = `${BASE}/?site=${encodeURIComponent(site)}&debug=1`;
   const record = { site, url, ready: false, rings: null, errors: [], webglMissing: false };
   try {
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: TIMEOUT_MS });

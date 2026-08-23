@@ -12,6 +12,20 @@
  * Phase 7: the modeled landscape — added lazily by `addLandcoverControls`, for
  * sites that ship the §9/§10 land-cover pair. Its appearance parameters (seed,
  * global density scale) are app-side UI state with defaults, not data (§9).
+ *
+ * **This whole panel is now the DEBUG surface, behind `?debug=1`** (see
+ * `debugEnabled` in state/loader.ts). What a visitor gets instead is ui/timeBar.ts:
+ * three sliders, no seeds. Two consequences shape the code below.
+ *
+ *   1. `ControlState` outlives the panel. `createControlState()` builds it
+ *      unconditionally; `main.ts` reads and writes it whether or not a GUI ever
+ *      existed, and `window.__app.*.state` still points at the same object.
+ *   2. Every `addXControls` takes `gui: GUI | null` and returns a no-op readout
+ *      when it is null, so all five call sites in `main.ts` are unchanged.
+ *
+ * The Sun folder is now an *override*: the sliders normally follow the time bar,
+ * and `sunManual` freezes them at hand-set values — the pre-astronomy behaviour,
+ * kept because a hand-picked raking light is what the screenshots want.
  */
 
 import GUI from 'lil-gui';
@@ -22,9 +36,35 @@ import { formatLevel, formatYear } from '../water/shoreline';
 
 export const DEFAULT_EXAGGERATION = 1.5;
 
+/** The three sliders the default UI exposes (ui/timeBar.ts). */
+export interface TimeState {
+  /**
+   * Signed astronomical year — *the* app clock. The water level, the period
+   * label and the sun's obliquity all read it. It is mirrored into
+   * `water.yearCE`, not replacing it; see the note there.
+   */
+  yearCE: number;
+  /** 1-based day of the year; the season. */
+  dayOfYear: number;
+  /** Local apparent solar time, hours. 12 = sun on the meridian. */
+  solarHour: number;
+}
+
+/** Day 173 ≈ the June solstice; 18:30 solar time is a raking evening sun. */
+export const DEFAULT_DAY_OF_YEAR = 173;
+export const DEFAULT_SOLAR_HOUR = 18.5;
+/** Mid-fort-era rather than an endpoint; was `initialYear` at the call site. */
+export const DEFAULT_YEAR_CE = 400;
+
 export interface ControlState {
   sunAzimuth: number;
   sunElevation: number;
+  /**
+   * Debug override: freeze the sun at `sunAzimuth`/`sunElevation` instead of
+   * computing it from `time`. Off by default, and unreachable without `?debug=1`.
+   */
+  sunManual: boolean;
+  time: TimeState;
   exaggeration: number;
   viewshed: {
     show: boolean;
@@ -35,7 +75,14 @@ export interface ControlState {
   };
   water: {
     show: boolean;
-    /** Signed calendar year; meaningful only once the water folder exists. */
+    /**
+     * Signed calendar year, mirrored from `time.yearCE` on every change.
+     *
+     * The two are one number with one owner — the time bar writes the clock and
+     * `applyTimeSettings` copies it here. It is kept as a separate field, rather
+     * than the water funnel reading `time` directly, because `window.__app.water.state`
+     * is a published hook that headless drivers already read and write.
+     */
     yearCE: number;
   };
   sites: {
@@ -58,19 +105,34 @@ export interface ControlState {
   };
 }
 
-export interface ControlHandlers {
-  onSunChange(azimuth: number, elevation: number): void;
-  onExaggerationChange(value: number): void;
-  /** Phase 2: orbit <-> first-person toggle (also bound to the F key). */
-  onToggleFirstPerson(): void;
-  /** Phase 3: any viewshed setting (incl. show) changed; read them from state. */
-  onViewshedChange(): void;
+export interface ControlOptions {
+  /**
+   * Debug mode restores the pre-redesign opt-in defaults for every model and
+   * conjecture layer. Without it they start on — the scene is supposed to mean
+   * something before anyone touches a control.
+   */
+  debug: boolean;
 }
 
-export function createControls(parent: HTMLElement, handlers: ControlHandlers): { gui: GUI; state: ControlState } {
-  const state: ControlState = {
+/**
+ * The mutable state object, built whether or not a GUI is ever created.
+ *
+ * Layer defaults are mode-dependent, which is the one rule that makes `?debug=1`
+ * a faithful copy of the old app: model and conjecture layers were opt-in
+ * (PLAN §6.1), and the headless verifiers assert on that. Outside debug the owner
+ * decision is that water, palisade and vegetation are simply on.
+ */
+export function createControlState(options: ControlOptions): ControlState {
+  const optIn = !options.debug;
+  return {
     sunAzimuth: DEFAULT_SUN_AZIMUTH,
     sunElevation: DEFAULT_SUN_ELEVATION,
+    sunManual: false,
+    time: {
+      yearCE: DEFAULT_YEAR_CE,
+      dayOfYear: DEFAULT_DAY_OF_YEAR,
+      solarHour: DEFAULT_SOLAR_HOUR,
+    },
     exaggeration: DEFAULT_EXAGGERATION,
     viewshed: {
       show: false,
@@ -80,25 +142,47 @@ export function createControls(parent: HTMLElement, handlers: ControlHandlers): 
       curvature: true,
     },
     water: {
-      show: false,
-      yearCE: 0,
+      show: optIn,
+      yearCE: DEFAULT_YEAR_CE,
     },
     sites: {
       show: true,
     },
     palisade: {
-      show: false, // conjecture is opt-in (PLAN §6.1)
+      show: optIn,
       heightM: DEFAULT_PALISADE_PARAMS.heightM,
       spacingM: DEFAULT_PALISADE_PARAMS.spacingM,
       seed: DEFAULT_PALISADE_PARAMS.seed,
     },
     landcover: {
-      show: false, // a model layer is opt-in too (PLAN §6.1)
+      show: optIn,
       seed: DEFAULT_VEGETATION_PARAMS.seed,
       density: DEFAULT_VEGETATION_PARAMS.densityScale,
     },
   };
+}
 
+/** Returned by every `addXControls` when there is no GUI to add to. */
+const NO_READOUT: { update(): void } = { update: () => {} };
+
+export interface ControlHandlers {
+  onSunChange(azimuth: number, elevation: number): void;
+  onExaggerationChange(value: number): void;
+  /** Phase 2: orbit <-> first-person toggle (also bound to the F key). */
+  onToggleFirstPerson(): void;
+  /** Phase 3: any viewshed setting (incl. show) changed; read them from state. */
+  onViewshedChange(): void;
+}
+
+/**
+ * Build the debug panel over an existing `state`. Only called in debug mode;
+ * `main.ts` owns the state either way.
+ */
+export function createControls(
+  parent: HTMLElement,
+  state: ControlState,
+  handlers: ControlHandlers,
+): { gui: GUI; sun: { update(): void } } {
   const host = document.createElement('div');
   host.className = 'control-panel';
   parent.append(host);
@@ -107,15 +191,28 @@ export function createControls(parent: HTMLElement, handlers: ControlHandlers): 
   // positioned host keeps the layout in style.css and out of a specificity fight.
   const gui = new GUI({ container: host, title: 'View', width: 260 });
 
-  const sun = gui.addFolder('Sun');
-  sun
-    .add(state, 'sunAzimuth', 0, 360, 1)
-    .name('azimuth (°)')
-    .onChange(() => handlers.onSunChange(state.sunAzimuth, state.sunElevation));
-  sun
-    .add(state, 'sunElevation', 5, 60, 1)
+  // The sun normally follows the time bar. This folder overrides it: tick
+  // `manual sun` and the two sliders below are the sun, at the pre-astronomy
+  // intensity curve (`legibilityIntensity`), which is what a hillshade-style
+  // screenshot wants. Untick it and the astronomy takes over again.
+  const sun = gui.addFolder('Sun (manual override)');
+  const sunChanged = (): void => handlers.onSunChange(state.sunAzimuth, state.sunElevation);
+  const manual = sun.add(state, 'sunManual').name('manual sun (ignore time)').onChange(sunChanged);
+  const azimuth = sun.add(state, 'sunAzimuth', 0, 360, 1).name('azimuth (°)').onChange(sunChanged);
+  const elevation = sun
+    .add(state, 'sunElevation', -20, 70, 1)
     .name('elevation (°)')
-    .onChange(() => handlers.onSunChange(state.sunAzimuth, state.sunElevation));
+    .onChange(sunChanged);
+  const sunReadout = note(sun, 'control-readout', '');
+  note(sun, 'control-note', 'Unticked, the sun comes from the site latitude and the three time sliders.');
+  const sunControls = {
+    update(): void {
+      for (const control of [manual, azimuth, elevation]) control.updateDisplay();
+      sunReadout.textContent =
+        `${state.sunElevation.toFixed(1)}° above horizon · ${state.sunAzimuth.toFixed(1)}° ` +
+        `${state.sunManual ? '(manual)' : '(computed)'}`;
+    },
+  };
 
   gui
     .add(state, 'exaggeration', 1.0, 2.5, 0.05)
@@ -141,7 +238,8 @@ export function createControls(parent: HTMLElement, handlers: ControlHandlers): 
     gui.close();
   }
 
-  return { gui, state };
+  sunControls.update();
+  return { gui, sun: sunControls };
 }
 
 export interface WaterControlOptions {
@@ -151,8 +249,6 @@ export interface WaterControlOptions {
   years: [number, number];
   /** `shoreline.json.uncertainty`, shown verbatim next to the control. */
   uncertainty: string;
-  /** Where the slider starts; clamped into `years`. */
-  initialYear: number;
   levelAt(yearCE: number): number;
   onChange(): void;
 }
@@ -190,12 +286,18 @@ export function modelTitle(name: string): string {
  * uncertainty next to the slider, and the readout carries **both** the calendar
  * year and the level in meters above present sea.
  */
-export function addWaterControls(gui: GUI, state: ControlState, options: WaterControlOptions): { update(): void } {
+export function addWaterControls(
+  gui: GUI | null,
+  state: ControlState,
+  options: WaterControlOptions,
+): { update(): void } {
+  if (!gui) return NO_READOUT;
   const [oldest, newest] = options.years;
-  state.water.yearCE = Math.min(newest, Math.max(oldest, options.initialYear));
 
   const folder = gui.addFolder(modelTitle(options.name));
   const show = folder.add(state.water, 'show').name('show water').onChange(() => options.onChange());
+  // Same number the time bar's year slider writes — this one is the debug
+  // mirror of it, so both widgets stay in sync through `update()`.
   const year = folder
     .add(state.water, 'yearCE', oldest, newest, 1)
     .name('year (scrub)')
@@ -229,7 +331,12 @@ export interface SitesControlOptions {
  * `assets.sites`. Registry data is "measured" (PLAN §6.1) — no caveat needed,
  * but the source is named right on the control.
  */
-export function addSitesControls(gui: GUI, state: ControlState, options: SitesControlOptions): { update(): void } {
+export function addSitesControls(
+  gui: GUI | null,
+  state: ControlState,
+  options: SitesControlOptions,
+): { update(): void } {
+  if (!gui) return NO_READOUT;
   const folder = gui.addFolder(options.name);
   const show = folder
     .add(state.sites, 'show')
@@ -261,7 +368,12 @@ export interface PalisadeControlOptions {
  * parameter — the contract keeps them out of the data on purpose (§8), because
  * nothing about the posts is measured.
  */
-export function addPalisadeControls(gui: GUI, state: ControlState, options: PalisadeControlOptions): { update(): void } {
+export function addPalisadeControls(
+  gui: GUI | null,
+  state: ControlState,
+  options: PalisadeControlOptions,
+): { update(): void } {
+  if (!gui) return NO_READOUT;
   const folder = gui.addFolder('Palisade (CONJECTURAL)');
   const changed = (): void => options.onChange();
 
@@ -316,10 +428,11 @@ export interface LandcoverControlOptions {
  * together, never one class at a time (§10).
  */
 export function addLandcoverControls(
-  gui: GUI,
+  gui: GUI | null,
   state: ControlState,
   options: LandcoverControlOptions,
 ): { update(): void } {
+  if (!gui) return NO_READOUT;
   const folder = gui.addFolder(modelTitle(options.name));
   const changed = (): void => options.onChange();
 
