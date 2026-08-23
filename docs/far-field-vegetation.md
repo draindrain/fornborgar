@@ -231,3 +231,18 @@ from orbit the ground tint runs to the map edge. One visual note for the
 contact-sheet sweep: at orbit altitude the 256 m mosaic reads as an aligned
 checkerboard — honest to the disclosed method, but a candidate for softer
 patch boundaries if it grates in the full 27-site sweep.
+
+**The checkerboard question — judged and closed (2026-08-23, the 9d rollout
+sweep).** The 27-site rebuild's visual pass looked at the mosaic from both
+camera modes on four sites spanning the cases (Eketorp, Tarsta berg, the
+Gävleborg Borgberget, Broborg): from orbit the 256 m patches do read as
+aligned squares, most insistently over flat open country; from first person —
+the view the horizon guarantee is defined for — the mosaic is invisible and
+the billboards read as natural treelines. **Decision: accepted as-is.** Orbit
+is exactly where the far field presents as a schematic `model`-badged layer,
+and softening the patch boundaries would make a deliberately crude classifier
+*look* like measured landscape — less honest, not more — while spending real
+risk (world-anchoring across ring resolutions, rule-text and smoke-number
+re-verification, a full 27-site re-render). If a later phase revisits this,
+it revisits it as a rendering treatment (dithered patch edges app-side),
+never as a change to the disclosed classifier.
