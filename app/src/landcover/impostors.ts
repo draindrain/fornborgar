@@ -137,6 +137,9 @@ export function bakeImpostorAtlas(renderer: THREE.WebGLRenderer, seed: number): 
   const camera = new THREE.OrthographicCamera(-0.5, 0.5, 1, 0, -2, 2);
 
   const previousTarget = renderer.getRenderTarget();
+  // The renderer is the app's own: every piece of state this bake touches is
+  // captured here and put back at the end, viewport included (see below).
+  const previousViewport = renderer.getViewport(new THREE.Vector4());
   const previousAutoClear = renderer.autoClear;
   const previousClearColor = new THREE.Color();
   renderer.getClearColor(previousClearColor);
@@ -169,15 +172,22 @@ export function bakeImpostorAtlas(renderer: THREE.WebGLRenderer, seed: number): 
         camera.top = 0.5;
         camera.bottom = -0.5;
         camera.updateProjectionMatrix();
-        renderer.setViewport(frame * CELL_PX, (ARCHETYPE_COUNT - 1 - row) * CELL_PX, CELL_PX, CELL_PX);
+        // Cells are addressed in the target's own texels, so the render
+        // target's viewport is the one to move: `renderer.setViewport` means
+        // CSS pixels and scales by the canvas pixel ratio, which would both
+        // mis-place the cells on a HiDPI display and leave that scaled
+        // viewport behind for the scene we are borrowing the renderer from.
+        target.viewport.set(frame * CELL_PX, (ARCHETYPE_COUNT - 1 - row) * CELL_PX, CELL_PX, CELL_PX);
+        renderer.setRenderTarget(target);
         renderer.render(scene, camera);
       }
       scene.remove(mesh);
     }
+    target.viewport.set(0, 0, layout.width, layout.height); // leave it whole
   }
 
   renderer.setRenderTarget(previousTarget);
-  renderer.setViewport(0, 0, renderer.domElement.width, renderer.domElement.height);
+  renderer.setViewport(previousViewport);
   renderer.autoClear = previousAutoClear;
   renderer.setClearColor(previousClearColor, previousClearAlpha);
   for (const geometry of geometries) geometry.dispose();

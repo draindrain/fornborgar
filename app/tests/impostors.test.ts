@@ -1,8 +1,10 @@
 /**
  * Baked tree impostors + the near-field LOD split (§6.1 amendment).
  *
- * The bake itself needs a GL context, so what these tests pin is everything
- * around it: the atlas layout math, the impostor material's shader injections
+ * The bake's pixels need a GL context, so what these tests pin is everything
+ * around it: the bake's use of the renderer it borrows (cells addressed in
+ * target texels, every borrowed piece of state handed back), the atlas layout
+ * math, the impostor material's shader injections
  * (the far-billboard anchor-test pattern), and — through a stub atlas — the
  * VegetationLayer tier machinery: exactly one visible tier per instance, tiers
  * split by camera distance with hysteresis, suppression zeroing both tiers,
@@ -14,8 +16,10 @@ import * as THREE from 'three';
 import {
   ARCHETYPE_COUNT,
   AZIMUTH_FRAMES,
+  CELL_PX,
   archetypeIndex,
   atlasLayout,
+  bakeImpostorAtlas,
   createImpostorMaterial,
   frameUV,
   impostorGeometry,
@@ -290,5 +294,112 @@ describe('near-field LOD tiers (§6.1)', () => {
       expect(meshS).toBe(0);
     }
     layer.dispose();
+  });
+});
+
+// ------------------------------------------------------------- the bake pass --
+
+/**
+ * A renderer stub: the bake's pixels need GL, but its *use* of the renderer is
+ * plain bookkeeping, and that is what broke the scene camera once — a viewport
+ * left behind in canvas pixels, doubled again by the pixel ratio, which put the
+ * view's centre in a screen corner and made looking up impossible.
+ */
+const PIXEL_RATIO = 2;
+
+function stubRenderer(): {
+  renderer: THREE.WebGLRenderer;
+  cells: THREE.Vector4[];
+  viewportCalls: THREE.Vector4[];
+} {
+  const cells: THREE.Vector4[] = [];
+  const viewportCalls: THREE.Vector4[] = [];
+  // The app's own viewport: CSS pixels, as `setSize` leaves it.
+  const viewport = new THREE.Vector4(0, 0, 1280, 720);
+  let target: THREE.WebGLRenderTarget | null = null;
+  const renderer = {
+    domElement: { width: 2560, height: 1440 }, // a 2× HiDPI drawing buffer
+    autoClear: true,
+    getRenderTarget: () => target,
+    setRenderTarget: (t: THREE.WebGLRenderTarget | null) => {
+      target = t;
+    },
+    getPixelRatio: () => PIXEL_RATIO,
+    getViewport: (out: THREE.Vector4) => out.copy(viewport),
+    // Both call signatures the real renderer takes, and its unit convention:
+    // what it stores is CSS pixels, what GL gets is that × the pixel ratio.
+    setViewport: (x: THREE.Vector4 | number, y?: number, w?: number, h?: number) => {
+      if (typeof x === 'number') viewport.set(x, y!, w!, h!);
+      else viewport.copy(x);
+      viewportCalls.push(viewport.clone());
+    },
+    getClearColor: (out: THREE.Color) => out.setRGB(0.1, 0.2, 0.3),
+    getClearAlpha: () => 1,
+    setClearColor: () => {},
+    clear: () => {},
+    render: () => {
+      // Whatever the bake is drawing into lands in the *target's* viewport.
+      if (target) cells.push(target.viewport.clone());
+    },
+  };
+  return { renderer: renderer as unknown as THREE.WebGLRenderer, cells, viewportCalls };
+}
+
+describe('bakeImpostorAtlas', () => {
+  it('hands the renderer back exactly as it found it', () => {
+    const { renderer, viewportCalls } = stubRenderer();
+    const atlas = bakeImpostorAtlas(renderer, 7);
+    expect(renderer.getRenderTarget()).toBe(null);
+    expect(renderer.autoClear).toBe(true);
+    // Restored to the app's CSS-pixel viewport — never the drawing buffer's
+    // physical size, which the renderer scales by the pixel ratio a second
+    // time, landing the scene's view centre in a corner of the canvas.
+    const restored = renderer.getViewport(new THREE.Vector4());
+    expect([restored.x, restored.y, restored.z, restored.w]).toEqual([0, 0, 1280, 720]);
+    for (const v of viewportCalls) {
+      // Whatever the bake asks for, the GL viewport it leaves behind covers
+      // the drawing buffer exactly.
+      expect([v.z * PIXEL_RATIO, v.w * PIXEL_RATIO]).toEqual([
+        renderer.domElement.width,
+        renderer.domElement.height,
+      ]);
+    }
+    atlas.dispose();
+  });
+
+  it('draws every cell inside the atlas, one per (archetype, frame)', () => {
+    const { renderer, cells } = stubRenderer();
+    const layout = atlasLayout();
+    const atlas = bakeImpostorAtlas(renderer, 7);
+    // Two passes (colour + bark mask) over the same cell grid.
+    expect(cells.length).toBe(2 * ARCHETYPE_COUNT * AZIMUTH_FRAMES);
+    const seen = new Set<string>();
+    for (const c of cells) {
+      expect(c.z).toBe(CELL_PX);
+      expect(c.w).toBe(CELL_PX);
+      expect(c.x).toBeGreaterThanOrEqual(0);
+      expect(c.y).toBeGreaterThanOrEqual(0);
+      expect(c.x + c.z).toBeLessThanOrEqual(layout.width);
+      expect(c.y + c.w).toBeLessThanOrEqual(layout.height);
+      seen.add(`${c.x},${c.y}`);
+    }
+    expect(seen.size).toBe(ARCHETYPE_COUNT * AZIMUTH_FRAMES);
+    atlas.dispose();
+  });
+
+  it('puts each archetype row where frameUV says it is', () => {
+    const { renderer, cells } = stubRenderer();
+    const layout = atlasLayout();
+    const atlas = bakeImpostorAtlas(renderer, 7);
+    for (let row = 0; row < ARCHETYPE_COUNT; row++) {
+      for (let frame = 0; frame < AZIMUTH_FRAMES; frame++) {
+        const uv = frameUV(row, frame);
+        const cell = cells.find((c) => c.x === frame * CELL_PX && c.y === (ARCHETYPE_COUNT - 1 - row) * CELL_PX);
+        expect(cell).toBeDefined();
+        expect(cell!.x / layout.width).toBeCloseTo(uv.u, 9);
+        expect(cell!.y / layout.height).toBeCloseTo(uv.v, 9);
+      }
+    }
+    atlas.dispose();
   });
 });
