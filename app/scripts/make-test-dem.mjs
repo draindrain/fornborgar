@@ -60,6 +60,17 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const OUT_DIR = join(HERE, '..', 'public', 'data', 'testsite');
 
 const ORIGIN = { e: 0, n: 0 };
+/**
+ * Where the synthetic site pretends to be.
+ *
+ * ORIGIN is a round zero because it makes every local coordinate in this fixture
+ * readable, but as EPSG:3006 that is the equator, 500 km west of the central
+ * meridian — and the sun is computed from the site's real latitude. Declaring
+ * `site.latLon` puts the fixture in the Mälaren valley without moving a single
+ * grid coordinate; app/src/lib/sweref.ts prefers a declared value over the
+ * derived one for exactly this reason.
+ */
+const LAT_LON = { latDeg: 59.5, lonDeg: 17.0 };
 const SCALE = 0.1; // int16 decimeters -> meters
 
 const GRIDS = {
@@ -896,6 +907,7 @@ function main() {
     site: {
       id: 'testsite',
       name: 'Synthetic test site',
+      latLon: LAT_LON,
     },
     crs: {
       horizontal: 'EPSG:3006',
@@ -1082,7 +1094,7 @@ function mainRings() {
 
   const manifest = {
     schemaVersion: 1,
-    site: { id: 'testsite-rings', name: 'Synthetic test site (ringed)' },
+    site: { id: 'testsite-rings', name: 'Synthetic test site (ringed)', latLon: LAT_LON },
     crs: { horizontal: 'EPSG:3006', verticalDatum: 'RH2000' },
     origin: { e: ORIGIN.e, n: ORIGIN.n },
     grids: {

@@ -48,7 +48,10 @@ page.on('console', (m) => {
   if (m.type() === 'error') errors.push(m.text().slice(0, 300));
 });
 
-await page.goto(`${BASE}/?site=${SITE}`);
+// `&debug=1` restores the pre-redesign layer defaults (every model layer off),
+// which is what the laziness assertion at the bottom of this file describes: the
+// far field must not populate until something enables it.
+await page.goto(`${BASE}/?site=${SITE}&debug=1`);
 
 // Rings stream in behind readiness; poll rather than waitForFunction so slow
 // environments show progress instead of a silent timeout.

@@ -70,6 +70,10 @@ uniform float uWaterLevel;
 uniform float uWaterOpacity;
 uniform vec3 uWaterDeep;
 uniform vec3 uWaterSheen;
+// 0..1 daylight factor from sky/atmosphere.ts. This plane is a raw
+// ShaderMaterial with lights disabled and hardcoded colours, so without this it
+// would stay a luminous teal slab in a night landscape.
+uniform float uWaterDaylight;
 
 // §11 far water: the ring's connect grid outside the context rect, faded out
 // radially toward the 16 km edge (the SGU level is only locally valid across an
@@ -113,6 +117,7 @@ void main() {
   float fresnel = pow(1.0 - clamp(abs(viewDir.y), 0.0, 1.0), 4.0);
   float deepness = clamp(depth / ${DEPTH_SCALE.toFixed(1)}, 0.0, 1.0);
   vec3 col = mix(mix(uWaterDeep * 1.35, uWaterDeep, deepness), uWaterSheen, fresnel * 0.8);
+  col *= uWaterDaylight;
 
   gl_FragColor = vec4(col, uWaterOpacity * shore * mix(0.78, 1.0, fresnel) * fade);
 
@@ -154,6 +159,7 @@ export class WaterLayer {
     uWaterLevel: { value: number };
     uWaterOn: { value: number };
   };
+  private readonly daylightUniform = { value: 1 };
   private readonly farUniforms: {
     uWaterConnectFar: { value: THREE.Texture };
     uWaterFarRect: { value: THREE.Vector4 };
@@ -198,6 +204,7 @@ export class WaterLayer {
         ...this.uniforms,
         ...this.farUniforms,
         uWaterOpacity: { value: 0.74 },
+        uWaterDaylight: this.daylightUniform,
         uWaterDeep: { value: new THREE.Color().setStyle('#254c58', THREE.SRGBColorSpace) },
         uWaterSheen: { value: new THREE.Color().setStyle('#b6d2dd', THREE.SRGBColorSpace) },
       },
@@ -322,6 +329,14 @@ export class WaterLayer {
     // Local Y inside the Y-scaled terrain group: the plane rises with the
     // exaggerated terrain automatically (contract §0).
     this.mesh.position.y = level;
+  }
+
+  /**
+   * 0..1 daylight factor from the atmosphere ramp. The plane lights itself, so
+   * this is the only thing keeping the sea from glowing after sunset.
+   */
+  setDaylight(factor: number): void {
+    this.daylightUniform.value = Math.max(0, Math.min(1, factor));
   }
 
   setEnabled(on: boolean): void {

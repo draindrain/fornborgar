@@ -124,6 +124,15 @@ export class Hud {
    * session and never nags afterwards; the uncertainty text also stays
    * permanently next to the control itself.
    */
+  /**
+   * Suppress a layer's own caveat, because something else has already said it.
+   * Used at startup when the model and conjecture layers come up already on: one
+   * combined line is shown instead of three toasts racing a 9-second timer.
+   */
+  markCaveatShown(layerId: string): void {
+    this.caveatsShown.add(layerId);
+  }
+
   showCaveatOnce(layerId: string, badge: string, text: string): void {
     if (this.caveatsShown.has(layerId)) return;
     this.caveatsShown.add(layerId);

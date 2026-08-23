@@ -9,6 +9,9 @@
  * did not run.
  */
 
+import { PERIOD_CONVENTION_NOTE } from '../lib/periods';
+import { siteLatLon } from '../lib/sweref';
+import { SOLSTICE_DRIFT_NOTE } from '../sky/solar';
 import type { SiteManifest } from '../state/manifest';
 import type { ShorelineTable } from '../water/shoreline';
 import { formatYear } from '../water/shoreline';
@@ -52,6 +55,30 @@ const DATING_HONESTY =
   'terraces span the Bronze Age to the medieval period, so where the model reads ' +
   'cultivation from them it is reading pre-modern land use, not specifically Iron Age ' +
   'land use.';
+
+/** PLAN §6.2: say what the sun calculation is, in the same detail as the rest. */
+const SUN_METHOD =
+  'Time of day is local apparent solar time — sundial time, where 12:00 is by definition ' +
+  'the sun on the meridian. That is the only clock this landscape ever had, and it removes ' +
+  'the equation of time, the time zone and ΔT (about three hours of genuine uncertainty at ' +
+  '1000 BCE) from the calculation rather than guessing at them. Declination comes from the ' +
+  "sun's apparent ecliptic longitude (Meeus, Astronomical Algorithms ch. 25) and the mean " +
+  'obliquity of the ecliptic from the long-term expression of Laskar (1986), which is valid ' +
+  'across ten millennia — the standard polynomial is not, and this app scrubs back 3 000 ' +
+  'years. Obliquity is the one way the year slider moves the sun: it was 23.82° at 1050 BCE ' +
+  'against 23.44° today, a quarter of a degree on the midsummer noon altitude.';
+
+const SUN_ACCURACY =
+  'Accuracy: better than about 0.1° in the sun\u2019s direction anywhere in this range — a fifth ' +
+  'of a solar diameter — except within roughly a degree of the horizon, where atmospheric ' +
+  'refraction is inherently uncertain at the 0.1–0.3° level and more under a temperature ' +
+  'inversion. That is far tighter than anything else in this scene claims.';
+
+const NIGHT_RENDERING_NOTE =
+  'Night is rendered with a simulated dark-adapted exposure and a floor on the ambient light: ' +
+  'a real moonless Iron Age night is far darker than what is drawn here. There is no moon and ' +
+  'there are no stars yet. The sky, twilight and sunset colours are an artistic ramp keyed to ' +
+  'the computed solar altitude, not a radiative-transfer model.';
 
 const PALISADE_STATUS =
   'No palisade has been excavated at Broborg, and no archaeological evidence for its ' +
@@ -264,6 +291,27 @@ export function buildMethodsModel(
       ],
     });
   }
+
+  // The sun is computed, not measured and not read from an asset: it is a model
+  // of a physical system, so it carries the model badge like the shoreline does,
+  // and — per PLAN §6.1 — states its own uncertainty rather than implying none.
+  const site = siteLatLon(manifest);
+  sections.push({
+    id: 'sun',
+    title: 'Sun and time',
+    badge: 'model',
+    paragraphs: [
+      `The sun's position is computed for this site's real location — ` +
+        `${site.latDeg.toFixed(4)}° N, ${site.lonDeg.toFixed(4)}° E, derived from the ` +
+        `manifest's SWEREF 99 TM origin — from the year, the day of the year and the time ` +
+        `of day the three sliders set.`,
+      SUN_METHOD,
+      SOLSTICE_DRIFT_NOTE,
+      SUN_ACCURACY,
+      `The year slider also names the archaeological period. ${PERIOD_CONVENTION_NOTE}`,
+      NIGHT_RENDERING_NOTE,
+    ],
+  });
 
   if (shoreline) {
     const caveats = [shoreline.uncertainty, shoreline.datumNote].filter((s): s is string => Boolean(s));

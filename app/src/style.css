@@ -83,7 +83,7 @@ body {
 .hud-mode-hint {
   position: absolute;
   left: 50%;
-  bottom: 46px;
+  bottom: 172px;
   transform: translateX(-50%);
   padding: 5px 12px;
   border: 1px solid var(--edge);
@@ -100,7 +100,7 @@ body {
 .hud-caveat {
   position: absolute;
   left: 50%;
-  bottom: 86px;
+  bottom: 212px;
   transform: translateX(-50%);
   display: flex;
   align-items: baseline;
@@ -136,7 +136,7 @@ body {
 .hud-loading {
   position: absolute;
   left: 50%;
-  bottom: 84px;
+  bottom: 210px;
   transform: translateX(-50%);
   width: min(420px, 72vw);
   padding: 12px 14px;
@@ -270,6 +270,139 @@ body {
   }
   .hud-header {
     max-width: 70vw;
+  }
+}
+
+/* The default control surface — three time sliders (ui/timeBar.ts).
+   Sits in the bottom-centre band the mode hint, the caveat toast and the loading
+   bar were using, which is why those three moved up. The legend (bottom right)
+   and the site panel (bottom left) stay clear of it: the bar is capped at 720 px
+   and centred, so it only meets them below ~1100 px, where it collapses anyway. */
+.time-bar {
+  position: fixed;
+  left: 50%;
+  bottom: 34px;
+  transform: translateX(-50%);
+  z-index: 20;
+  width: min(720px, 92vw);
+  border: 1px solid var(--edge);
+  border-radius: 12px;
+  background: var(--panel);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+}
+
+.time-bar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 6px 0 0;
+}
+
+.time-bar-toggle {
+  flex: 1;
+  text-align: left;
+  padding: 8px 14px;
+  border: 0;
+  background: transparent;
+  color: var(--ink-dim);
+  font: inherit;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.time-bar-toggle:hover {
+  color: var(--ink);
+}
+
+.time-bar-explain {
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--edge);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink-dim);
+  font: inherit;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.time-bar-explain:hover {
+  color: var(--ink);
+  border-color: rgba(233, 230, 223, 0.35);
+}
+
+.time-bar-body {
+  display: grid;
+  gap: 10px;
+  padding: 4px 16px 14px;
+}
+
+.time-bar.is-collapsed .time-bar-body {
+  display: none;
+}
+
+.time-row {
+  display: grid;
+  grid-template-columns: 92px 1fr minmax(180px, auto);
+  grid-template-areas: 'label slider value' '. slider note';
+  align-items: center;
+  column-gap: 12px;
+}
+
+.time-row-label {
+  grid-area: label;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--ink-dim);
+}
+
+.time-row-slider {
+  grid-area: slider;
+  width: 100%;
+  margin: 0;
+  accent-color: #d8c48a;
+  cursor: pointer;
+}
+
+.time-row-value {
+  grid-area: value;
+  text-align: right;
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+  color: #e2ddd0;
+}
+
+.time-row-note {
+  grid-area: note;
+  text-align: right;
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-dim);
+  min-height: 1em;
+}
+
+.time-row-note:empty {
+  min-height: 0;
+}
+
+@media (max-width: 720px) {
+  .time-bar {
+    bottom: 28px;
+  }
+  .time-row {
+    grid-template-columns: 1fr;
+    grid-template-areas: 'label' 'slider' 'value' 'note';
+    row-gap: 2px;
+  }
+  .time-row-value,
+  .time-row-note {
+    text-align: left;
   }
 }
 
@@ -736,4 +869,28 @@ body {
 .site-picker-badge {
   font-size: 0.72rem;
   color: var(--ink-dim);
+}
+
+/* --- Keeping the lower band out of the time bar's way ----------------------
+   ui/timeBar.ts owns the bottom centre. It is capped at 720 px and centred, so
+   on a wide viewport the legend (bottom right) and the site panel (bottom left)
+   sit comfortably beside it; below ~1240 px they would run into it and have to
+   lift above. Narrower still, the bar collapses to its header and they only need
+   to clear that.
+
+   This block lives at the end of the file on purpose: the base `.legend` and
+   `.site-panel` rules, and their own 720 px overrides, are all declared earlier,
+   and these have the same specificity — so source order is what decides. */
+@media (max-width: 1240px) {
+  .legend,
+  .site-panel {
+    bottom: 208px;
+  }
+}
+
+@media (max-width: 720px) {
+  .legend,
+  .site-panel {
+    bottom: 96px;
+  }
 }

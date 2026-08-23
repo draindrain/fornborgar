@@ -100,6 +100,36 @@ describe('buildMethodsModel (§6.2 disclosures)', () => {
     expect(byId['palisade']).toBe('conjecture');
   });
 
+  it('discloses the sun calculation, including where it is weakest', async () => {
+    // The sun is computed, not measured and not shipped as an asset, so PLAN §6.1
+    // puts it in the model class — and a model has to state its own uncertainty.
+    const { manifest, shoreline, rampart, sites } = await loadBroborg();
+    const model = buildMethodsModel(manifest, shoreline, rampart, sites);
+    const sun = model.sections.find((s) => s.id === 'sun');
+    expect(sun).toBeDefined();
+    expect(sun?.badge).toBe('model');
+    const text = sun?.paragraphs.join(' ') ?? '';
+
+    // Where, and how — named methods, not "computed astronomically".
+    expect(text).toContain('59.7556° N');
+    expect(text).toContain('17.9516° E');
+    expect(text).toContain('apparent solar time');
+    expect(text).toContain('Laskar');
+    expect(text).toContain('Meeus');
+    // What is not modelled, in the places a reader would otherwise assume it is.
+    expect(text).toContain('proleptic Gregorian');
+    expect(text).toMatch(/conventions/);
+    expect(text).toMatch(/no moon/);
+    expect(text).toMatch(/darker than what is drawn/);
+  });
+
+  it('states the sun section for a site with no optional assets at all', async () => {
+    // Unlike water or the palisade, the sun is not an asset — every site has one.
+    const { manifest } = await loadBroborg();
+    const model = buildMethodsModel(manifest, null, null, null);
+    expect(model.sections.map((s) => s.id)).toContain('sun');
+  });
+
   it('omits sections for assets a site does not ship', async () => {
     const { manifest } = await loadBroborg();
     const model = buildMethodsModel(manifest, null, null, null);
