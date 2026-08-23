@@ -593,3 +593,36 @@ measured at 0.00–0.20 m across the pilot. Copernicus GLO-30 remains deferred: 
 pilot site needed it, the gate that would demand it is tested and fails loudly,
 and Värmland's border-facing rings did not trip it. Next step: 9c (county-by-county
 fill), which wants scale-out §4.2's shared tile cache first.*
+
+***Phase 9d shipped 2026-08-23.** The zone-aware modelled landscape (near field +
+the §13 far field, merged in PR #12) is live on R2 for all 27 pilot sites: every
+bundle rebuilt with `--with-landcover`, `index.json` reports landcover on 27 of 27,
+total 201 MB (mean 7.5 MB/site; the far-field ring rasters cost 14.3 MB across the
+whole pilot). The Broborg control held: 4,000,000 of 4,000,000 raster cells
+identical to the committed bundle, every class census equal, the pre-v1.5
+back-compat fixture untouched. Build-time zone census: 2 nemoral / 21 boreonemoral /
+4 southern boreal — the DEM-crown altitude term moves three sites against
+`vegetation-zones.md` §1.3's altitude-inert pilot expectation (Kungsbjär/Halland up
+to boreonemoral; Skansen/Värmland and Träleborg — the latter on a ~300 m Falbygden
+diabase plateau — into southern boreal), the rule's documented ±, not a defect.
+Alvar fractions as predicted (Eketorp 28.1 %, Ismantorp 1.7 %, Torsburgen 62.4 %,
+Slottet 5.9 %, Gråborg 2.4 %) with conifer reading "Pine forest" wherever the
+spruce front says absent — plus one genuine find: 3.7 % / 0.4 % alvar at Träleborg
+and Halleberg, where SGU maps Sedimentärt berg on the Västgöta table mountains
+(a true condition — Kinnekulle's Österplana hed is a mainland alvar — and the rule
+text now says so). The unmatched-SGU-class tripwire fired at 17 of 27 sites and
+surfaced 15 further class spellings, all now mapped in `SOIL_GROUPS` with
+provenance comments (the age-undifferentiated clays deliberately render meadow,
+never farmland candidates); the rebuilt pilot's unmatched log is empty. The §9
+far-field checkerboard question is judged and closed — accepted as-is
+(`far-field-vegetation.md` §9): invisible in first person, honest-schematic from
+orbit. Billboard populations measured 32,881–79,800 on the four verification
+sites, inside `FAR_MAX_INSTANCES`. Headless verification ran against the
+published-identical bytes served locally on those four sites (full ring chains,
+far tint and lazy-billboard contract all held; the one console error was the
+then-unpublished `index.json`, since published), with the CDN hop verified
+separately by curl (range 206, CORS headers) — the same two-halves split 9b
+documented. Next: 9c — ready to start
+once scale-out §4.2's shared tile cache exists; 76 % of sites share a neighbour's
+tiles, so the fill without it would re-fetch the same Lantmäteriet tiles about a
+dozen times over.*
