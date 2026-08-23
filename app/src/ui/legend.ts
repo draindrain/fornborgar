@@ -6,8 +6,13 @@
  * for the site types actually present. The three classes carry distinct visual
  * language (PLAN §6.1): measured rows plain, model rows tinted, the conjecture
  * row ghosted with a permanent "conjectural" tag.
+ *
+ * Since the 2026-08-23b amendment it is a dialog reached from the kebab menu
+ * rather than a panel parked in the corner of the scene — the rows below are
+ * unchanged, only what holds them moved (ui/modal.ts).
  */
 
+import { Modal } from './modal';
 import type { LayerEntry } from '../state/manifest';
 import type { LandcoverLegend } from '../landcover/legend';
 import { siteStyle, type SiteRecord } from '../overlays/sites';
@@ -34,23 +39,29 @@ const LAYER_SWATCH: Record<string, string> = {
 };
 
 export class Legend {
-  readonly root: HTMLElement;
+  private readonly modal: Modal;
   private readonly body: HTMLElement;
 
   constructor(parent: HTMLElement) {
-    this.root = el('aside', 'legend');
-    const toggle = el('button', 'legend-toggle', 'Legend');
-    toggle.type = 'button';
+    this.modal = new Modal(parent, 'Legend');
     this.body = el('div', 'legend-body');
-    toggle.addEventListener('click', () => {
-      this.root.classList.toggle('is-collapsed');
-    });
-    this.root.append(toggle, this.body);
-    // Collapsed by default on small screens (mobile degradation, PLAN §3 phase 6).
-    if (typeof window.matchMedia === 'function' && window.matchMedia('(max-width: 720px)').matches) {
-      this.root.classList.add('is-collapsed');
-    }
-    parent.append(this.root);
+    this.modal.body.append(this.body);
+  }
+
+  show(): void {
+    this.modal.show();
+  }
+
+  hide(): void {
+    this.modal.hide();
+  }
+
+  toggle(): void {
+    this.modal.toggle();
+  }
+
+  get open(): boolean {
+    return this.modal.open;
   }
 
   /**

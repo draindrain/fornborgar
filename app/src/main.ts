@@ -73,6 +73,8 @@ import { buildMethodsModel } from './ui/methodsModel';
 import { MethodsPanel } from './ui/methodsPanel';
 import { SitePanel } from './ui/sitePanel';
 import { SitePicker } from './ui/sitePicker';
+import { AboutPanel, CameraHelpPanel, Menu } from './ui/menu';
+import { buildAboutModel } from './ui/menuContent';
 import { ViewshedController } from './viewshed/controller';
 import { ObserverMarker } from './viewshed/observer';
 import { ViewshedOverlay } from './viewshed/overlay';
@@ -451,6 +453,20 @@ function requestViewshed(): void {
 }
 
 const hud = new Hud(document.body);
+// PLAN §6.1 requires a model or conjecture layer to surface its caveat the first
+// time it is switched on. Outside debug they are all on from the start, so there
+// is no first toggle to hang a toast on — and since the 2026-08-23b amendment
+// nothing is written over the scene at load at all. The combined provenance line
+// lives in the menu's About & credits (`PROVENANCE_SUMMARY`) instead, beside the
+// legend badges and the methods panel, which are unchanged. The per-layer caveats
+// still fire for a debug-panel toggle.
+//
+// This runs here, not down in `start()`, because the load's own
+// `applyWater/Landcover/PalisadeSettings()` calls are exactly what would
+// otherwise fire them — suppressing afterwards is one frame too late.
+if (!debug) {
+  for (const id of ['water', 'landcover', 'palisade']) hud.markCaveatShown(id);
+}
 
 /**
  * The debug panel, or null. Every `addXControls` below takes `GUI | null` and
@@ -464,7 +480,6 @@ if (debug) {
   onSunChange: () => applySunSettings(),
   onExaggerationChange: (value) => {
     terrain.setExaggeration(value);
-    hud.setExaggeration(value);
     viewshed?.marker.refreshHeight();
     sitesLayer?.refreshHeights();
     palisade?.refreshHeights(); // posts sit on the exaggerated ground, at true height
@@ -479,20 +494,12 @@ if (debug) {
   sunControls = built.sun;
 }
 
-const ORBIT_HINT = 'F — first person';
-const FP_HINT = 'WASD walk · Shift run · click to lock mouse & look · F back to orbit';
-hud.setModeHint(ORBIT_HINT);
-modes.onModeChange = (mode) => {
-  if (mode === 'transition') hud.setModeHint('');
-  else hud.setModeHint(mode === 'firstPerson' ? FP_HINT : ORBIT_HINT);
-};
 window.addEventListener('keydown', (event) => {
   const inField = event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement;
   if (event.code === 'KeyF' && !event.repeat && !inField) modes.toggle(groundAt, terrain.getExaggeration());
 });
 
 terrain.setExaggeration(controlState.exaggeration);
-hud.setExaggeration(controlState.exaggeration);
 applySunSettings();
 
 /** Keep the orbit target sitting on the ground when exaggeration changes. */
@@ -585,8 +592,7 @@ async function start(): Promise<void> {
   applySunSettings();
   void loadStars();
 
-  hud.setSite(manifest.site.name, describeSite(manifest));
-  hud.setAttribution(manifest.attribution ?? []);
+  hud.setSite(manifest.site.name);
 
   // Elevation tint spans every grid the site ships — core, context and the §11
   // rings (known from the manifest before any ring loads) — so near and far
@@ -851,34 +857,37 @@ async function start(): Promise<void> {
   // the layers this site actually ships, in the data's own words.
   const methods = new MethodsPanel(document.body);
   methods.setContent(buildMethodsModel(manifest, assets?.table ?? null, rampart, sitesFile, landcover?.legend ?? null));
-  hud.mountAction(methods.button);
 
   const legend = new Legend(document.body);
   legend.setContent(manifest.layers ?? [], sitesFile?.sites ?? null, landcover?.legend ?? null);
   timeBar.setExplain(() => methods.show());
   // -------------------------------------------------------------------------
 
-  // PLAN §6.1 requires a model or conjecture layer to surface its caveat the
-  // first time it is switched on. Outside debug they are on from the start, and
-  // three staggered toasts would overwrite one another inside a single frame —
-  // `showCaveatOnce` shows one at a time on a 9 s timer. So the honesty budget
-  // moves to one combined line at load; the per-layer caveats still fire for a
-  // debug-panel toggle, and the legend badges and methods panel are unchanged.
-  if (!debug) {
-    for (const id of ['water', 'landcover', 'palisade']) hud.markCaveatShown(id);
-    hud.showCaveatOnce(
-      'startup',
-      'model + conjecture',
-      'Measured terrain, with a modelled water level and landscape and a conjectural ' +
-        'palisade shown on top. Open Methods for what is which.',
-    );
-  }
+  // --- The kebab menu (PLAN §6.1, 2026-08-23b amendment) --------------------
+  // Everything the default screen used to say, one click away in the top right
+  // corner. What is left over the scene is the fort's name, the time bar and the
+  // fort browser.
+  const cameraHelp = new CameraHelpPanel(document.body);
+  const about = new AboutPanel(document.body, () =>
+    buildAboutModel({
+      siteName: manifest.site.name,
+      siteDescription: describeSite(manifest),
+      // Read on open, not at construction: `?debug=1` can move it while the app runs.
+      exaggeration: terrain.getExaggeration(),
+      attribution: manifest.attribution ?? [],
+    }),
+  );
+
+  const menu = new Menu(document.body);
+  menu.addItem('Legend', () => legend.show());
+  menu.addItem('Methods & sources', () => methods.show());
+  menu.addItem('Controls & camera', () => cameraHelp.show());
+  menu.addItem('About & credits', () => about.show());
+  // -------------------------------------------------------------------------
 
   // The sites overlay is cartographic (flat map symbols): standing on the
   // ground it reads as floating sheets, so it hides in first person.
   modes.onModeChange = (mode) => {
-    if (mode === 'transition') hud.setModeHint('');
-    else hud.setModeHint(mode === 'firstPerson' ? FP_HINT : ORBIT_HINT);
     sitesLayer?.setVisible(controlState.sites.show && mode !== 'firstPerson');
   };
 
@@ -1222,6 +1231,29 @@ async function start(): Promise<void> {
       },
     },
     legend,
+    // The kebab menu and its panels, drivable the same way — a headless check
+    // should not have to synthesise pointer events to open them.
+    menu: {
+      open: () => menu.open(),
+      close: () => menu.close(),
+      get isOpen() {
+        return menu.isOpen;
+      },
+    },
+    about: {
+      open: () => about.show(),
+      close: () => about.hide(),
+      get isOpen() {
+        return about.open;
+      },
+    },
+    cameraHelp: {
+      open: () => cameraHelp.show(),
+      close: () => cameraHelp.hide(),
+      get isOpen() {
+        return cameraHelp.open;
+      },
+    },
   };
 
   // One more rendered frame, then the deterministic ready flag. The ring chain

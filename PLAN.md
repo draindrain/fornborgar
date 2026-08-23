@@ -664,6 +664,33 @@ caveats, which still fire the first time a layer is toggled in the debug panel.
 `?debug=1` keeps the original opt-in defaults, so the debug rig — and the headless
 verifiers written against it — see the pre-2026-08-23 app exactly.
 
+**Amended 2026-08-23b (owner decision): the scene is the screen.** The default
+view had accumulated prose — a technical subtitle under the fort's name, the
+"terrain ×1.5" badge, the load-time caveat below, a camera hint above three lines
+of attribution, and a legend panel in the corner — and a first-time visitor met
+all of it before meeting the terrain. What is left over the scene now is the
+fort's name, the time bar, and the fort browser. Everything else moved behind a
+kebab menu in the top right corner: **Legend**, **Methods & sources**,
+**Controls & camera**, **About & credits**.
+
+Two disclosures this section had required *on screen* move with it, and the
+owner's decision is that one click is close enough for both:
+
+- The **exaggeration indicator** is no longer drawn over the terrain. It is
+  stated in About & credits, rebuilt on every open so it quotes the value in
+  force rather than the one at load, and it was already in the methods panel's
+  terrain section (`EXAGGERATION_NOTE`). Where exaggeration is exactly 1.0 the
+  sentence is omitted — there is nothing to disclose.
+- The **combined load-time caveat** from the 2026-08-23 amendment above is no
+  longer a toast. Its text is `PROVENANCE_SUMMARY` in `ui/menuContent.ts` and it
+  is a permanent line in About & credits, next to the credits it belongs with.
+
+Unchanged and unweakened: the legend's three badges (now a dialog rather than a
+corner panel — the rows are byte-identical), the permanent uncertainty notes
+beside each control, the whole methods panel, and the per-layer first-enable
+caveats, which still fire for a `?debug=1` toggle. Methods & sources also stays
+literally one click from the default screen through the time bar's "?" button.
+
 The sun (Phase 10) is a **model** by the same test the shoreline meets: it is computed,
 not measured, and not read from an asset. It carries the badge, states its own accuracy
 in the methods panel, and says plainly which parts are not modelled at all — that night
@@ -673,8 +700,9 @@ solar altitude rather than radiative transfer.
 
 UI rules: the methods panel is one click from anywhere; toggling any model/conjecture
 layer on for the first time surfaces its one-line caveat (see the 2026-08-23 amendment
-for the default-on case); vertical exaggeration ≠ 1.0 is
-always indicated on screen ("terrain ×1.5"); the viewshed panel states its algorithm,
+for the default-on case); vertical exaggeration ≠ 1.0 is always disclosed — since the
+2026-08-23b amendment in the menu's About & credits and the methods panel rather than
+as a badge over the terrain; the viewshed panel states its algorithm,
 observer/target heights and curvature setting; screenshots (if we add an export button)
 bake the active caveats into the image margin.
 
