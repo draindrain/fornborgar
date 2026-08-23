@@ -32,6 +32,7 @@
 
 import * as THREE from 'three';
 import type { BoundsLocal } from '../lib/coords';
+import { createSkyUniforms, SKY_CHUNK, type SkyUniforms } from '../sky/skyChunk';
 import type { ConnectGrid } from './connectGrid';
 import { levelAt, yearRange, type ShorelineTable } from './shoreline';
 
@@ -39,6 +40,13 @@ import { levelAt, yearRange, type ShorelineTable } from './shoreline';
 const SHORE_FADE = 0.15;
 /** Depth at which the tint reaches its deepest value (meters). */
 const DEPTH_SCALE = 6.0;
+/**
+ * Where individual wave facets stop being resolvable and the geometric normal
+ * is handed over to the specular lobe's roughness instead. Per-pixel wave
+ * normals on a plane that reaches 64 km are an aliasing machine.
+ */
+const WAVE_DETAIL_NEAR = 60.0;
+const WAVE_DETAIL_FAR = 900.0;
 
 const VERTEX_SHADER = /* glsl */ `
 #include <common>
@@ -59,7 +67,13 @@ void main() {
 }
 `;
 
-const FRAGMENT_SHADER = /* glsl */ `
+/**
+ * Exported so `tests/waterShaderComposition.test.ts` can assert on it. The
+ * composition rules this shader has to satisfy — which three includes it
+ * carries, in what order, and which one it deliberately does *not* — are the
+ * kind that fail silently at runtime, so they are pinned from the outside.
+ */
+export const WATER_FRAGMENT_SHADER = /* glsl */ `
 #include <common>
 #include <fog_pars_fragment>
 #include <logdepthbuf_pars_fragment>
@@ -69,11 +83,15 @@ uniform vec4 uWaterRect;
 uniform float uWaterLevel;
 uniform float uWaterOpacity;
 uniform vec3 uWaterDeep;
-uniform vec3 uWaterSheen;
-// 0..1 daylight factor from sky/atmosphere.ts. This plane is a raw
-// ShaderMaterial with lights disabled and hardcoded colours, so without this it
-// would stay a luminous teal slab in a night landscape.
+// 0..1 daylight factor from sky/atmosphere.ts. The body of the water lights
+// itself — this is a raw ShaderMaterial with lights disabled — so without this
+// it would stay a luminous teal slab in a night landscape.
 uniform float uWaterDaylight;
+// The exposure the rest of the scene is tone-mapped at. This shader no longer
+// tone-maps (see the module comment), so the body carries the exposure by hand
+// while the reflected sky, like the sky itself, does not.
+uniform float uWaterExposure;
+uniform float uWaterTime;
 
 // §11 far water: the ring's connect grid outside the context rect, faded out
 // radially toward the 16 km edge (the SGU level is only locally valid across an
@@ -85,6 +103,33 @@ uniform vec2 uWaterFadeHalf; // (context half-extent, ring half-extent)
 
 varying vec2 vWaterXZ;
 varying vec3 vWaterWorld;
+
+${SKY_CHUNK}
+
+/**
+ * Three crossing wave trains — about 6 m, 2.4 m and 1.1 m — summed as slopes
+ * rather than heights, since the surface stays geometrically flat and only its
+ * normal moves. Their combined slope tops out near 9 degrees: a light breeze.
+ *
+ * The detail factor fades the whole thing to flat with distance, and what it takes
+ * away is handed to the specular lobe's roughness, so far water goes on
+ * glittering without shimmering.
+ */
+vec3 waterNormal(vec2 p, float t, float detail) {
+  vec2 d1 = vec2(0.94, 0.34);
+  vec2 d2 = vec2(-0.42, 0.91);
+  vec2 d3 = vec2(0.71, -0.71);
+  const float k1 = 6.2831853 / 6.0;
+  const float k2 = 6.2831853 / 2.4;
+  const float k3 = 6.2831853 / 1.1;
+
+  vec2 slope = vec2(0.0);
+  slope += d1 * (0.055 * k1 * cos(k1 * dot(d1, p) - 1.05 * t));
+  slope += d2 * (0.022 * k2 * cos(k2 * dot(d2, p) - 1.65 * t));
+  slope += d3 * (0.008 * k3 * cos(k3 * dot(d3, p) - 2.40 * t));
+  slope *= detail;
+  return normalize(vec3(-slope.x, 1.0, -slope.y));
+}
 
 void main() {
   #include <logdepthbuf_fragment>
@@ -112,16 +157,37 @@ void main() {
   float shore = smoothstep(0.0, ${SHORE_FADE.toFixed(3)}, depth);
   if (shore <= 0.0) discard;
 
-  // Fresnel-ish: near-grazing views pick up sky sheen, overhead views the depth.
-  vec3 viewDir = normalize(cameraPosition - vWaterWorld);
-  float fresnel = pow(1.0 - clamp(abs(viewDir.y), 0.0, 1.0), 4.0);
+  vec3 toEye = cameraPosition - vWaterWorld;
+  float eyeDistance = length(toEye);
+  vec3 viewDir = toEye / eyeDistance;
+
+  float detail = 1.0 - smoothstep(${WAVE_DETAIL_NEAR.toFixed(1)}, ${WAVE_DETAIL_FAR.toFixed(1)}, eyeDistance);
+  vec3 normal = waterNormal(vWaterXZ, uWaterTime, detail);
+  // The first-person camera can stand below the water level, and a normal that
+  // faces away from the eye inverts the Fresnel term.
+  if (viewDir.y < 0.0) normal = -normal;
+
+  // Schlick with n = 1.33: two per cent looking straight down, a mirror at
+  // grazing. The old fake pow(1 - |viewDir.y|, 4) had roughly this shape and
+  // none of the consequences — in particular it could not carry a reflection.
+  float cosTheta = clamp(dot(normal, viewDir), 0.0, 1.0);
+  float fresnel = 0.02 + 0.98 * pow(1.0 - cosTheta, 5.0);
+
+  vec3 reflected = reflect(-viewDir, normal);
+  // A wave slope can point the reflected ray below the horizon. There is no sky
+  // down there to sample, and the far shore it would really reflect is not
+  // being drawn, so fold it back up.
+  reflected.y = abs(reflected.y);
+  // Whatever the eye cannot resolve becomes roughness. This is the line that
+  // turns the sun's half-degree disc into a glitter path.
+  float spread = mix(0.16, 0.02, detail);
+  vec3 reflection = skyReflection(reflected, spread);
+
   float deepness = clamp(depth / ${DEPTH_SCALE.toFixed(1)}, 0.0, 1.0);
-  vec3 col = mix(mix(uWaterDeep * 1.35, uWaterDeep, deepness), uWaterSheen, fresnel * 0.8);
-  col *= uWaterDaylight;
+  vec3 body = mix(uWaterDeep * 1.35, uWaterDeep, deepness) * (uWaterDaylight * uWaterExposure);
 
-  gl_FragColor = vec4(col, uWaterOpacity * shore * mix(0.78, 1.0, fresnel) * fade);
+  gl_FragColor = vec4(mix(body, reflection, fresnel), mix(uWaterOpacity, 1.0, fresnel) * shore * fade);
 
-  #include <tonemapping_fragment>
   #include <colorspace_fragment>
   #include <fog_fragment>
 }
@@ -160,6 +226,9 @@ export class WaterLayer {
     uWaterOn: { value: number };
   };
   private readonly daylightUniform = { value: 1 };
+  private readonly exposureUniform = { value: 1 };
+  private readonly timeUniform = { value: 0 };
+  private readonly sky: SkyUniforms;
   private readonly farUniforms: {
     uWaterConnectFar: { value: THREE.Texture };
     uWaterFarRect: { value: THREE.Vector4 };
@@ -168,7 +237,17 @@ export class WaterLayer {
   };
   private year: number;
 
-  constructor(table: ShorelineTable, connect: ConnectGrid) {
+  constructor(
+    table: ShorelineTable,
+    connect: ConnectGrid,
+    /**
+     * The sky's uniforms, **shared by reference** with the dome, so the water
+     * reflects the same sky that is drawn. Defaulted so the layer still stands
+     * up alone in a test; in the app `main.ts` passes `nightSky.uniforms`.
+     */
+    sky: SkyUniforms = createSkyUniforms(),
+  ) {
+    this.sky = sky;
     this.table = table;
     this.connect = connect;
     this.years = yearRange(table);
@@ -203,13 +282,17 @@ export class WaterLayer {
         ...THREE.UniformsUtils.clone(THREE.UniformsLib['fog']),
         ...this.uniforms,
         ...this.farUniforms,
+        // Shared by reference with sky/skyDome.ts — the reflection and the sky
+        // it reflects can never disagree because they read the same objects.
+        ...(sky as unknown as Record<string, THREE.IUniform>),
         uWaterOpacity: { value: 0.74 },
         uWaterDaylight: this.daylightUniform,
+        uWaterExposure: this.exposureUniform,
+        uWaterTime: this.timeUniform,
         uWaterDeep: { value: new THREE.Color().setStyle('#254c58', THREE.SRGBColorSpace) },
-        uWaterSheen: { value: new THREE.Color().setStyle('#b6d2dd', THREE.SRGBColorSpace) },
       },
       vertexShader: VERTEX_SHADER,
-      fragmentShader: FRAGMENT_SHADER,
+      fragmentShader: WATER_FRAGMENT_SHADER,
       transparent: true,
       depthWrite: false,
       side: THREE.DoubleSide, // the first-person camera can stand below the level
@@ -311,6 +394,15 @@ export class WaterLayer {
     this.mesh.position.set((b.minX + b.maxX) / 2, this.uniforms.uWaterLevel.value, (b.minZ + b.maxZ) / 2);
   }
 
+  /**
+   * The sky uniforms this plane reflects — the same objects the dome draws
+   * from. Exposed so a headless check can confirm the sharing rather than
+   * assume it.
+   */
+  get skyUniforms(): SkyUniforms {
+    return this.sky;
+  }
+
   /** Whether the §11 far-water extension is active (dev hook / tests). */
   get hasFarWater(): boolean {
     return this.farUniforms.uWaterFarOn.value > 0.5;
@@ -332,11 +424,27 @@ export class WaterLayer {
   }
 
   /**
-   * 0..1 daylight factor from the atmosphere ramp. The plane lights itself, so
-   * this is the only thing keeping the sea from glowing after sunset.
+   * 0..1 daylight factor from the atmosphere ramp. The body of the water lights
+   * itself, so this is what keeps the sea from glowing after sunset. It does
+   * *not* touch the reflection: a reflected sunset is as bright as the sunset.
    */
   setDaylight(factor: number): void {
     this.daylightUniform.value = Math.max(0, Math.min(1, factor));
+  }
+
+  /**
+   * `renderer.toneMappingExposure`. This shader dropped `tonemapping_fragment`
+   * so that the sky it reflects and the sky above the horizon line come out the
+   * same colour — the sky has never been tone-mapped — which leaves the body of
+   * the water to carry the exposure itself.
+   */
+  setExposure(exposure: number): void {
+    this.exposureUniform.value = exposure;
+  }
+
+  /** Seconds, for the waves. Ticked from the render loop. */
+  setTime(seconds: number): void {
+    this.timeUniform.value = seconds;
   }
 
   setEnabled(on: boolean): void {

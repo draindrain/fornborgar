@@ -371,11 +371,13 @@ function applySunSettings(): void {
     latDeg: siteLat,
     siderealDeg: localApparentSiderealDeg(t.solarHour, sun.rightAscensionDeg),
     jd: julianDayAt(t.yearCE, t.dayOfYear, t.solarHour),
+    obliquityDeg: sun.obliquityDeg,
   });
 
   // The water plane lights itself (a raw ShaderMaterial with lights disabled),
   // so without this it stays a glowing teal slab after sunset.
   water?.setDaylight(atmosphere.daylight);
+  water?.setExposure(atmosphere.state.exposure);
 
   timeBar?.update();
   sunControls?.update();
@@ -513,8 +515,12 @@ function onResize(): void {
 window.addEventListener('resize', onResize);
 
 const clock = new THREE.Clock();
+/** Seconds since load, for the only thing in this scene that moves by itself. */
+let elapsed = 0;
 renderer.setAnimationLoop(() => {
   const dt = clock.getDelta();
+  elapsed += dt;
+  water?.setTime(elapsed);
   const walkable = terrain.contextGrid?.boundsLocal ?? { minX: -1, minZ: -1, maxX: 1, maxZ: 1 };
   modes.update(dt, groundAt, terrain.getExaggeration(), walkable);
   if (modes.mode === 'orbit') rig.controls.update();
@@ -703,7 +709,7 @@ async function start(): Promise<void> {
   // materials the viewshed overlay and the land-cover tint injected into — see
   // water/water.ts for how the injections compose.
   if (assets) {
-    water = new WaterLayer(assets.table, assets.connect);
+    water = new WaterLayer(assets.table, assets.connect, nightSky.uniforms);
     terrain.group.add(water.mesh);
     for (const material of terrain.overlayMaterials) water.attachTerrain(material);
 

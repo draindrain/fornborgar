@@ -28,6 +28,7 @@
 
 import * as THREE from 'three';
 
+import { lunarAlbedoGlsl } from './lunarFeatures';
 import { STAR_MAP_GAMMA } from './stars';
 
 /**
@@ -103,6 +104,11 @@ vec3 sunRadiance(vec3 dir) {
   return uSunDiscColor * ((disc * SKY_SUN_RADIANCE + halo * 1.2) * uSunDiscIntensity);
 }
 
+/** Earthshine is the Earth's own daylight, so it arrives blue. */
+#define SKY_EARTHSHINE vec3(0.55, 0.68, 1.0)
+
+${lunarAlbedoGlsl()}
+
 /**
  * The moon's disc, shaded as the sphere it is.
  *
@@ -114,37 +120,56 @@ vec3 sunRadiance(vec3 dir) {
  *
  * The reflectance is Lommel-Seeliger rather than Lambert: the moon is a rough
  * regolith, and a full moon is far brighter than twice a half moon, which is
- * why it reads as a flat disc rather than a ball. The ashen light on the dark
- * limb is earthshine, drawn brighter than the 1 % of full it really is.
+ * why it reads as a flat disc rather than a ball.
  *
- * No surface detail. A procedural pattern standing in for the maria would be
- * invented data, and this app does not draw invented data.
+ * uMoonUp is the moon's **north**, not an arbitrary perpendicular, so the
+ * reconstructed point also has selenographic coordinates — which is what lets
+ * lunarAlbedo put the maria where the maria are. See lunarFeatures.ts.
+ *
+ * The glare belongs to the air and the eye, so it is drawn *outside* the limb
+ * only. Adding it across the disc, as this did first, floods the unlit side
+ * with grey and destroys the phase.
  */
 vec3 moonRadiance(vec3 dir) {
-  float c = dot(dir, uMoonDir);
-  if (c < uMoonCosRadius * 0.999) return vec3(0.0);
+  if (uMoonBrightness <= 0.0) return vec3(0.0);
 
-  float sinRadius = sqrt(max(1.0e-8, 1.0 - uMoonCosRadius * uMoonCosRadius));
+  float c = dot(dir, uMoonDir);
+  float angle = acos(clamp(c, -1.0, 1.0));
+  float radius = acos(clamp(uMoonCosRadius, -1.0, 1.0));
+
+  if (angle > radius) {
+    float glow = 0.085 * exp(-(angle - radius) / (radius * 0.9));
+    return uMoonColor * (glow * uMoonBrightness * uMoonLitFraction);
+  }
+
+  float sinRadius = max(sin(radius), 1.0e-6);
   vec3 offset = dir - c * uMoonDir;
   vec2 p = vec2(dot(offset, uMoonRight), dot(offset, uMoonUp)) / sinRadius;
-  float r2 = dot(p, p);
-  if (r2 > 1.0) return vec3(0.0);
+  float r2 = min(dot(p, p), 1.0);
+  float toward = sqrt(1.0 - r2);
 
   // Minus, not plus: uMoonDir points *away* from the observer, and the
   // hemisphere we can see is the one whose normals point back at us. Getting
   // this sign wrong mirrors the terminator through the centre of the disc and
   // draws every phase backwards — which is exactly what it did first time.
-  vec3 n = normalize(uMoonRight * p.x + uMoonUp * p.y - uMoonDir * sqrt(max(0.0, 1.0 - r2)));
+  vec3 n = normalize(uMoonRight * p.x + uMoonUp * p.y - uMoonDir * toward);
   float mu0 = max(dot(n, uSunLightDir), 0.0);
-  float mu = max(sqrt(max(0.0, 1.0 - r2)), 0.02);
+  float mu = max(toward, 0.02);
   float lit = mu0 / (mu0 + mu);
 
-  float limb = 1.0 - smoothstep(0.94, 1.0, r2);
-  float earthshine = 0.035 * (1.0 - smoothstep(0.0, 0.15, mu0));
-  // Lommel-Seeliger peaks at 0.5 head-on, so double it: a full moon's centre
-  // then sits just under clipping, which is about where a full moon sits.
-  float halo = pow(max(c, 0.0), 6000.0) * 0.22;
-  return uMoonColor * (((lit * 2.0 + earthshine) * limb + halo) * uMoonBrightness);
+  // In the moon's own frame: x toward the sub-Earth point, y east, z north.
+  float albedo = lunarAlbedo(vec3(toward, p.x, p.y));
+
+  float limb = 1.0 - smoothstep(0.955, 1.0, r2);
+  // Earthshine: real, and only ever *seen* on a crescent, because otherwise the
+  // lit side dazzles it out. Drawn far brighter than the ~1/10 000 it is, and
+  // fading out as the moon fills so it cannot grey the shadow of a gibbous one.
+  // ...and fading toward the limb with the same grazing factor the lit side
+  // obeys, which also softens what would otherwise be a hard dark circle
+  // against the sky.
+  float ashen = 0.012 * toward * (1.0 - uMoonLitFraction) * (1.0 - smoothstep(0.0, 0.08, mu0));
+  vec3 col = uMoonColor * (lit * 2.0 * albedo) + SKY_EARTHSHINE * (ashen * albedo);
+  return col * (limb * uMoonBrightness);
 }
 
 /**
@@ -255,19 +280,25 @@ export function createSkyUniforms(): SkyUniforms {
 }
 
 /**
- * An orthonormal pair spanning the plane across a direction.
+ * The disc basis for the moon: `up` is the moon's **north**, `right` is the
+ * direction that selenographic east runs on screen.
  *
- * Which way round it points does not matter: the moon's phase is decided by the
- * sun's direction, not by this basis, so any pair perpendicular to the moon and
- * to each other draws the same terminator.
+ * This is what makes the maria in `lunarFeatures.ts` land in the right place
+ * and the right way up. The moon's rotation axis is tilted only 1.54° from the
+ * ecliptic pole, so the north ecliptic pole stands in for lunar north to within
+ * a degree and a half — well inside the ±7° that libration moves the face
+ * anyway. The moon never strays more than 5.5° from the ecliptic, so the
+ * projection below is never near-degenerate.
+ *
+ * `right = moonDir × up` puts increasing selenographic longitude on the right
+ * of the disc as seen with north up, which is where Mare Crisium is.
  */
-export function perpendicularBasis(
-  dir: THREE.Vector3,
+export function lunarDiscBasis(
+  moonDir: THREE.Vector3,
+  northEclipticPole: THREE.Vector3,
   right: THREE.Vector3,
   up: THREE.Vector3,
 ): void {
-  const reference =
-    Math.abs(dir.y) > 0.99 ? new THREE.Vector3(1, 0, 0) : new THREE.Vector3(0, 1, 0);
-  right.copy(reference).cross(dir).normalize();
-  up.copy(dir).cross(right).normalize();
+  up.copy(northEclipticPole).addScaledVector(moonDir, -northEclipticPole.dot(moonDir)).normalize();
+  right.copy(moonDir).cross(up).normalize();
 }

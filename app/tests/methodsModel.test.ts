@@ -119,8 +119,37 @@ describe('buildMethodsModel (§6.2 disclosures)', () => {
     // What is not modelled, in the places a reader would otherwise assume it is.
     expect(text).toContain('proleptic Gregorian');
     expect(text).toMatch(/conventions/);
-    expect(text).toMatch(/no moon/);
+  });
+
+  it('discloses the moon and the stars, including what is missing from them', async () => {
+    const { manifest } = await loadBroborg();
+    const model = buildMethodsModel(manifest, null, null, null);
+    const night = model.sections.find((s) => s.id === 'nightsky');
+    expect(night).toBeDefined();
+    expect(night?.badge).toBe('model');
+    const text = night?.paragraphs.join(' ') ?? '';
+
+    // Named methods and named sources, as §6.1 requires of a model layer.
+    expect(text).toContain('ELP-2000/82');
+    expect(text).toContain('XHIP');
+    expect(text).toContain('Hipparcos');
+    expect(text).toContain('parallax');
+
+    // ΔT is the interesting disclosure: the sun section boasts of not needing
+    // it, so the moon has to say plainly that it does, and how much it is worth.
+    expect(text).toMatch(/\u0394T/);
+    expect(text).toMatch(/7\.3 hours/);
+
+    // The three things a reader would otherwise assume are modelled.
+    expect(text).toMatch(/[Pp]roper motion is not applied/);
+    expect(text).toMatch(/Arcturus/);
+    expect(text).toMatch(/[Ll]ibration/);
+    expect(text).toMatch(/No planets are drawn/);
+    expect(text).toMatch(/schematic, not an image/);
+
+    // And that the water reflects a computed sky rather than the landscape.
     expect(text).toMatch(/darker than what is drawn/);
+    expect(text).toMatch(/not of the landscape/);
   });
 
   it('states the sun section for a site with no optional assets at all', async () => {

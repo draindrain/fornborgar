@@ -21,9 +21,13 @@ import * as THREE from 'three';
 
 import type { SkyState } from './atmosphere';
 import type { LunarPosition } from './lunar';
-import { equatorialToWorldMatrix, worldDirectionFromHorizontal } from './precession';
+import {
+  directionFromEquatorial,
+  equatorialToWorldMatrix,
+  worldDirectionFromHorizontal,
+} from './precession';
 import { SkyDome } from './skyDome';
-import { createSkyUniforms, perpendicularBasis, type SkyUniforms } from './skyChunk';
+import { createSkyUniforms, lunarDiscBasis, type SkyUniforms } from './skyChunk';
 import { StarField } from './starField';
 import { bakeStarMap, starDirectionsAtEpoch, type StarCatalogue } from './stars';
 
@@ -52,6 +56,8 @@ export interface CelestialState {
   siderealDeg: number;
   /** Julian Day of the epoch the stars are precessed to. */
   jd: number;
+  /** Obliquity of the ecliptic, degrees — locates the moon's north pole. */
+  obliquityDeg: number;
 }
 
 export class NightSky {
@@ -68,6 +74,7 @@ export class NightSky {
     sunDir: new THREE.Vector3(),
     sunLightDir: new THREE.Vector3(),
     moonDir: new THREE.Vector3(),
+    northEclipticPole: new THREE.Vector3(),
   };
 
   constructor(private readonly pixelRatio: number) {
@@ -129,7 +136,6 @@ export class NightSky {
         this.scratch.moonDir,
       );
       u.uMoonDir.value.copy(this.scratch.moonDir);
-      perpendicularBasis(u.uMoonDir.value, u.uMoonRight.value, u.uMoonUp.value);
       u.uMoonCosRadius.value = Math.cos(state.moon.angularRadiusDeg * (Math.PI / 180));
       u.uMoonBrightness.value = smoothstep(-0.6, 0.15, state.moon.apparentAltitudeDeg);
       u.uMoonLitFraction.value = state.moon.illuminatedFraction;
@@ -140,6 +146,21 @@ export class NightSky {
 
     u.uStarFade.value = state.sky.starFade;
     u.uEquatorialToWorld.value.copy(equatorialToWorldMatrix(state.latDeg, state.siderealDeg));
+
+    if (state.moon) {
+      // The north ecliptic pole is at right ascension 270° and declination
+      // 90° − ε; through the same rotation the stars use, that is where lunar
+      // north points on screen (see `lunarDiscBasis`).
+      this.scratch.northEclipticPole
+        .fromArray(directionFromEquatorial(270, 90 - state.obliquityDeg))
+        .applyMatrix3(u.uEquatorialToWorld.value);
+      lunarDiscBasis(
+        u.uMoonDir.value,
+        this.scratch.northEclipticPole,
+        u.uMoonRight.value,
+        u.uMoonUp.value,
+      );
+    }
 
     if (this.stars && this.catalogue && this.directions) {
       if (!Number.isFinite(this.bakedJd) || Math.abs(state.jd - this.bakedJd) > REBAKE_YEARS * 365.25) {
