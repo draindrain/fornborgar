@@ -1,7 +1,7 @@
 /**
  * The land-cover ground tint (Phase 7, contract §9 "Rendering contract").
  *
- * A stylized flat per-class colour wash blended into the terrain materials, from the
+ * A flat per-class colour wash blended into the terrain materials, from the
  * §10 palette, addressed by world XZ over the context grid's extent — the same
  * injection idiom `ViewshedOverlay.attach` and `WaterLayer.attachTerrain` use, and
  * the same reason it works: the terrain group is Y-scaled only (contract §0), so

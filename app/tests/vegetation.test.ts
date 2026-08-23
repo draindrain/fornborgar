@@ -7,17 +7,25 @@
  *     and the density slider scales every class together (§10);
  *   • **determinism** — the same seed is the same landscape everywhere, so a
  *     screenshot is reproducible (the palisade rule, `lib/random`);
- *   • **metric size on exaggerated ground** — a 13 m tree is 13 m at ×1 and at ×2.5,
- *     it just stands higher (contract §0);
+ *   • **metric size on exaggerated ground** — a tree is its metric size at ×1 and at
+ *     ×2.5, it just stands higher (contract §0);
  *   • **nothing stands in the sea** — instances whose ground is wet at the current
- *     slider level are suppressed, and come back when the level drops (§9/§7).
+ *     slider level are suppressed, and come back when the level drops (§9/§7);
+ *   • **species mixes, stands and per-stem colour** — the §6.1 amendment's statistical
+ *     layer, which must add variation without disturbing any of the above.
  */
 
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
 
 import type { LandcoverGrid } from '../src/landcover/landcoverGrid';
-import { validateLandcoverLegend, type LandcoverLegend } from '../src/landcover/legend';
+import { validateLandcoverLegend, type LandcoverLegend, type VegetationType } from '../src/landcover/legend';
+import {
+  SPECIES_FORMS,
+  SPECIES_MIX,
+  STAND_HEIGHT_MAX,
+  STAND_HEIGHT_MIN,
+} from '../src/landcover/species';
 import {
   DEFAULT_VEGETATION_PARAMS,
   VEGETATION_FORMS,
@@ -144,6 +152,24 @@ function dynamicLayer(seed = DEFAULT_VEGETATION_PARAMS.seed, exaggeration = 1): 
   );
 }
 
+/**
+ * The size envelope of one legend form since the §6.1 amendment.
+ *
+ * A "conifer" is no longer one size: it is whichever species the mix put there, scaled
+ * by its stand's age. So the bound a transform test can assert is the extreme over the
+ * form's species × the stand-height range — deliberately derived from the model's own
+ * tables rather than written down as literals, so changing a species' size cannot leave
+ * a stale bound behind that passes for the wrong reason.
+ */
+function sizeEnvelope(type: VegetationType): { minHeight: number; maxHeight: number; maxLeanRad: number } {
+  const forms = SPECIES_MIX[type].map((entry) => SPECIES_FORMS[entry.species]);
+  return {
+    minHeight: Math.min(...forms.map((f) => f.heightM * (1 - f.heightJitter))) * STAND_HEIGHT_MIN,
+    maxHeight: Math.max(...forms.map((f) => f.heightM * (1 + f.heightJitter))) * STAND_HEIGHT_MAX,
+    maxLeanRad: Math.max(...forms.map((f) => f.leanRad)),
+  };
+}
+
 /** Raster class under a local (x, z), the way the sampler's exclusion test reads it. */
 function classAt(x: number, z: number): number {
   const col = Math.round((x - BOUNDS.minX) / 2 - 0.5);
@@ -233,11 +259,12 @@ describe('vegetation instance transforms (contract §0)', () => {
     layer.setWaterLevel(null); // nothing suppressed, so every scale is the plant's own
     expect(layer.count).toBeGreaterThan(50);
 
+    const envelope = sizeEnvelope('conifer');
     const before = [0, 5, 17].map((i) => decompose(layer, 'conifer', i));
     for (const { position, scale } of before) {
       expect(position.y).toBeCloseTo(ground(position.x, position.z), 5);
-      expect(scale.y).toBeGreaterThan(VEGETATION_FORMS.conifer.heightM * (1 - VEGETATION_FORMS.conifer.heightJitter) - 1e-6);
-      expect(scale.y).toBeLessThan(VEGETATION_FORMS.conifer.heightM * (1 + VEGETATION_FORMS.conifer.heightJitter) + 1e-6);
+      expect(scale.y).toBeGreaterThan(envelope.minHeight - 1e-6);
+      expect(scale.y).toBeLessThan(envelope.maxHeight + 1e-6);
     }
 
     exaggeration.value = 2.5;
@@ -273,7 +300,7 @@ describe('vegetation instance transforms (contract §0)', () => {
   it('leans plants by no more than the form envelope', () => {
     const layer = layerOn({ value: 1 });
     layer.setWaterLevel(null);
-    const maxDeg = (THREE.MathUtils.radToDeg(VEGETATION_FORMS.conifer.leanRad) * Math.SQRT2) + 0.2;
+    const maxDeg = THREE.MathUtils.radToDeg(sizeEnvelope('conifer').maxLeanRad) * Math.SQRT2 + 0.2;
     for (let i = 0; i < 20; i++) expect(decompose(layer, 'conifer', i).tiltDeg).toBeLessThan(maxDeg);
     layer.dispose();
   });
@@ -616,6 +643,244 @@ describe('the band inside the global budget (contract §10)', () => {
     // ...and `visibleCount` is what is standing at this century.
     expect(layer.visibleCount).toBe(staticVisible + layer.bandCount);
     expect(layer.visibleCount).toBeLessThan(layer.count);
+    layer.dispose();
+  });
+});
+
+// -------------------------- species mixes, stands and colour (PLAN §6.1) ----
+
+/**
+ * A 1 km square of forest — west half conifer, east half broadleaf, both at a plausible
+ * 60 stems/ha.
+ *
+ * The 32 m fixture above cannot say anything about a species mix: it is a *fraction* of
+ * one 140 m stand, so whatever species that stand happens to be is the whole answer.
+ * Proportions and clumping need ground wide enough to hold several stands, which is
+ * what this fixture is for — and at 60/ha it is also the only fixture here with a
+ * realistic stem density.
+ */
+const WIDE = 128;
+const WIDE_RES = 8;
+const WIDE_HALF = (WIDE * WIDE_RES) / 2;
+
+function makeWideGrid(): LandcoverGrid {
+  const classes = new Uint8Array(WIDE * WIDE);
+  for (let row = 0; row < WIDE; row++) {
+    for (let col = 0; col < WIDE; col++) classes[row * WIDE + col] = col < WIDE / 2 ? 1 : 2;
+  }
+  return {
+    width: WIDE,
+    height: WIDE,
+    resolution: WIDE_RES,
+    boundsLocal: { minX: -WIDE_HALF, minZ: -WIDE_HALF, maxX: WIDE_HALF, maxZ: WIDE_HALF },
+    classes,
+  };
+}
+
+function makeWideLegend(): LandcoverLegend {
+  return validateLandcoverLegend({
+    schemaVersion: 1,
+    site: 'unit-wide',
+    referenceYearCE: 500,
+    referenceLevelM: 8,
+    method: 'unit fixture',
+    caveat: 'unit fixture',
+    calibration: 'unit fixture',
+    classes: [
+      { index: 0, id: 'open', name: 'Open', color: '#a9a267', rule: 'unused', vegetation: null },
+      {
+        index: 1,
+        id: 'wood',
+        name: 'Conifer forest',
+        color: '#33512f',
+        rule: 'west half',
+        vegetation: { type: 'conifer', densityPerHa: 60 },
+      },
+      {
+        index: 2,
+        id: 'broad',
+        name: 'Broadleaf forest',
+        color: '#5c7a3a',
+        rule: 'east half',
+        vegetation: { type: 'broadleaf', densityPerHa: 60 },
+      },
+    ],
+  });
+}
+
+const wideGrid = makeWideGrid();
+const wideLegend = makeWideLegend();
+
+function wideLayer(seed = 1): VegetationLayer {
+  return new VegetationLayer(
+    wideGrid,
+    wideLegend,
+    { groundAt: () => 10, getExaggeration: () => 1, connectAt: null },
+    { seed },
+  );
+}
+
+/** The batch's instance colours as a plain array — three floats per instance,
+ * in instance order (the layer routes through its per-archetype meshes). */
+function instanceColors(layer: VegetationLayer, type: VegetationType): number[] {
+  const out: number[] = [];
+  const color = new THREE.Color();
+  const count = layer.countsByType()[type] ?? 0;
+  if (count === 0) throw new Error(`no instance colours for ${type}`);
+  for (let i = 0; i < count; i++) {
+    layer.instanceColor(type, i, color);
+    out.push(color.r, color.g, color.b);
+  }
+  return out;
+}
+
+describe('species mixes and stands (PLAN §6.1 amendment)', () => {
+  it('renders each form as its modelled species mix, in roughly the modelled shares', () => {
+    const layer = wideLayer(4);
+    const counts = layer.countsBySpecies();
+    const byType = layer.countsByType();
+
+    // Every species the two mixes name is actually placed — a mix that silently
+    // collapses to one species is the failure this whole layer exists to avoid.
+    for (const type of ['conifer', 'broadleaf'] as const) {
+      const total = byType[type];
+      expect(total).toBeGreaterThan(1000);
+      for (const entry of SPECIES_MIX[type]) {
+        const fraction = (counts[entry.species] ?? 0) / total;
+        // ±0.15 over ~3 000 stems: the sampling error here is set by the number of
+        // *stands* (~50 at 140 m across 1 km²), not by the number of stems.
+        expect(fraction).toBeGreaterThan(entry.weight - 0.15);
+        expect(fraction).toBeLessThan(entry.weight + 0.15);
+      }
+    }
+    // Nothing outside the two mixes, and the species counts add up to the stem count.
+    const summed = Object.values(counts).reduce((n, v) => n + v, 0);
+    expect(summed).toBe(byType.conifer + byType.broadleaf);
+    expect(Object.keys(counts).sort()).toEqual(['birch', 'oak', 'pine', 'spruce']);
+    layer.dispose();
+  });
+
+  it('assigns species deterministically for a seed, and differently for another', () => {
+    const a = wideLayer(11);
+    const b = wideLayer(11);
+    const c = wideLayer(12);
+
+    const speciesOf = (layer: VegetationLayer, type: VegetationType): string[] => {
+      const n = layer.countsByType()[type];
+      return Array.from({ length: n }, (_, i) => layer.speciesOf(type, i));
+    };
+
+    for (const type of ['conifer', 'broadleaf'] as const) {
+      const first = speciesOf(a, type);
+      expect(first.length).toBeGreaterThan(1000);
+      expect(speciesOf(b, type)).toEqual(first);
+      // A different seed moves the stands, so the assignment must not survive it.
+      expect(speciesOf(c, type)).not.toEqual(first);
+    }
+    for (const layer of [a, b, c]) layer.dispose();
+  });
+
+  it('sizes every stem from its own species, inside the mix-and-stand envelope', () => {
+    const layer = wideLayer(4);
+    for (const type of ['conifer', 'broadleaf'] as const) {
+      const envelope = sizeEnvelope(type);
+      const n = layer.countsByType()[type];
+      const heights = new Map<string, number[]>();
+      for (let i = 0; i < n; i++) {
+        const height = new THREE.Vector3().setFromMatrixColumn(layer.instanceMatrix(type, i), 1).length();
+        expect(height).toBeGreaterThan(envelope.minHeight - 1e-4);
+        expect(height).toBeLessThan(envelope.maxHeight + 1e-4);
+        const kind = layer.speciesOf(type, i);
+        heights.set(kind, [...(heights.get(kind) ?? []), height]);
+      }
+      // Each species keeps its own mean height — i.e. the species really does drive the
+      // size, rather than the mix being a label on a single form.
+      const means = SPECIES_MIX[type].map((entry) => {
+        const values = heights.get(entry.species)!;
+        return { species: entry.species, mean: values.reduce((s, v) => s + v, 0) / values.length };
+      });
+      for (const { species, mean } of means) {
+        expect(mean).toBeGreaterThan(SPECIES_FORMS[species].heightM * 0.9);
+        expect(mean).toBeLessThan(SPECIES_FORMS[species].heightM * 1.1);
+      }
+      expect(Math.abs(means[0].mean - means[1].mean)).toBeGreaterThan(0.5);
+    }
+    layer.dispose();
+  });
+
+  it('groups species into stands rather than sprinkling them stem by stem', () => {
+    const layer = wideLayer(4);
+    const n = layer.countsByType().conifer;
+    const positions = Array.from({ length: n }, (_, i) =>
+      new THREE.Vector3().setFromMatrixPosition(layer.instanceMatrix('conifer', i)),
+    );
+    const species = Array.from({ length: n }, (_, i) => layer.speciesOf('conifer', i));
+
+    // The lattice is walked row-major, so consecutive instances are neighbours (~13 m
+    // apart at 60/ha) except where a row wraps — good enough for an autocorrelation.
+    let neighbourPairs = 0;
+    let neighbourAgree = 0;
+    for (let i = 1; i < n; i++) {
+      if (positions[i].distanceTo(positions[i - 1]) > 30) continue;
+      neighbourPairs++;
+      if (species[i] === species[i - 1]) neighbourAgree++;
+    }
+    // ...against pairs half the fixture apart, which share no stand at all.
+    let farPairs = 0;
+    let farAgree = 0;
+    for (let i = 0; i + 200 < n; i += 3) {
+      farPairs++;
+      if (species[i] === species[i + 200]) farAgree++;
+    }
+
+    expect(neighbourPairs).toBeGreaterThan(500);
+    expect(farPairs).toBeGreaterThan(200);
+    expect(neighbourAgree / neighbourPairs).toBeGreaterThan(farAgree / farPairs + 0.15);
+    layer.dispose();
+  });
+});
+
+describe('per-instance plant colour (PLAN §6.1 amendment)', () => {
+  it('is deterministic for a seed and varied within a batch', () => {
+    const a = wideLayer(6);
+    const b = wideLayer(6);
+    const c = wideLayer(7);
+
+    const first = instanceColors(a, 'conifer');
+    expect(instanceColors(b, 'conifer')).toEqual(first);
+    expect(instanceColors(c, 'conifer')).not.toEqual(first);
+
+    // Varied: a stand of instanced geometry in one flat colour is the giveaway the
+    // §6.1 amendment set out to remove, so most stems must differ from most others.
+    const distinct = new Set<string>();
+    for (let i = 0; i < first.length; i += 3) {
+      distinct.add(`${first[i].toFixed(4)},${first[i + 1].toFixed(4)},${first[i + 2].toFixed(4)}`);
+    }
+    expect(distinct.size).toBeGreaterThan(first.length / 3 - 5);
+
+    for (const layer of [a, b, c]) layer.dispose();
+  });
+
+  it('keeps every plant recognisably its legend class, tinted rather than repainted', () => {
+    const layer = wideLayer(6);
+    const base = new THREE.Color().setStyle('#33512f', THREE.SRGBColorSpace);
+    const baseHsl = { h: 0, s: 0, l: 0 };
+    base.getHSL(baseHsl);
+
+    const colors = instanceColors(layer, 'conifer');
+    const probe = new THREE.Color();
+    const hsl = { h: 0, s: 0, l: 0 };
+    for (let i = 0; i < colors.length; i += 3) {
+      probe.setRGB(colors[i], colors[i + 1], colors[i + 2]);
+      probe.getHSL(hsl);
+      // Hue is the class's identity: species tint (±0.014) plus jitter (±0.015) may
+      // shade it, never move it to another part of the wheel.
+      expect(Math.abs(hsl.h - baseHsl.h)).toBeLessThan(0.05);
+      // Lightness stays inside the plant base (×0.82) modulated by the species tint
+      // (×0.88…×1.15) and the jitter (×0.9…×1.1) — a wide band, but a bounded one.
+      expect(hsl.l).toBeGreaterThan(baseHsl.l * 0.82 * 0.88 * 0.9 - 1e-6);
+      expect(hsl.l).toBeLessThan(baseHsl.l * 0.82 * 1.15 * 1.1 + 1e-6);
+    }
     layer.dispose();
   });
 });
