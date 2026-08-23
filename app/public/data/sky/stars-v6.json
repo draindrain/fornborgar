@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "count": 5044,
+  "limitingMagnitude": 6,
+  "epoch": "J2000",
+  "frame": "equatorial",
+  "columns": [
+    {
+      "name": "ra",
+      "type": "float32",
+      "unit": "deg",
+      "scale": 1
+    },
+    {
+      "name": "dec",
+      "type": "float32",
+      "unit": "deg",
+      "scale": 1
+    },
+    {
+      "name": "hip",
+      "type": "int32",
+      "unit": "id",
+      "scale": 1
+    },
+    {
+      "name": "mag",
+      "type": "int16",
+      "unit": "mag",
+      "scale": 0.01
+    },
+    {
+      "name": "bv",
+      "type": "int16",
+      "unit": "mag",
+      "scale": 0.001
+    }
+  ],
+  "binary": "stars-v6.bin",
+  "source": {
+    "catalogue": "XHIP: An Extended Hipparcos Compilation (Anderson E., Francis C. 2012)",
+    "vizier": "V/137D",
+    "via": "d3-celestial data/stars.6.json (Olaf Frohn, BSD-3-Clause), d3-celestial@0.7.35",
+    "properMotions": false,
+    "note": "Positions are J2000 and carry no proper motion; the app precesses them to the epoch the year slider selects."
+  }
+}

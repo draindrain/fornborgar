@@ -16,8 +16,10 @@ import {
   declinationDeg,
   julianDay,
   julianDayAt,
+  localApparentSiderealDeg,
   obliquityDeg,
   refractionDeg,
+  rightAscensionDeg,
   seasonLabel,
   solarPosition,
 } from '../src/sky/solar';
@@ -346,5 +348,84 @@ describe('apparentSolarLongitudeDeg', () => {
     const advance = ((half - start) + 360) % 360;
     expect(advance).toBeGreaterThan(175);
     expect(advance).toBeLessThan(180);
+  });
+});
+
+/**
+ * The sidereal hook (added with the moon and the stars).
+ *
+ * `solarPosition` never needed the sun's right ascension — apparent solar time
+ * hands it the hour angle by definition. Everything *else* in the sky needs it,
+ * and these are the two properties that make it safe to build on.
+ */
+describe('right ascension and sidereal time', () => {
+  /** The Julian Day at which the sun's apparent longitude is `target`. */
+  function jdAtSolarLongitude(target: number): number {
+    let lo = julianDayAt(2000, 1, 12);
+    let hi = lo + 366;
+    for (let i = 0; i < 60; i++) {
+      const mid = (lo + hi) / 2;
+      const advance = (apparentSolarLongitudeDeg(mid) - apparentSolarLongitudeDeg(lo) + 360) % 360;
+      const wanted = (target - apparentSolarLongitudeDeg(lo) + 360) % 360;
+      if (advance < wanted) lo = mid;
+      else hi = mid;
+    }
+    return lo;
+  }
+
+  it('puts the sun at the origin at the March equinox', () => {
+    const jd = jdAtSolarLongitude(0);
+    expect(Math.abs(((rightAscensionDeg(jd) + 180) % 360) - 180)).toBeLessThan(0.01);
+    expect(Math.abs(declinationDeg(jd))).toBeLessThan(0.01);
+  });
+
+  it('puts the sun at 90° of right ascension at the June solstice', () => {
+    // At solar longitude 90 the sun is at the June solstice point, whose right
+    // ascension is 90° and whose declination is the obliquity itself.
+    const jd = jdAtSolarLongitude(90);
+    expect(rightAscensionDeg(jd)).toBeCloseTo(90, 4);
+    expect(declinationDeg(jd)).toBeCloseTo(obliquityDeg(jd), 4);
+  });
+
+  it('runs ahead of the mean sun and falls back, over the year', () => {
+    // Right ascension is not the longitude: the obliquity alone makes them
+    // disagree by up to 2.5° four times a year, which is most of why the
+    // equation of time exists — and exactly what apparent solar time spares us.
+    let maxGap = 0;
+    for (let day = 1; day <= 365; day++) {
+      const jd = julianDayAt(2000, day, 12);
+      const gap = ((rightAscensionDeg(jd) - apparentSolarLongitudeDeg(jd) + 540) % 360) - 180;
+      maxGap = Math.max(maxGap, Math.abs(gap));
+    }
+    expect(maxGap).toBeGreaterThan(2);
+    expect(maxGap).toBeLessThan(3);
+  });
+
+  it('is reported on the SolarPosition alongside declination', () => {
+    const jd = julianDayAt(400, 173, 15.5);
+    const sun = solarPosition({ latDeg: 59.7556, yearCE: 400, dayOfYear: 173, solarHour: 15.5 });
+    expect(sun.rightAscensionDeg).toBeCloseTo(rightAscensionDeg(jd), 9);
+  });
+
+  it('makes local noon at the equinox put the vernal point on the meridian', () => {
+    // This is the definition test for the whole construction: LAST = H_sun +
+    // alpha_sun, and at the March equinox alpha_sun = 0, so at 12:00 solar time
+    // the vernal point transits.
+    expect(localApparentSiderealDeg(12, 0)).toBeCloseTo(0, 9);
+  });
+
+  it('advances 15° per hour of solar time', () => {
+    const alpha = 137.5;
+    expect(localApparentSiderealDeg(13, alpha) - localApparentSiderealDeg(12, alpha)).toBeCloseTo(
+      15,
+      9,
+    );
+  });
+
+  it('wraps into 0…360', () => {
+    expect(localApparentSiderealDeg(0, 10)).toBeGreaterThanOrEqual(0);
+    expect(localApparentSiderealDeg(0, 10)).toBeLessThan(360);
+    expect(localApparentSiderealDeg(23.9, 350)).toBeGreaterThanOrEqual(0);
+    expect(localApparentSiderealDeg(23.9, 350)).toBeLessThan(360);
   });
 });
