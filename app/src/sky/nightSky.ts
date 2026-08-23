@@ -202,8 +202,12 @@ export class NightSky {
       this.texture.minFilter = THREE.LinearMipmapLinearFilter;
       this.texture.generateMipmaps = true;
       this.uniforms.uStarMap.value = this.texture;
-      // Reflected starlight is faint; this is how faint.
-      this.uniforms.uStarGain.value = 0.4;
+      // Reflected starlight is faint, and it arrives as a wash rather than as
+      // points: the map is minified hard at a grazing angle, so its mipmaps
+      // average the stars together long before you see one of them. That is
+      // also what water does to a star, so it is left alone — the gain only
+      // decides how much of the Milky-Way-less sky glow reaches the surface.
+      this.uniforms.uStarGain.value = 1.2;
     } else {
       this.texture.image.data = map.data;
     }

@@ -182,6 +182,11 @@ a rippled surface smears the stars anyway, which is what water does to them —
 and it is a pure function, so `tests/stars.test.ts` can assert that a star lands
 in the texel its right ascension says without a GL context anywhere.
 
+Be clear about what that gets you: reflected starlight arrives as a faint
+**wash**, not as individual stars. The map is minified hard at the grazing
+angles water is usually seen at, so its mipmaps have averaged the stars together
+long before one of them is resolvable. That is also what water does to a star.
+
 It is rebaked only when the year moves by more than 50 years: precession is
 0.014°/yr, so fifty years is one texel of a 512×256 map, and rebaking more often
 would cost a hitch mid-drag to move stars by less than the width of the texel
