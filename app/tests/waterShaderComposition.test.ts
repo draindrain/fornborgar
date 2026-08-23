@@ -18,6 +18,7 @@ import { LandcoverTint, NO_LEVEL_SENTINEL, hydroTintClass } from '../src/landcov
 import { validateLandcoverLegend } from '../src/landcover/legend';
 import type { LandcoverGrid } from '../src/landcover/landcoverGrid';
 import { ViewshedOverlay } from '../src/viewshed/overlay';
+import { createSkyUniforms } from '../src/sky/skyChunk';
 import { WaterLayer } from '../src/water/water';
 import type { ConnectGrid } from '../src/water/connectGrid';
 import { validateShoreline } from '../src/water/shoreline';
@@ -487,5 +488,29 @@ describe('hydroTintClass — the executable spec of the GLSL (contract §9 v1.3)
   it('leaves the raster class alone when neither dynamic class exists', () => {
     expect(hydroTintClass(1, 8.6, 0, RASTER, -1, -1)).toBe(RASTER);
     expect(hydroTintClass(8.7, 8.6, BAND_M, RASTER, -1, -1)).toBe(RASTER);
+  });
+});
+
+/**
+ * The sky uniforms are shared **by reference** between the dome and the water,
+ * which is the mechanism that makes the reflection show the same sky that is
+ * drawn. Two sets of uniforms that merely agreed today would drift apart the
+ * first time one of them was written and the other was not.
+ */
+describe('the water plane and the sky share their uniforms', () => {
+  it('holds the very objects it was handed, not copies', () => {
+    const sky = createSkyUniforms();
+    const water = new WaterLayer(table, connect, sky);
+    expect(water.skyUniforms).toBe(sky);
+    for (const [name, uniform] of Object.entries(sky)) {
+      expect(water.skyUniforms[name as keyof typeof sky], name).toBe(uniform);
+    }
+    water.dispose();
+  });
+
+  it('stands up on its own when nobody hands it a sky', () => {
+    const water = new WaterLayer(table, connect);
+    expect(water.skyUniforms.uSkyHorizon.value.getHexString()).toBe('8fa3b4');
+    water.dispose();
   });
 });

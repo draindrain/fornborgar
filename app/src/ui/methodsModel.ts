@@ -76,9 +76,60 @@ const SUN_ACCURACY =
 
 const NIGHT_RENDERING_NOTE =
   'Night is rendered with a simulated dark-adapted exposure and a floor on the ambient light: ' +
-  'a real moonless Iron Age night is far darker than what is drawn here. There is no moon and ' +
-  'there are no stars yet. The sky, twilight and sunset colours are an artistic ramp keyed to ' +
-  'the computed solar altitude, not a radiative-transfer model.';
+  'a real moonless Iron Age night is far darker than what is drawn here. The sky, twilight and ' +
+  'sunset colours are an artistic ramp keyed to the computed solar altitude, not a ' +
+  'radiative-transfer model — and the reflection in the water is a reflection of that computed ' +
+  'sky, not of the landscape: the hills, the trees and the palisade do not appear in it.';
+
+const MOON_METHOD =
+  'The moon is computed from the truncated ELP-2000/82 lunar theory (Meeus, Astronomical ' +
+  'Algorithms ch. 47), corrected for the observer\u2019s offset from the centre of the Earth — the ' +
+  'moon\u2019s parallax is about 0.95°, nearly twice its own width, so a geocentric moon would sit ' +
+  'visibly too high whenever it is low. Its phase is not drawn from a phase angle: the renderer ' +
+  'lights a sphere with the sun\u2019s direction, so the illuminated fraction and the tilt of the ' +
+  'terminator are both consequences of where the two bodies actually are.';
+
+const MOON_DELTA_T =
+  'The moon reintroduces the one uncertainty the sun was built to avoid. Apparent solar time ' +
+  'fixes the sun\u2019s hour angle by definition, so \u0394T never enters the sun\u2019s position; the moon ' +
+  'has no such privilege, because its place has to be computed on a dynamical timescale and \u0394T ' +
+  'is the map from the sundial to that scale. It is applied here from the Espenak–Meeus ' +
+  'polynomials (the standard fit for ancient eclipse work), and it is large: about 7.3 hours at ' +
+  '1050 BCE, falling to a quarter of an hour by 1150 CE. Ignoring it would misplace the moon by ' +
+  'some 4° — eight lunar diameters — at the far end of the year slider. What remains is the ' +
+  'uncertainty in \u0394T itself, of order twenty minutes that far back, or roughly a third of a ' +
+  'lunar diameter.';
+
+const MOON_SURFACE =
+  'The face of the moon is a schematic, not an image. Fourteen maria and four ray craters are ' +
+  'drawn as soft-edged discs at their catalogued selenographic coordinates, sized by their ' +
+  'catalogued diameters; the maria are irregular and a disc is an approximation of an outline. ' +
+  'North is placed from the ecliptic pole, which stands in for the moon\u2019s rotation axis to ' +
+  'within 1.5°. Libration — the rocking of up to about 7° that lets us see 59 % of the surface ' +
+  'rather than half of it — is not modelled, so the face never turns.';
+
+const STARS_METHOD =
+  'The stars are the 5 044 in the sky down to visual magnitude 6.0 — the naked-eye limit, and ' +
+  'the right limit for a sky with no light pollution in it. Positions come from XHIP, an ' +
+  'extended compilation of the Hipparcos catalogue (Anderson & Francis 2012, VizieR V/137D), by ' +
+  'way of the derived data set published with d3-celestial. They are precessed from J2000 to the ' +
+  'year the slider sets (Meeus ch. 21), which over this range moves the whole sky by tens of ' +
+  'degrees: at 1050 BCE there is no pole star, Thuban having drifted off the pole two thousand ' +
+  'years earlier and Polaris not yet arrived.';
+
+const STARS_PROPER_MOTION =
+  'Proper motion is not applied — the derived catalogue does not carry it. Precession, which ' +
+  'moves the entire sky, is by far the larger effect and is applied; what is left is that a few ' +
+  'nearby stars are drawn where they were in 2000 CE rather than where they were in the Iron ' +
+  'Age. Over 3 050 years that is about 4.5° for 61 Cygni, 3.2° for μ Cassiopeiae and 1.9° for ' +
+  'Arcturus, and well under half a degree for essentially everything else: a distortion in the ' +
+  'shape of a few constellations, not a wrong sky.';
+
+const NO_PLANETS =
+  'No planets are drawn. Venus at magnitude −4 would be the brightest thing in this sky after ' +
+  'the moon, and Jupiter, Mars and Saturn are all brighter than most of the stars that are ' +
+  'drawn, so this is a real absence rather than a rounding: what is shown is the fixed stars, ' +
+  'the sun and the moon. The Milky Way, which would dominate an unlit sky, is also absent.';
 
 const PALISADE_STATUS =
   'No palisade has been excavated at Broborg, and no archaeological evidence for its ' +
@@ -309,6 +360,23 @@ export function buildMethodsModel(
       SOLSTICE_DRIFT_NOTE,
       SUN_ACCURACY,
       `The year slider also names the archaeological period. ${PERIOD_CONVENTION_NOTE}`,
+    ],
+  });
+
+  // The night sky is a separate model with a separate provenance and a separate
+  // set of things it gets wrong, so it says so separately rather than hiding
+  // behind the sun's much tighter accuracy claim.
+  sections.push({
+    id: 'nightsky',
+    title: 'The moon and the stars',
+    badge: 'model',
+    paragraphs: [
+      MOON_METHOD,
+      MOON_DELTA_T,
+      MOON_SURFACE,
+      STARS_METHOD,
+      STARS_PROPER_MOTION,
+      NO_PLANETS,
       NIGHT_RENDERING_NOTE,
     ],
   });

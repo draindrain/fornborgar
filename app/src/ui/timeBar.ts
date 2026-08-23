@@ -36,12 +36,12 @@ export function formatSolarTime(hour: number): string {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 }
 
-/** "sun 17° above the horizon" / "sun 12° below the horizon". */
-export function formatAltitude(altitudeDeg: number): string {
+/** "sun 17° above the horizon" / "moon 12° below the horizon". */
+export function formatAltitude(altitudeDeg: number, body = 'sun'): string {
   const rounded = Math.round(Math.abs(altitudeDeg));
   return altitudeDeg >= 0
-    ? `sun ${rounded}° above the horizon`
-    : `sun ${rounded}° below the horizon`;
+    ? `${body} ${rounded}° above the horizon`
+    : `${body} ${rounded}° below the horizon`;
 }
 
 export interface TimeBarReadouts {
@@ -55,6 +55,8 @@ export interface TimeBarReadouts {
   day: string;
   /** e.g. "sunrise 02:34 · sunset 21:26", or a polar-day/night phrase. */
   dayNote: string;
+  /** e.g. "waxing gibbous 72 % · moon 23° up". The moon walks with this slider. */
+  seasonNote: string;
 }
 
 export interface TimeBarOptions {
@@ -140,7 +142,7 @@ export class TimeBar {
     this.year.value.textContent = r.year;
     this.year.note.textContent = r.yearNote;
     this.season.value.textContent = r.season;
-    this.season.note.textContent = '';
+    this.season.note.textContent = r.seasonNote;
     this.day.value.textContent = r.day;
     this.day.note.textContent = r.dayNote;
   }

@@ -40,6 +40,8 @@ export interface SolarPosition {
   /** Compass azimuth, degrees: 0 = north, 90 = east. Matches terrain/lighting.ts. */
   azimuthDeg: number;
   declinationDeg: number;
+  /** Apparent right ascension, degrees. Pairs with declination on the equator. */
+  rightAscensionDeg: number;
   /** Apparent ecliptic longitude of the sun, degrees; 0 = March equinox. */
   solarLongitudeDeg: number;
   obliquityDeg: number;
@@ -153,6 +155,43 @@ export function declinationDeg(jd: number): number {
 }
 
 /**
+ * Solar right ascension, degrees (Meeus eq. 25.6).
+ *
+ * The sun's own position never needs this — its hour angle is `15° × (t − 12)`
+ * by the definition of apparent solar time. It exists for *everything else* in
+ * the sky: see `localApparentSiderealDeg`.
+ *
+ * Meeus notes that a strictly apparent right ascension replaces ε by
+ * ε + 0.00256 cos Ω. That is 9 arcseconds, an order of magnitude below this
+ * module's stated 0.1° and below what `declinationDeg` already keeps, so both
+ * stay on the mean obliquity rather than disagreeing with each other.
+ */
+export function rightAscensionDeg(jd: number): number {
+  const eps = obliquityDeg(jd);
+  const lambda = apparentSolarLongitudeDeg(jd);
+  const alpha =
+    Math.atan2(Math.cos(eps * DEG) * Math.sin(lambda * DEG), Math.cos(lambda * DEG)) / DEG;
+  return ((alpha % 360) + 360) % 360;
+}
+
+/**
+ * Local apparent sidereal time, in degrees, from the app's own clock.
+ *
+ * This is the hinge the whole celestial sphere hangs on, and the reason the
+ * sundial-time decision keeps paying: apparent solar time *defines* the sun's
+ * hour angle as `15° × (t − 12)`, and sidereal time is that hour angle plus the
+ * sun's right ascension. So the moon and the stars need no new time system, no
+ * longitude and no sidereal epoch — they inherit the one clock the sliders set.
+ *
+ * (Check: at the March equinox α = 0, so local noon puts the vernal point on
+ * the meridian, which is what an equinox *is*.)
+ */
+export function localApparentSiderealDeg(solarHour: number, sunRightAscensionDeg: number): number {
+  const theta = 15 * (solarHour - 12) + sunRightAscensionDeg;
+  return ((theta % 360) + 360) % 360;
+}
+
+/**
  * Atmospheric refraction, degrees, from *geometric* altitude — Sæmundsson,
  * Meeus eq. 16.4. (Bennett's better-known 34' at the horizon is a function of
  * *apparent* altitude and would need iterating from what we have.)
@@ -189,6 +228,7 @@ export interface SolarQuery {
 export function solarPosition(query: SolarQuery): SolarPosition {
   const jd = julianDayAt(query.yearCE, query.dayOfYear, query.solarHour);
   const dec = declinationDeg(jd);
+  const ra = rightAscensionDeg(jd);
   const h = 15 * (query.solarHour - 12);
 
   const phi = query.latDeg * DEG;
@@ -216,6 +256,7 @@ export function solarPosition(query: SolarQuery): SolarPosition {
     apparentAltitudeDeg: altitude + refractionDeg(altitude),
     azimuthDeg: azimuth,
     declinationDeg: dec,
+    rightAscensionDeg: ra,
     solarLongitudeDeg: apparentSolarLongitudeDeg(jd),
     obliquityDeg: obliquityDeg(jd),
   };

@@ -88,6 +88,19 @@ export function siteDataUrl(
   return `${dataBaseUrl(base, configured)}${siteId}/`;
 }
 
+/**
+ * Base URL for the sky assets (the star catalogue), always ending in "/".
+ *
+ * Deliberately **not** routed through `dataBaseUrl`: the sky is the same at
+ * every site, so the catalogue ships inside the app rather than inside a
+ * per-site bundle, and it must keep resolving against the app's own base URL
+ * even when `VITE_DATA_BASE_URL` points the site bundles at an object host.
+ */
+export function skyDataUrl(base: string = import.meta.env.BASE_URL): string {
+  const b = base.endsWith('/') ? base : `${base}/`;
+  return `${b}data/sky/`;
+}
+
 /** URL of the national site index (§6.1). Only meaningful with a data base URL set. */
 export function siteIndexUrl(
   base: string = import.meta.env.BASE_URL,

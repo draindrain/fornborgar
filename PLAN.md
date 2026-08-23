@@ -358,6 +358,72 @@ a hillfort. It moves behind `?debug=1` and a much simpler default menu replaces 
   pose, sunrise 02:34 and sunset 21:26 at midsummer, a midnight sun 6.6° below the
   horizon (the white night must never render as night), and 6.6° noon at midwinter.
 
+### Phase 11 — The sky itself: sun, moon, stars, and water that reflects them — ✅ DONE 2026-08-23
+*(Phase 10 computed where the sun is. Nothing drew it: the sun was a
+`DirectionalLight` and a flat background colour, the methods panel said in as many words
+that there was no moon and no stars, and the water was a self-lit slab with a hardcoded
+sheen that had no idea what the sky was doing.)*
+- **One clock for the whole sky.** `solar.ts` gains the sun's right ascension, and from it
+  local apparent sidereal time — `LAST = 15°(t − 12) + α_sun`. Phase 10's sundial decision
+  keeps paying: the entire celestial sphere hangs off the clock the sliders already set,
+  with no second time system, no sidereal epoch and no longitude. The diurnal rotation is
+  one 3×3 matrix, checked against `solarPosition` itself to 1e-9.
+- **The moon** (`sky/lunar.ts`) is Meeus ch. 47, the truncated ELP-2000/82, gated on his
+  own worked Example 47.a — 120 rows of coefficients where one wrong digit would be
+  invisible, so the test reproduces λ = 133.162655°, β = −3.229126°, Δ = 368409.7 km to his
+  printed precision. Topocentric parallax (ch. 40) is applied: 0.95°, nearly twice the
+  moon's own diameter, so a geocentric moon sits visibly too high exactly when it is low.
+- **ΔT comes back** (`sky/deltaT.ts`), and this is the one place Phase 10's headline
+  property does not extend. The sun *defines* the sundial; the moon does not, and its place
+  can only be computed on a dynamical timescale. At 1050 BCE ΔT is 7.3 hours — 4° of lunar
+  longitude, eight lunar diameters — so it is applied (Espenak–Meeus, three branches) and
+  its own ±20 min stated, rather than a 4° error being left in silently.
+- **Phase without a phase angle.** The renderer reconstructs each pixel's point on the
+  lunar sphere and lights it with the sun's direction, so the illuminated fraction and the
+  tilt of the terminator both fall out of the geometry. Reflectance is Lommel–Seeliger,
+  which is why a full moon reads as a disc rather than a ball.
+- **The face is a schematic** (`sky/lunarFeatures.ts`): fourteen maria and four ray craters
+  at their catalogued selenographic coordinates, sized by their catalogued diameters, north
+  placed from the ecliptic pole. No noise, no photograph — and called a schematic in the
+  methods panel, because a soft disc is an approximation of a mare's outline. Libration is
+  not modelled.
+- **5 044 stars to V = 6.0** — the naked-eye limit, and so the right limit for a sky with
+  no light pollution. XHIP (Anderson & Francis 2012, VizieR V/137D) by way of
+  d3-celestial's derived file; 80 kB committed under `app/public/data/sky/` with its own
+  `DATA-LICENSES.md`, decoded by column *name* so a proper-motion catalogue later is a data
+  change with no app change. Precession is Meeus ch. 21 rigorous and deliberately **not** a
+  long-term model: over ±3050 yr it costs an arcminute against Vondrák (2011), three orders
+  of magnitude below the error already carried for want of proper motions. The check is
+  historical — the pole lands on Thuban around 2700 BCE, and at 1050 BCE is near neither
+  Thuban nor Polaris. **The Iron Age had no pole star**, which is worth knowing before
+  drawing conclusions about what a rampart was aligned on.
+- **Proper motion is not applied and is the largest error in the night sky**: 4.5° for
+  61 Cygni, 3.2° for μ Cassiopeiae, 1.9° for Arcturus over 3 050 years, well under half a
+  degree for everything else. Stated in the methods panel with those numbers.
+- **The sky is drawn** (`sky/skyDome.ts`, `sky/skyChunk.ts`) as a gradient with a sunset
+  aureole. The §4.5 fog agreement survives structurally, not by tuning: `skyGradient`
+  returns *exactly* `Atmosphere.state.sky` at `dir.y = 0`, and that is the fog colour.
+  `scene.background` still tracks the same value, so a dome that failed to draw degrades to
+  the old flat sky rather than to black.
+- **The water reflects the sky, not the landscape.** No mirror pass — a second render of
+  150 000 instanced trees at a 96 km far plane is roughly a doubling of frame cost. Instead
+  the water compiles the *same* GLSL chunk as the dome with the *same uniform objects
+  shared by reference*, and evaluates it along the reflected ray, so the sunset in the
+  water is the sunset in the sky by construction. Real Schlick Fresnel replaces the fake
+  `pow(1 − |viewDir.y|, 4)`; three crossing wave trains fade with distance into the
+  specular lobe's roughness, which is what makes a glitter path instead of an aliasing
+  machine; `tonemapping_fragment` is dropped so the reflected sky and the sky agree at the
+  horizon line where they meet, and the body of the water carries the exposure by hand.
+- **Not drawn, and said so:** no planets (Venus at −4 would be the brightest thing up there
+  after the moon), no Milky Way (the only offline source has no checkable licence), no
+  libration, no lunar surface imagery, no aerial-perspective fog — that last one leaves a
+  bounded seam at the sun's azimuth at sunset, which `docs/night-sky.md` §5 describes.
+- Exit criteria (met): Meeus Example 47.a to six decimals; the ΔT branches join to under a
+  second; the pole at Thuban around −2700; the equatorial→world rotation agrees with
+  `solarPosition` to 1e-9; Sirius in the committed catalogue at its J2000 place; and the
+  five headless configurations in `scripts/verify-night-sky.mjs` with no console error.
+  Full detail in `docs/night-sky.md`.
+
 ---
 
 ## 4. Technical decisions & rationale
@@ -429,8 +495,13 @@ landscape-scale visibility; the 1 m core grid exists for shading, not line-of-si
   negligible for Mälaren-scale water sightlines and materially affects the thesis.
 
 ### 4.5 Water plane & basin correctness
-- Rendering: one semi-transparent plane at level *h* with fresnel-ish shading; terrain
-  shader depth-tints submerged ground (smooth shoreline, no z-fighting fringe).
+- Rendering: one semi-transparent plane at level *h*; terrain shader depth-tints submerged
+  ground (smooth shoreline, no z-fighting fringe). *Phase 11 replaced the original
+  "fresnel-ish" shading with the real thing: Schlick with n = 1.33, animated wave normals
+  that fade into a specular roughness with distance, and a reflection of the **sky** — the
+  same GLSL and the same uniform objects the sky dome draws from, evaluated along the
+  reflected ray. Not a mirror pass: the landscape does not appear in the water, which
+  `docs/night-sky.md` §6 explains and the methods panel states.*
 - **Flood-fill correctness:** a plane naively fills enclosed basins that never connected
   to the sea. **Phase-0 result: false basins DO exist** — edge-connected flood fill on the
   4×4 km clip at 1 m levels from 4–18 m found interior (non-sea-connected) wet components
@@ -623,6 +694,13 @@ bake the active caveats into the image margin.
 - How the sun is computed (site latitude from the manifest origin, apparent solar time,
   Meeus ch. 25 and Laskar 1986), with its accuracy claim and the disclosure that the
   night lighting and the twilight palette are legibility choices rather than physics.
+- How the **moon and the stars** are computed and what they leave out (Phase 11): Meeus
+  ch. 47 and ch. 40 for the moon; that ΔT — which the sun's design avoided entirely — has
+  to come back for it, is 7.3 hours at 1050 BCE, and is applied; that the moon's face is a
+  *schematic* of catalogued maria rather than an image, with no libration; XHIP/Hipparcos
+  for the stars, precessed but carrying **no proper motion**, quantified star by star; that
+  **no planets** are drawn although Venus would outshine everything but the moon; and that
+  the water reflects the computed sky and not the landscape.
 - Full citation list (incl. Broborg excavation/vitrification literature) and a link to
   this repository.
 
