@@ -70,6 +70,7 @@ export class NightSky {
   private directions: Float32Array | null = null;
   private texture: THREE.DataTexture | null = null;
   private bakedJd = Number.NaN;
+  private directionsJd = Number.NaN;
   private readonly scratch = {
     sunDir: new THREE.Vector3(),
     sunLightDir: new THREE.Vector3(),
@@ -105,6 +106,7 @@ export class NightSky {
   attachStars(catalogue: StarCatalogue, jd: number): void {
     this.catalogue = catalogue;
     this.directions = starDirectionsAtEpoch(catalogue, jd);
+    this.directionsJd = jd;
     this.stars = new StarField(catalogue, this.directions, this.pixelRatio);
     this.group.add(this.stars.group);
     this.rebake(jd);
@@ -145,7 +147,7 @@ export class NightSky {
     }
 
     u.uStarFade.value = state.sky.starFade;
-    u.uEquatorialToWorld.value.copy(equatorialToWorldMatrix(state.latDeg, state.siderealDeg));
+    equatorialToWorldMatrix(state.latDeg, state.siderealDeg, u.uEquatorialToWorld.value);
 
     if (state.moon) {
       // The north ecliptic pole is at right ascension 270° and declination
@@ -163,25 +165,20 @@ export class NightSky {
     }
 
     if (this.stars && this.catalogue && this.directions) {
-      if (!Number.isFinite(this.bakedJd) || Math.abs(state.jd - this.bakedJd) > REBAKE_YEARS * 365.25) {
+      // The points follow the year exactly — 5 044 matrix multiplies, which is
+      // nothing. The reflection map only has to keep up to within a texel, so
+      // it is rebaked far less often; see REBAKE_YEARS.
+      if (!Number.isFinite(this.directionsJd) || Math.abs(state.jd - this.directionsJd) > 365.25) {
         this.directions = starDirectionsAtEpoch(this.catalogue, state.jd, this.directions);
         this.stars.setDirections(this.directions);
+        this.directionsJd = state.jd;
+      }
+      if (!Number.isFinite(this.bakedJd) || Math.abs(state.jd - this.bakedJd) > REBAKE_YEARS * 365.25) {
         this.rebake(state.jd);
       }
       this.stars.setOrientation(u.uEquatorialToWorld.value);
       this.stars.setFade(state.sky.starFade);
     }
-  }
-
-  /**
-   * Re-derive the epoch directions for a new year without rebaking the map —
-   * the points are what you look at, so they follow the year exactly, while the
-   * reflection map only has to keep up to within a texel.
-   */
-  setEpoch(jd: number): void {
-    if (!this.catalogue || !this.stars || !this.directions) return;
-    this.directions = starDirectionsAtEpoch(this.catalogue, jd, this.directions);
-    this.stars.setDirections(this.directions);
   }
 
   setPixelRatio(pixelRatio: number): void {

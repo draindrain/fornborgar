@@ -126,14 +126,18 @@ export function equatorialFromDirection(x: number, y: number, z: number): {
  * with `H = θ − α`, expanded onto the equatorial basis vectors — see
  * `tests/precession.test.ts`, which checks it against `solarPosition` itself.
  */
-export function equatorialToWorldMatrix(latDeg: number, lastDeg: number): THREE.Matrix3 {
+export function equatorialToWorldMatrix(
+  latDeg: number,
+  lastDeg: number,
+  out = new THREE.Matrix3(),
+): THREE.Matrix3 {
   const phi = latDeg * DEG;
   const l = lastDeg * DEG;
   const sinPhi = Math.sin(phi);
   const cosPhi = Math.cos(phi);
   const sinL = Math.sin(l);
   const cosL = Math.cos(l);
-  return new THREE.Matrix3().set(
+  return out.set(
     -sinL, cosL, 0,
     cosPhi * cosL, cosPhi * sinL, sinPhi,
     sinPhi * cosL, sinPhi * sinL, -cosPhi,

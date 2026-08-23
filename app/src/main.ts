@@ -509,6 +509,9 @@ function onResize(): void {
   const w = window.innerWidth;
   const h = window.innerHeight;
   renderer.setSize(w, h);
+  // Moving between displays changes the device pixel ratio, and a star's size
+  // is in device pixels.
+  nightSky.setPixelRatio(renderer.getPixelRatio());
   rig.camera.aspect = w / h;
   rig.camera.updateProjectionMatrix();
 }

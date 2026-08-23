@@ -180,7 +180,10 @@ void main() {
   reflected.y = abs(reflected.y);
   // Whatever the eye cannot resolve becomes roughness. This is the line that
   // turns the sun's half-degree disc into a glitter path.
-  float spread = mix(0.16, 0.02, detail);
+  // 6° of RMS slope at distance, half a degree close up. An inland bay in a
+  // light breeze, not open ocean — which is both what these sites are and what
+  // keeps the glitter path a path rather than a wash.
+  float spread = mix(0.105, 0.012, detail);
   vec3 reflection = skyReflection(reflected, spread);
 
   float deepness = clamp(depth / ${DEPTH_SCALE.toFixed(1)}, 0.0, 1.0);

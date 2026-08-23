@@ -214,8 +214,10 @@ vec3 skyReflection(vec3 dir, float spread) {
   vec3 col = skyGradient(dir);
   col += uSunDiscColor *
     (SKY_SUN_RADIANCE * uSunDiscIntensity * glossyLobe(dot(dir, uSunDir), uSunCosRadius, spread));
+  // The moon's path is held just below clipping where the sun's is well past
+  // it — which is the difference between the two of them on water.
   col += uMoonColor *
-    (2.0 * uMoonBrightness * uMoonLitFraction *
+    (1.1 * uMoonBrightness * uMoonLitFraction *
       glossyLobe(dot(dir, uMoonDir), uMoonCosRadius, spread));
   col += starRadiance(dir);
   return col;
