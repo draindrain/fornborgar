@@ -179,10 +179,49 @@ SOIL_GROUPS: dict[str, int] = {
     # Aeolian dune sand — the sandy-sediment family, measured at the Torsburgen
     # and Tarsta berg extents (2026-08-22 smoke run).
     "Flygsand": GROUP_FINE,
+    # The fine/coarse splits of postglacial clay, measured across seven pilot
+    # extents in the 9d rollout (Mälaren valley, Södermanland, Västmanland,
+    # Östergötland, Skåne — 2026-08-22): same cultivable postglacial family as
+    # "Postglacial lera" above.
+    "Postglacial finlera": GROUP_FINE,
+    "Postglacial grovlera": GROUP_FINE,
+    # Recent river sand — the flood-sediment family with the Svämsediment
+    # variants above; measured at the Kalmar and Gävleborg Borgberget extents
+    # (9d rollout, 2026-08-22).
+    "Älvsediment, sand": GROUP_FINE,
+    # The product's bare flood-sediment class, parent of the grain variants
+    # already listed; measured at the Predikstolen extent (9d, 2026-08-22).
+    "Svämsediment": GROUP_FINE,
     "Glacial lera": GROUP_CLAY,
     "Glacial silt": GROUP_CLAY,
     "Fyllning": GROUP_CLAY,
+    # Clays and silts the product maps WITHOUT resolving their age (9d rollout,
+    # 2026-08-22: Kungsbjär 24 polygons, the Kalmar/Gävleborg Borgberget pair,
+    # Skansen/Värmland, Borgen/Västernorrland, Ramundersborg). The farmland rule
+    # keys its cultivability test on the glacial/postglacial split, which is
+    # exactly what these classes leave unmapped — so they go to the heavy-clay
+    # group: open wet meadow, never a farmland candidate. The conservative side
+    # of the doubt, and the legend rule text says so.
+    "Lera": GROUP_CLAY,
+    "Lera--silt": GROUP_CLAY,
+    "Silt": GROUP_CLAY,
+    # Glacial fines family, like "Glacial silt"; measured at the Borren extent
+    # (Skåne, 9d rollout 2026-08-22).
+    "Glacial grovsilt--finsand": GROUP_CLAY,
+    # Alum-shale burn spoil (rödfyr) — a modern industrial fill; the Fyllning
+    # family. Measured at the Träleborg and Halleberg-plateau extents (9d,
+    # 2026-08-22).
+    "Fyllning, rödfyr": GROUP_CLAY,
+    # Regulated Vänern shore the product maps as periodically flooded — wet open
+    # ground of the meadow family, not permanent water and never plough ground.
+    # Measured at the Halleberg-plateau extent (9d rollout, 2026-08-22).
+    "Oklassat område, tidvis under vatten": GROUP_CLAY,
     "Isälvssediment": GROUP_GRAVEL,
+    # The grain-split isälvssediment spellings; the parent class is directly
+    # above. Measured at the Ramundersborg, Borren, Kungsbjär and Borgen
+    # (Stockholm) extents (9d rollout, 2026-08-22).
+    "Isälvssediment, grus": GROUP_GRAVEL,
+    "Isälvssediment, sand": GROUP_GRAVEL,
     "Klapper": GROUP_GRAVEL,
     # Wave-washed beach gravel (svallsediment): the same well-drained shoreline
     # deposit family as Klapper, spelled as the island extracts return it.
@@ -201,6 +240,18 @@ SOIL_GROUPS: dict[str, int] = {
     "Berg": GROUP_BEDROCK,
     # Boulder fields read as rocky ground, not as a plantable or plowable class.
     "Sten--block": GROUP_BEDROCK,
+    # The Västgöta table-mountain diabase caps — hard igneous rock, the rocky
+    # ground family, deliberately NOT the sedimentary/alvar group (the alvar
+    # driver is the limestone below, which SGU maps separately as Sedimentärt
+    # berg). Measured at the Halleberg-plateau (64 polygons) and Träleborg
+    # extents (9d rollout, 2026-08-22).
+    "Fanerozoisk diabas": GROUP_BEDROCK,
+    # Scree below the klint faces — block ground like Sten--block. Measured at
+    # the Halleberg-plateau and Träleborg extents (9d rollout, 2026-08-22).
+    "Talus (rasmassor)": GROUP_BEDROCK,
+    # In-situ frost-shattered bedrock. Measured at the Silverberget extent
+    # (Blekinge, 9d rollout 2026-08-22).
+    "Rösberg": GROUP_BEDROCK,
     # Limestone pavement — the alvar driver; deliberately NOT GROUP_BEDROCK,
     # see the group comment above.
     "Sedimentärt berg": GROUP_SEDIMENTARY,
@@ -444,8 +495,9 @@ _RULES = (
         "{farm_slope:.0f}° is farmland directly — the record attests cultivation, so no "
         "proximity heuristic and no soil test is applied to it. Otherwise, proximity: "
         "all four of: SGU maps a postglacial fine sediment "
-        "(Postglacial lera, Gyttjelera (eller lergyttja), Svämsediment, ler--silt, "
-        "Postglacial sand, silt and finsand) or the margin of a till unit within "
+        "(Postglacial lera — its finlera and grovlera splits included — Gyttjelera "
+        "(eller lergyttja), the Svämsediment and Älvsediment flood sediments, "
+        "Postglacial sand, silt and finsand, and Flygsand) or the margin of a till unit within "
         "{margin:.0f} m of one; "
         "{fresh_clause}the slope is "
         "under {farm_slope:.0f}°; and a registered grave or settlement site — "
@@ -461,7 +513,11 @@ _RULES = (
         None,
         "The remaining fine-grained ground: postglacial sediments that failed the "
         "farmland test — too close to the water line, too steep, or too far from a "
-        "settlement proxy — plus Glacial lera and modern Fyllning (fill). Fyllning "
+        "settlement proxy — plus the glacial fines (Glacial lera, silt and "
+        "grovsilt--finsand), the clays and silts SGU maps without resolving their "
+        "age (Lera, Lera--silt, Silt), which are kept out of the farmland test for "
+        "exactly that reason, shore ground mapped as periodically under water, and "
+        "modern Fyllning (fill, rödfyr spoil included). Fyllning "
         "is a present-day anthropogenic deposit with no Iron Age counterpart; it is "
         "folded in here rather than given a class of its own, and that choice is "
         "disclosed rather than hidden.",
@@ -497,7 +553,8 @@ _RULES = (
         "#2f5233",
         {"type": "conifer", "densityPerHa": 120},
         None,
-        "Everything the rules above leave: exposed bedrock (Urberg), any ground "
+        "Everything the rules above leave: exposed hard bedrock and block ground "
+        "(Urberg, Fanerozoisk diabas, Sten--block, Talus, Rösberg), any ground "
         "steeper than {forest_slope:.0f}°, and any SGU class this rule table does "
         "not name.",
     ),
@@ -558,7 +615,10 @@ _RULES = (
         None,
         None,
         "SGU maps the ground as 'Sedimentärt berg' — on Öland and Gotland the "
-        "limestone pavement of the alvar, carrying centimetres of soil at most. "
+        "limestone pavement of the alvar, carrying centimetres of soil at most; on "
+        "the Västergötland table mountains the Cambro-Silurian ledges below the "
+        "diabase caps, where the same thin-soil condition holds (Kinnekulle's "
+        "Österplana hed is a true mainland alvar). "
         "Ground that cannot hold closed forest is modelled as open grass heath "
         "whatever its slope, klint faces included: bare rock and thin grass, not "
         "wood. The palaeoecological record holds the great alvar grasslands open "
