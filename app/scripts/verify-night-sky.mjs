@@ -37,10 +37,14 @@ const READY_MS = Number(opt('timeout', String(20 * 60 * 1000)));
 const EXECUTABLE = opt('chromium', '/opt/pw-browsers/chromium-1194/chrome-linux/chrome');
 
 // Same proxy note as verify-far-field.mjs: Chromium needs the proxy handed over
-// explicitly, bypassing localhost so the page still comes from the local server.
+// explicitly. Unlike that check, this one is only ever pointed at a local
+// server with local data, so the proxy is skipped entirely for a localhost base
+// — handing it one and relying on the bypass list has been observed to stall
+// the load indefinitely, which looks exactly like a hung app and is not one.
 const PROXY = process.env.HTTPS_PROXY ?? process.env.https_proxy ?? '';
+const LOCAL = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:|\/|$)/.test(BASE);
 const launchOptions = { executablePath: EXECUTABLE };
-if (PROXY) launchOptions.proxy = { server: PROXY, bypass: 'localhost,127.0.0.1,::1' };
+if (PROXY && !LOCAL) launchOptions.proxy = { server: PROXY, bypass: 'localhost,127.0.0.1,::1' };
 
 const browser = await chromium.launch(launchOptions);
 const page = await (await browser.newContext({ viewport: { width: 1280, height: 720 } })).newPage();
@@ -56,7 +60,23 @@ const check = (ok, message) => {
 };
 
 await page.goto(`${BASE}/?site=${SITE}&debug=1`);
-await page.waitForFunction(() => window.__terrainReady === true, null, { timeout: READY_MS });
+
+// Poll rather than wait silently: a software rasterizer can take minutes per
+// site, and a stalled load and a slow one look identical from the outside.
+const started = Date.now();
+let ready = false;
+while (!ready && Date.now() - started < READY_MS) {
+  ready = await page
+    .waitForFunction(() => window.__terrainReady === true, null, { timeout: 30000 })
+    .then(() => true)
+    .catch(() => false);
+  if (!ready) console.error(`${Math.round((Date.now() - started) / 1000)}s waiting for terrain, errors:${errors.length}`);
+}
+if (!ready) {
+  console.log(JSON.stringify({ site: SITE, ok: false, failure: 'terrain never became ready', errors }, null, 2));
+  await browser.close();
+  process.exit(1);
+}
 const starsLoaded = await page
   .waitForFunction(() => window.__app?.sky?.stars?.().loaded === true, null, { timeout: 180000 })
   .then(() => true)
@@ -84,7 +104,15 @@ check(wiring.domeInScene, 'the sky dome is not in the scene');
 check(wiring.renderOrder < -100, 'the sky dome is not drawn first');
 check(wiring.depthTest === false, 'the sky dome depth-tests, and will be clipped by the far plane');
 
-/** Set the clock, and report the sky it produced. */
+/**
+ * Set the clock, and report the sky it produced.
+ *
+ * Every one of these is a round trip that has to wait for a rendered frame, and
+ * a software rasterizer takes seconds over one — so the *searches* below all run
+ * inside a single evaluate rather than stepping the clock from out here. An
+ * earlier version stepped the sunset search from Node in 0.05 h increments and
+ * never finished.
+ */
 const at = (dayOfYear, solarHour) =>
   page.evaluate(
     ({ dayOfYear, solarHour }) => {
@@ -95,6 +123,20 @@ const at = (dayOfYear, solarHour) =>
       return { sun, moon, drawn: window.__app.sky.drawn() };
     },
     { dayOfYear, solarHour },
+  );
+
+/** The first hour of `dayOfYear` at which the sun has dropped to `altitudeDeg`. */
+const hourAtSunAltitude = (dayOfYear, altitudeDeg) =>
+  page.evaluate(
+    ({ dayOfYear, altitudeDeg }) => {
+      for (let hour = 12; hour < 24; hour += 0.02) {
+        window.__app.time.setDayOfYear(dayOfYear);
+        window.__app.time.setSolarHour(hour);
+        if (window.__app.time.sun().apparentAltitudeDeg <= altitudeDeg) return hour;
+      }
+      return null;
+    },
+    { dayOfYear, altitudeDeg },
   );
 
 const aim = (azimuthDeg, pitchDeg) =>
@@ -121,31 +163,28 @@ check(noon.drawn.sunIntensity > 0.99, 'the noon sun disc is not at full intensit
 check(noon.drawn.starFade === 0, 'stars are out at noon');
 await shot('noon', noon.sun);
 
-// 2. Sunset: the disc is on the horizon and fading, and still no stars.
-let sunset = null;
-for (let hour = 19; hour < 24; hour += 0.05) {
-  const state = await at(173, hour);
-  if (state.sun.apparentAltitudeDeg <= 0.5) {
-    sunset = state;
-    break;
-  }
-}
+// 2. Sunset: the disc is on the horizon, fully drawn, and still no stars.
+const sunsetHour = await hourAtSunAltitude(173, 0.5);
+const sunset = sunsetHour === null ? null : await at(173, sunsetHour);
 check(sunset !== null, 'never found sunset on the June solstice');
 if (sunset) {
-  check(sunset.drawn.sunIntensity > 0 && sunset.drawn.sunIntensity < 1, 'the setting sun disc is not partway out');
+  check(sunset.drawn.sunIntensity > 0.99, 'the sun disc is not drawn while the sun is still up');
   check(sunset.drawn.starFade === 0, 'stars are out at sunset');
   await shot('sunset', sunset.sun);
 }
 
-// 3. Civil twilight: a handful of stars, not the whole catalogue.
-let twilight = null;
-for (let hour = 21; hour < 24; hour += 0.05) {
-  const state = await at(173, hour);
-  if (state.sun.apparentAltitudeDeg <= -5) {
-    twilight = state;
-    break;
-  }
+// 2b. Just set. The terrain hides a sun below the horizon on land, but over
+// open water there is nothing there to hide it, so the disc has to go out by
+// itself — a sun hanging over the sea after sunset is the failure this catches.
+const setHour = await hourAtSunAltitude(173, -0.9);
+const justSet = setHour === null ? null : await at(173, setHour);
+if (justSet) {
+  check(justSet.drawn.sunIntensity === 0, 'the sun disc is still drawn after the sun has set');
 }
+
+// 3. Civil twilight: a handful of stars, not the whole catalogue.
+const twilightHour = await hourAtSunAltitude(173, -5);
+const twilight = twilightHour === null ? null : await at(173, twilightHour);
 if (twilight) {
   check(twilight.drawn.sunIntensity === 0, 'the sun disc is still drawn below the horizon');
   check(
