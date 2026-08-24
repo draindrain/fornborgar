@@ -1,11 +1,14 @@
 /**
- * The non-3D chrome: title, loading progress, fatal errors, the persistent
- * exaggeration indicator (PLAN §6.1 requires it whenever exaggeration ≠ 1.0), the
- * first-enable caveat for model/conjecture layers (also §6.1), and the
- * attribution footer rendered straight from `manifest.attribution`.
+ * The non-3D chrome that is left on the default screen: the fort's name, the
+ * fort-browser button, loading progress, and fatal errors.
+ *
+ * Everything else this used to carry — the technical subtitle, the exaggeration
+ * indicator, the camera hint, the attribution footer — moved into the kebab menu
+ * with the 2026-08-23b amendment to PLAN §6.1. The scene is the screen.
+ *
+ * The caveat toast stays, unused outside `?debug=1`: §6.1's first-enable rule
+ * still holds for a layer switched on from the debug panel.
  */
-
-import type { AttributionEntry } from '../state/manifest';
 
 function el<K extends keyof HTMLElementTagNameMap>(
   tag: K,
@@ -22,14 +25,10 @@ export class Hud {
   readonly root: HTMLElement;
 
   private readonly titleEl: HTMLElement;
-  private readonly subtitleEl: HTMLElement;
   private readonly loadingEl: HTMLElement;
   private readonly loadingLabel: HTMLElement;
   private readonly loadingBar: HTMLElement;
-  private readonly exaggerationEl: HTMLElement;
-  private readonly modeHintEl: HTMLElement;
   private readonly caveatEl: HTMLElement;
-  private readonly footerEl: HTMLElement;
   private readonly pickerButton: HTMLButtonElement;
   private readonly caveatsShown = new Set<string>();
   private caveatTimer = 0;
@@ -39,16 +38,12 @@ export class Hud {
 
     const header = el('header', 'hud-header');
     this.titleEl = el('h1', 'hud-title', 'Fornborg Explorer');
-    this.subtitleEl = el('p', 'hud-subtitle', 'Loading site…');
     // Phase 9 §6: only rendered once a site index exists to pick from, so a
     // repo-relative build (two fixtures, nothing to choose) shows no button.
     this.pickerButton = el('button', 'hud-picker-button', 'Browse forts');
     this.pickerButton.type = 'button';
     this.pickerButton.hidden = true;
-    header.append(this.titleEl, this.subtitleEl, this.pickerButton);
-
-    this.exaggerationEl = el('div', 'hud-exaggeration');
-    this.exaggerationEl.hidden = true;
+    header.append(this.titleEl, this.pickerButton);
 
     this.loadingEl = el('div', 'hud-loading');
     this.loadingLabel = el('div', 'hud-loading-label', 'Starting…');
@@ -57,33 +52,15 @@ export class Hud {
     track.append(this.loadingBar);
     this.loadingEl.append(this.loadingLabel, track);
 
-    this.modeHintEl = el('div', 'hud-mode-hint');
-    this.modeHintEl.hidden = true;
-
     this.caveatEl = el('div', 'hud-caveat');
     this.caveatEl.hidden = true;
 
-    this.footerEl = el('footer', 'hud-footer');
-
-    this.root.append(
-      header,
-      this.exaggerationEl,
-      this.loadingEl,
-      this.caveatEl,
-      this.modeHintEl,
-      this.footerEl,
-    );
+    this.root.append(header, this.loadingEl, this.caveatEl);
     parent.append(this.root);
   }
 
-  /** Mount an always-visible action (the methods button) into the header. */
-  mountAction(node: HTMLElement): void {
-    this.root.querySelector('.hud-header')?.append(node);
-  }
-
-  setSite(name: string, subtitle: string): void {
+  setSite(name: string): void {
     this.titleEl.textContent = name;
-    this.subtitleEl.textContent = subtitle;
     document.title = `${name} — Fornborg Explorer`;
   }
 
@@ -100,22 +77,10 @@ export class Hud {
     }, 700);
   }
 
-  setExaggeration(value: number): void {
-    const on = Math.abs(value - 1) > 1e-6;
-    this.exaggerationEl.hidden = !on;
-    this.exaggerationEl.textContent = `terrain ×${Number(value.toFixed(2))}`;
-  }
-
-  /** Camera-mode key hint just above the footer. Empty string hides it. */
   /** Phase 9 §6: reveal the picker toggle, wired to `handler`. */
   setSitePickerToggle(handler: () => void): void {
     this.pickerButton.hidden = false;
     this.pickerButton.addEventListener('click', handler);
-  }
-
-  setModeHint(text: string): void {
-    this.modeHintEl.hidden = text === '';
-    this.modeHintEl.textContent = text;
   }
 
   /**
@@ -148,24 +113,6 @@ export class Hud {
         this.caveatEl.hidden = true;
       }, 600);
     }, 9000);
-  }
-
-  setAttribution(entries: AttributionEntry[]): void {
-    this.footerEl.replaceChildren();
-    for (const entry of entries) {
-      const item = el('span', 'hud-attribution');
-      if (entry.url) {
-        const a = el('a');
-        a.href = entry.url;
-        a.target = '_blank';
-        a.rel = 'noopener noreferrer';
-        a.textContent = entry.text;
-        item.append(a);
-      } else {
-        item.textContent = entry.text;
-      }
-      this.footerEl.append(item);
-    }
   }
 
   showError(error: unknown): void {
