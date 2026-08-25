@@ -424,7 +424,7 @@ sheen that had no idea what the sky was doing.)*
   five headless configurations in `scripts/verify-night-sky.mjs` with no console error.
   Full detail in `docs/night-sky.md`.
 
-### Phase 12 — Reconstruction mode — research complete 2026-08-24, implementation not started
+### Phase 12 — Reconstruction mode — research complete 2026-08-25, implementation not started
 
 A second overlay mode: instead of drawing registered sites as flat cartographic markers
 coloured by `lamningstyp`, draw the monuments **as they may have looked when in use**.
@@ -442,13 +442,21 @@ Research, categorisation and the full per-type specification live in
   grave fields state their own monument count and class composition. Reconstruction is
   mostly *sampling measured parameters*, not inventing them.
 - **Every KMR number is a ruin measurement**, and the document's core is three stated,
-  reversible ruin→original transforms: rampart re-profiling by cross-section conservation
-  (§5.1), kerb-gated mound re-profiling (§5.2), and robbing-pit fill (§5.3). The rampart
-  transform bounds Broborg's inner wall at 2.3–3.5 m of stone rather than pinning a number,
-  and the sensitivity table is published with it.
-- **A §7 worked example** builds Broborg specifically: cross-section, entrances, the
+  reversible ruin→original transforms: rampart height from the standing wall plus its debris
+  apron (§5.1), kerb-gated mound re-profiling (§5.2), and robbing-pit fill (§5.3). The
+  rampart transform is anchored on excavated numbers — Broborg's wall still stands ~2 m at a
+  measured 4–6 m thickness — and bounds the original at **2.1–3.4 m**, with the parameter
+  table published alongside.
+- **A §7 worked example** builds Broborg specifically from the excavation literature
+  (Kresten et al. 1993; Sjöblom et al. 2022): a measured cross-section, entrances, the
   vitrified band on the inner face, superstructure states, interior treatment, and the
-  instancing budget.
+  instancing budget. Two findings reshape it — timber lacing has no positive evidence at
+  Broborg, and a settlement layer inside the fort is radiocarbon dated to AD 432–542.
+- **Not every registered `Fornborg` is a Migration Period fort** (§6.A.1). Uppland registers
+  181 and a field survey judges ~30 to be Middle Iron Age, so roughly four in five of the
+  registry's 1 304 would render falsely at 500 CE. Olausson's discriminating criteria are
+  mostly parseable from the KMR description; the document specs a `fortConfidence` from them
+  and calls it blocking for national scope.
 - **Provenance maps onto §6.1 with no new badge** — Measured / Derived→Model /
   Assumed→Conjecture — with the rule that one monument carries *different badges per part*
   (a mound is measured in plan, model in profile, conjecture in surface).

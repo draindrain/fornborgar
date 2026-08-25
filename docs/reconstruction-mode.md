@@ -216,51 +216,57 @@ a **mound at 11.3° is unambiguously a slumped mound**, and a cairn at 9.7° is 
 So the reconstruction needs an explicit, stated, per-archetype **ruin → original**
 transform. Three are needed.
 
-### 5.1 Transform 1 — rampart re-profiling by cross-section conservation
+### 5.1 Transform 1 — rampart height, anchored on the standing wall
 
-The method is to conserve the wall's cross-sectional area: today's wide, low rubble spread
-is yesterday's narrow, tall wall lying down. It is the reasoning behind the widely quoted
-~4.8 m estimate for Eketorp's wall — a figure whose provenance is weaker than its
-circulation suggests (§6.A), so lean on the *method* here, not on that number.
+**This section was rewritten after reading the excavation literature, and the method
+changed.** The first draft back-calculated a height from the full collapse spread, and got
+a useless answer: 1.0–6.1 m across the plausible parameter box. The problem was that it
+treated the rampart as a heap of unknown original shape. It is not. At Broborg the wall's
+own dimensions are published.
+
+Kresten, Kero & Chyssler (1993) state it directly: *"The remaining parts of the dry-stone
+wall are all about **2 m high**, with an estimated **thickness of 4–6 m**."* Both ramparts
+are dry-stone walls built of glacial-drift boulders, and — importantly — *"socket-beams or
+other timber constructions are apparently lacking."*
+
+That converts the problem. The wall is not an unknown shape to be inferred; it is a
+4–6 m thick dry-stone wall **still standing 2 m high**, plus however much has fallen off the
+top into an apron either side. So:
 
 ```
-A_now  = α · W_now · H_now            α ≈ 0.5 (triangular spread) … 0.6 (rounded)
-A_orig = A_now · p                    p  ≈ 0.85 (a built wall packs denser than its rubble)
-h_orig = A_orig / ((w_base + w_crest) / 2)
+h_orig  =  h_standing  +  Δh
+Δh      =  (A_apron · p) / t_wall
+A_apron =  (W_spread − t_wall) · d_apron
 ```
 
-Applied across Broborg's inner rampart as recorded — 8–15 m wide, 1–2 m high — with base
-widths 3–4 m and crest widths 2–2.5 m:
+with `h_standing = 2.0 m` and `t_wall = 4–6 m` **measured**, `W_spread = 8–15 m` from the
+KMR record, `d_apron` the mean depth of the fallen debris (0.3–0.6 m), and `p = 0.85` for
+the packing difference between built wall and rubble.
 
-| W_now | H_now | α | w_base | w_crest | **h_orig** |
-|---:|---:|---:|---:|---:|---:|
-| 8.0 | 1.0 | 0.50 | 4.0 | 2.5 | 1.05 m |
-| 8.0 | 1.0 | 0.60 | 3.0 | 2.0 | 1.63 m |
-| 11.5 | 1.5 | 0.50 | 4.0 | 2.5 | 2.26 m |
-| 11.5 | 1.5 | 0.50 | 3.0 | 2.0 | **2.93 m** |
-| 11.5 | 1.5 | 0.60 | 3.0 | 2.0 | 3.52 m |
-| 15.0 | 2.0 | 0.50 | 4.0 | 2.5 | 3.92 m |
-| 15.0 | 2.0 | 0.60 | 3.0 | 2.0 | 6.12 m |
+| W_spread | t_wall | apron | d_apron | A_apron | Δh | **h_orig** |
+|---:|---:|---:|---:|---:|---:|---:|
+| 8.0 | 6.0 | 2.0 | 0.30 | 0.60 | 0.09 | 2.08 m |
+| 8.0 | 4.0 | 4.0 | 0.30 | 1.20 | 0.26 | 2.25 m |
+| 11.5 | 5.0 | 6.5 | 0.45 | 2.93 | 0.50 | **2.50 m** |
+| 15.0 | 6.0 | 9.0 | 0.60 | 5.40 | 0.77 | 2.77 m |
+| 15.0 | 4.0 | 11.0 | 0.60 | 6.60 | 1.40 | 3.40 m |
 
-**A prior warning about the input.** The transform needs `W_now` and `H_now` measured over
-the *same* cross-section, and the published figures for Broborg are not: KMR says the inner
-rampart is 8–15 m wide, while the Mälardalen fort survey measures the wall at "widest
-5 metres" and the geological literature at 4–6 m thick (§7.1). Those describe different
-things — the full outward collapse spread versus the surviving wall body — and the 2 m
-height belongs to the wall body, not to an average over a 15 m spread. Feeding the survey's
-5 m through the same formula gives **h_orig ≈ 1.7 m**; feeding KMR's mid-range 11.5 m gives
-**≈ 2.9 m**. Until someone measures a real section, both stay on the table.
+Across the whole parameter box the answer now spans **2.08–3.40 m**, with the central 80 %
+at **2.15–3.02 m** and a median of **2.5 m**. That is a usable default with an honest band,
+and it is far better constrained than the first draft's estimate because most of it is not
+estimated at all — 2 m of it is simply *there*.
 
-**Read this table as the honest result, not as a failure.** Across the plausible parameter
-box the answer spans 1.0–6.1 m, so the method *cannot pin a height*. What it does do is
-bound it: under every reading above, Broborg's inner wall stood somewhere around
-**1.7–3.5 m** of stone. That is independently consistent with two things the
-record and the literature already say — that `kallmurning` survives *in place* to 1 m on
-the inner wall and 1.5 m on the outer, and that Uppland ramparts are generally read as
-stone bases that carried some further timber construction.
+**Why the two published widths are no longer a contradiction.** KMR's "8–15 m br" is the
+spread; Kresten's 4–6 m is the wall; the Mälardalen survey's "widest 5 m" is the same wall.
+The transform above consumes both without having to choose: the wall thickness sets the
+divisor and the spread sets the apron. The first draft flagged this as the document's most
+consequential ambiguity. It is resolved.
 
-The design consequence: **wall height is a slider with a data-derived default and a
-visible range**, never a single confident number.
+**Where this does *not* transfer.** Every number above except `W_spread` comes from Broborg
+specifically. A registry fort whose description gives only a bank width and height has no
+measured wall thickness, and there the method degrades to the first draft's weak version.
+Treat `t_wall` as required input: without it, report a range and say so, or fall back to
+the standing height alone as a lower bound.
 
 ### 5.2 Transform 2 — mound re-profiling, gated on the kerb
 
@@ -367,9 +373,11 @@ buildings.
 
 **Recipe.**
 1. Take the measured crest polyline (`rampart.json`).
-2. Sweep a wall cross-section along it: outer face battered 5–10° from vertical, crest
-   width `w_crest`, inner face merging into a backing bank at the repose angle.
-3. Height from §5.1, defaulting to the mid-range solution, exposed as a slider.
+2. Sweep a wall cross-section along it: a dry-stone wall of thickness `t_wall`, outer face
+   battered 5–10° from vertical, inner face merging into a soil-covered backing bank. At
+   Broborg `t_wall` is a measured 4–6 m (§7.2); elsewhere it is an assumption.
+3. Height from §5.1 — standing height plus the debris-apron increment — exposed as a slider
+   with the band shown.
 4. Skin the outer face with instanced stone: blocks sampled from the record's own stone
    range (`0,3–1 m` at Broborg; corpus median range 0.2–0.4 m), seeded per site so it is
    reproducible, laid in courses that follow the batter.
@@ -379,18 +387,21 @@ buildings.
    two wall ends rather than passing straight through (Olausson 1995:143ff). Support it in
    the archetype and switch it on where the crest line's own geometry shows the overlap.
 6. Optional timber superstructure — **off by default and badged conjectural**, reusing the
-   existing `palisade.ts` line and material.
+   existing `palisade.ts` line and material. **Place posts along the *outside* face of the
+   rampart**, not on or behind the crest: that is where known standing palisades sit
+   (Büchsenschütz & Ralston 1981). The first draft of this document had them on the crest,
+   which the literature does not support.
 
 | Parameter | Value / default | Tier |
 |---|---|---|
 | Crest line | `rampart.json`, DEM ridge extraction | Measured |
 | Rampart length, width, height (present) | Parsed from description | Measured |
 | Stone calibre | Parsed (`0,3-1 m st`); fallback 0.2–0.4 m | Measured / Assumed |
-| Original wall height | §5.1, mid-range default | **Derived** |
+| Wall thickness | Measured where published (Broborg 4–6 m); else assumed | Measured / Assumed |
+| Original wall height | §5.1: standing height + apron increment | **Derived** |
 | Outer face batter | 5–10° | Assumed |
-| Crest width | 2.0–2.5 m | Assumed |
 | Entrance positions & widths | Parsed from description | Measured |
-| Timber superstructure | Off by default; 3 m posts, 0.4 m spacing | **Assumed** |
+| Timber superstructure | Off by default; 3 m posts, 0.4 m spacing, **on the outer face** | **Assumed** |
 | Stone colour | Local bedrock class from SGU | Derived |
 
 **Confidence: the line is measured, the height is bounded, the top is a guess.**
@@ -477,6 +488,16 @@ inside that ring. Early Iron Age examples show real formal variety: round and re
 plans, large centre stones, and *deliberately contrasting stone material within a single
 grave*. Excavators consistently note the care taken: the graves are close to perfectly
 circular and the stones were selected, not gathered at random.
+
+**Period-specific, for Broborg's own century.** In Migration Period Uppland the rite is
+cremation in *round stone settings* over urn graves or other bone containers, with burnt
+layers and burnt-fill pits; mounds and cairns occur alongside. Inhumation appears especially
+in chamber graves under cairns or mounds — and in Uppland specifically, inhumation dominates
+Mälardalen and is **most common from the end of the 400s into the early 500s** (Ljungkvist
+2011, 139), which is exactly the fort's window. Two dating notes for the sampler: `Grav
+markerad av sten/block` is the *mittblocksgrav*, a Bronze Age to Early Iron Age form; and an
+excavated Uppland grave field at Fullerö had 26 stone settings ranging **1.2–5.7 m** across,
+which is a useful independent check on the size ranges parsed from KMR.
 
 **What it looked like.** A flat, pale disc of close-packed stone laid deliberately into
 the ground surface — much more like a paved floor than a mound. The kerb of larger, chosen
@@ -639,6 +660,25 @@ wrong:
   data from a 1st-century-BC house sample cannot be used uncritically for a 5th-century
   house — which is exactly the house this app needs.
 
+The Uppsala county research overview gives the same distinction in **metres**, for
+Mälardalen, following Göthberg (2000) — which makes it directly implementable:
+
+| Type | Central aisle | Width |
+|---|---|---|
+| *balanserad* | ~50 % of house breadth | 2.3–4.4 m |
+| *överbalanserad* | > 50 % | — |
+| ***underbalanserad*** | **~40 %** | **1.3–2.8 m** |
+
+The *underbalanserad* form begins in the Roman Iron Age and spreads through it, so a
+5th-century Uppland house should be built underbalanced: **central aisle ~40 % of breadth,
+1.3–2.8 m.** Two gable types come in with it — two heavy corner posts (sometimes with a
+middle post), or four posts of which two form a trestle pair (Göthberg 2000, 48). Bay length
+reads as function: short bays are byre or store, long bays are the dwelling. Unusually long
+houses of **35–45 m** are known from the Late Roman Iron Age around Uppsala, sited low
+toward wet meadows; Fagerlund (2007) reads them as cattle-and-hay satellite farms rather
+than high-status halls. Since the E4 project, markedly large and deep post-holes are
+increasingly read as evidence of an **upper storey**.
+
 Trestle spacing is not uniform along the building: it is regular and close in the byre and
 more varied in the dwelling end, with a large span across the hearth area.
 
@@ -673,7 +713,7 @@ workshop, and beyond them a fence and the fields.
 | Building count, position, orientation | Yard layout heuristic | **Assumed** |
 | Longhouse length | 20–40 m (default 30 m) | Assumed |
 | Longhouse width | 6–8 m (default 7 m) | Assumed |
-| Central aisle width | **< 50 % of house breadth** (period-specific, 3rd–8th c.) | **Derived** (literature) |
+| Central aisle width | **~40 % of breadth, 1.3–2.8 m** (*underbalanserad*, Mälardalen) | **Derived** (literature) |
 | Wall height | ≥ 1.0 m, load-bearing | **Derived** (literature) |
 | Roof form | **Hipped**, smoke vent at the top of each hip | **Derived** (literature) |
 | Hip pitch | ≥ long-side pitch, never lower | **Derived** (literature) |
@@ -787,122 +827,181 @@ either the KMR record quoted in §3.2, the DEM, or the cited literature.
 
 ### 7.1 What Broborg is
 
-A Migration Period hillfort ~20 km southeast of Uppsala, and one of a small number of
-**vitrified** forts in Sweden — which makes it one of the best-studied forts in the country
-and gives this site an evidence base almost no other fort in the registry has.
+A Migration Period hillfort ~20 km east-southeast of Uppsala, on top of an isolated hill
+rising **about 40 m above the surrounding plains**, overlooking the river Storån. It is one
+of only three Swedish forts that are vitrified *sensu stricto* (with Kollerborg and
+Norsborg), which is why it carries an evidence base almost no other fort in the registry has.
 
-- **Plan:** 95 × 85 m (NÖ–SV), an inner and an outer rampart; described in the geological
-  literature as half-moon shaped, because the north and west sides are steep slopes that
-  are left unwalled.
-- **Inner rampart:** ~300 m long, 8–15 m wide, 1–2 m high as it survives, of stones
-  generally 0.3–1 m with occasional larger. Inner face reinforced with earth. Dry-stone
-  facing (`kallmurning`) survives in places to 1 m. Entrances 3–5 m wide at VNV and ÖSÖ.
-  **Collapsed outward.**
-- **Outer rampart:** ~140 m long, 7–10 m wide, 0.5–1.5 m high; same stone; `kallmurning` to
-  1.5 m in places; entrances 3–5 m wide at ÖSÖ and NNÖ. **Collapsed both ways.**
-- **Wall width — two incompatible published figures, and it matters.** KMR gives the inner
-  rampart as **8–15 m** wide; the Mälardalen fort survey measures Broborg's walls at
-  **"highest wall height 2 metres, widest 5 metres"**, and the geological literature calls
-  the ramparts **4–6 m thick**. The 5 m and the 4–6 m agree with each other and describe the
-  *wall body*; KMR's 8–15 m is almost certainly the full spread of a rampart the same record
-  says is *"raserad utåt"* — collapsed outward — including the earth-backed inner bank. See
-  §5.1 for what this does to the height estimate. It is the single most consequential
-  ambiguity in this document.
-- **Interior:** described by KMR as cleared surfaces among coarse-blocky moraine and exposed
-  bedrock, with a possible stone setting on the central crown, round, 7 m diameter, 0.4 m
-  high. **What that interior stone means is contested** — see §7.5.
-- **Materials:** granitic gneiss and amphibolite; a fine-grained basaltic dyke on the hill
-  is a candidate source of the mafic material.
-- **Vitrification:** along the **inner face**, a zone 100–150 cm wide and 40–70 cm deep of
-  amphibolite melt penetrating and cementing blocks of gneissic granite, running around
-  almost the entire circumference of the inner rampart **except at the entrance**. Requires
-  ~1130 °C at low oxygen fugacity. Box-like structures ~2 m long suggest the wall was
-  vitrified in sections.
-- **Dating:** archaeomagnetic analysis gives three possible intervals, of which
-  **389–579 CE** is the one consistent with the published radiocarbon dates.
-- **Live debate — render both, claim neither.** Whether the vitrification was *deliberate*
-  (a constructive technique using forced draught in a confined space, per Sjöblom et al.)
-  or the *by-product of the fort being burned down* is unresolved and actively contested in
-  print. The reconstruction must not silently pick a side: a fort with a deliberately
-  vitrified wall is a fort that looked like that while in use; a fort vitrified in its
-  destruction looked like ordinary dry stone until the day it burned.
+**Setting.** Storån was part of **Långhundraleden**, the waterway linking the Uppsala region
+to the Baltic, passing Broborg at the border between the ancient territories Attundaland and
+Tiundaland. Kresten dates it navigable *until about 400–500 CE* — that is, the waterway went
+out of use across the fort's own lifetime. For this app that is not trivia: the shoreline
+slider and the fort's reason for existing are the same variable.
+
+**Fabric and dimensions** (Kresten, Kero & Chyssler 1993 unless noted):
+
+| | |
+|---|---|
+| Plan | 95 × 85 m; complete inner rampart, crescent-shaped outer rampart to the SE, entrance there |
+| Form | Half-moon; N and W sides are steep slopes, left unwalled |
+| Wall type | **Dry-stone, both ramparts**, built of glacial-drift boulders |
+| Standing height | **~2 m**, all remaining parts |
+| Wall thickness | **4–6 m (estimated)** |
+| Inner wall circumference | **~200 m** (Sjöblom et al. 2022) — note KMR says "ca 300 m l" |
+| Inner face | Built of **larger, equidimensional blocks, 40–60 cm**, gneissic granite |
+| Inner face & top | **Soil-covered** — matching KMR's *"insidan av muren är förstärkt med jord"* |
+| Timber in the wall | **"Socket-beams or other timber constructions are apparently lacking"** |
+| Bedrock | Gneissic granite core under 5 m of moraine (NNW) to 10–30 m (SSE) |
+| Entrances | 3–5 m wide; KMR places them VNV/ÖSÖ (inner) and ÖSÖ/NNÖ (outer) |
+
+**Building stone.** Kresten counted 1 972 boulders and classified them: **s ≤ 20 cm,
+m 20–50 cm, l 50–100 cm, vl > 100 cm** (the last exceeding 2.5 t and not humanly movable).
+Small boulders dominate the inner rampart. Within 5–20 m of the fort the ground is
+measurably **depleted** of small and medium gneissic granite compared with background
+250 m away — they picked the hilltop clean to build it. Reconstruction should show that:
+bare, stone-poor ground immediately outside the wall.
+
+**Vitrification.** A cake along the **inner face** of the inner rampart, **1–1.5 m wide**
+and **0.4–0.7 m deep** (reported variously as 0.3 m, 0.7 m, and 0.2 m at the edges rising to
+0.8 m in the middle), running **~150 m of the ~200 m circumference**, with the notable
+exception of the entrance. Molten amphibolite penetrating and cementing fire-cracked
+gneissic granite; ~1130 °C at low oxygen fugacity; charcoal rather than wood as the fuel.
+The vitrified mass forms a solid roof over frequent **hollow spaces** left by the
+disintegrating fire-cracked granite beneath it. Between the outer edge of the vitrified mass
+and the outer dry-stone face lie **2–4 m of unvitrified wall**, showing dry-stone setting
+where preserved. The vitrified surface is **quite flat**, and the wall there resolves into
+a series of **box-like structures ~1–2 m long**, suggesting it was vitrified in sections.
+
+**Dating.**
+
+- Charcoal from a 0.5 m deep hole just inside the inner wall, with evidence it **held a
+  wooden pole**: ¹⁴C **AD 430–660** (1σ), 340–780 (2σ) (Fagerlund 2009).
+- A **settlement layer inside the fort**, lying on top of the wall's weathering residue:
+  ¹⁴C **AD 432–542** (1σ) (Englund 2018).
+- A glass bead from inside the fort, of the period **400–575 CE** (Löfstrand 1983).
+- Archaeomagnetic analysis gives three candidate intervals, of which **389–579 CE** is the
+  one consistent with the radiocarbon dates.
+- A TL date of 740 ± 100 AD on burnt stones just below the vitrified layer (Mejdahl 1983)
+  sits awkwardly with the rest and should be mentioned, not quietly dropped.
+
+**The live debate — render both, claim neither.** Sjöblom et al. (2022) argue the
+vitrification was **intentional and constructive**, on seven grounds: amphibolite was
+selectively enriched to roughly 50:50 with granite; the amphibolite has **sharp cut edges**
+where nearly everything else on the hill is glacially rounded, so it was *hewn*; charcoal
+imprints have straight terminations, implying charcoal prepared in advance; the box-like
+sections are arranged along 150 m of wall; and cultural layers of human occupation lie *on
+top of* the vitrification residue, which a destruction event would not allow. Bornfalk Back
+(2023) contests the reading, and the exchange continued in print. The reconstruction must
+not silently pick a side: under the constructive reading the fort looked vitrified while in
+use; under the destruction reading it was ordinary dry stone until the day it burned.
 
 ### 7.2 Rampart cross-section
 
-Sweep this along the measured crest polyline. Dimensions in metres.
+Sweep this along the measured crest polyline. Dimensions in metres, and — unusually for this
+document — most of them are measured rather than assumed.
 
 ```
-              w_crest = 2.0–2.5
-                 ├────────┤
-                 ┌────────┐            ← crest walk, packed rubble and earth
-                /│        │
-   outer face  / │        │╲           ← 5–10° batter, dry-laid faced stone
-  (dry-stone) /  │  core  │ ╲          ← rubble core, 0.3–1 m stone
-             /   │        │  ╲___      ← inner backing bank, earth + stone, ~33°
-   ─────────/────┴────────┴──────╲───  ← ground (DEM surface)
-            ├──── w_base ────┤
-              3.0–4.0                     h_orig = 2.3–3.5 (default 2.9)
+                        soil cover over inner face and top
+                    ╭─────────────────────────────╮
+                    │                             ▓▓▓▓▓  ← vitrified cake
+   outer face       │                             ▓▓▓▓▓     1.0–1.5 wide
+   dry-stone,      ╱│                             ▓▓▓▓▓     0.4–0.7 deep
+   glacial        ╱ │        rubble core          ├────┤    (inner face only,
+   boulders,     ╱  │   (small boulders dominant) │####│     ~150 m of 200 m,
+   battered     ╱   │                             │####│     never at the entrance)
+   5–10°       ╱    │                             │    │  ← hollow voids under
+              ╱     │←──── 2–4 m unvitrified ────→│    │     the vitrified roof
+  ───────────╱──────┴─────────────────────────────┴────┴───  ground (DEM)
+             ├────────────── t = 4–6 m ──────────────────┤
+                                                    inner face: 40–60 cm blocks
+
+   h_standing = 2.0 (observed)          h_orig = 2.1–3.4, default 2.5  (§5.1)
 ```
 
-- **Outer face**: the only truly built face. Instanced blocks from the record's `0,3–1 m`
-  range, laid in rough courses following the batter, seeded per site.
-- **Core**: not visible; model as solid, skinned only where the section is cut at entrances.
-- **Inner backing**: `"Insidan av muren är förstärkt med jord"` — earth and stone rising at
-  the repose angle, so from inside the fort the wall reads as a broad bank, not a wall.
-- **Vitrified band**: a 1.0–1.5 m wide strip on the **inner face**, distinct material —
-  dark, glassy, slag-like, individual stones welded into a fused mass, colour from dark
-  grey-green to near-black with a wet sheen where fully vitrified and merely reddened and
-  calcined where partial. Omit it at the entrance, as the archaeology does.
+Notes that change the render:
+
+- **The outer face is the built face.** Small boulders dominate the inner rampart's fabric,
+  so the outer skin reads as tightly packed small-to-medium stone, not cyclopean blocks.
+- **The inner face is the coarse one** — 40–60 cm equidimensional blocks — and it is the
+  face the vitrified cake sits against.
+- **Soil over the inner face and top.** This is both what KMR records and what Sjöblom's
+  furnace argument requires (the soil provided the confined space). So from inside the fort
+  the wall reads as a turfed, soil-covered bank; the naked stone shows on the *outside*.
+- The vitrified band is therefore **only visible from inside**, at the top of the inner
+  face — dark, glassy, slag-like, individual stones welded into a fused mass, with the
+  hewn-edged amphibolite distinguishable against rounded granite.
 
 ### 7.3 Entrances
 
-Four, 3–5 m wide, at VNV and ÖSÖ (inner) and ÖSÖ and NNÖ (outer). Square the wall ends into
-built cheeks and expose the full built section — the entrance is the one place a visitor
-can see how the wall is made. No gate structure: nothing at Broborg evidences one, so
-leaving the gap empty is the honest choice.
+The entrance is in the SE, where the outer rampart is. KMR gives 3–5 m widths and places
+inner entrances at VNV and ÖSÖ, outer at ÖSÖ and NNÖ. Square the wall ends into built
+cheeks and expose the full section — the entrance is the one place a visitor can see how the
+wall is made, and it is also the one place with **no vitrification**, which is worth making
+legible.
 
-### 7.4 Superstructure — the one big unknown
+Kresten reads the outer rampart as a deliberate reinforcement of the entrance: an enemy
+storming the fort would target the gate, *"probably closed by wooden constructions"*. That
+is the one place a gate structure has published support, and even there it is an inference,
+not a find. Middle Iron Age forts elsewhere often carry an **`utskott`** — an extra length of
+wall overlapping the gap so the approach is funnelled between two wall ends (Olausson
+1995:143ff); support it in the archetype and enable it where the crest geometry shows it.
 
-Off by default, badged conjectural, reusing the existing `palisade.ts` line and ghosted
-material. When on, offer the three published possibilities as named states rather than one
-"reconstruction": **(a)** bare stone wall, no superstructure; **(b)** a palisade of posts
-set on or behind the crest; **(c)** a timber breastwork / laced framework. Option (c) has a
-specific tie-in here: burnt timber lacing leaves glassy tunnels through a wall core, and
-Broborg's vitrification is exactly the phenomenon that debate turns on.
+### 7.4 Superstructure — the one big unknown, but now a constrained one
 
-### 7.5 Interior — occupied, but nobody agrees what the stone is
+The first draft treated the timber superstructure as wide open. The literature narrows it in
+two useful ways, and both cut against the most picturesque option.
 
-This was originally written as "do not populate it with buildings." That was wrong, and the
-correction is worth stating plainly.
+1. **No timber lacing in the wall.** Kresten is explicit: socket-beams and other timber
+   constructions are *apparently lacking* at Broborg. A `murus gallicus`-style laced rampart
+   — which is what the destruction model of vitrification usually requires — has no positive
+   evidence here. Keep it as a state, but label it the weakest of the three.
+2. **If there was a palisade, it stood on the OUTSIDE face.** Known standing palisades are
+   placed along the outside face of ramparts (Büchsenschütz & Ralston 1981), and Kresten uses
+   exactly this to argue against the destruction model: a palisade burning on the outside
+   cannot vitrify the inner face. This is a concrete placement rule and it replaces the first
+   draft's "posts set on or behind the crest" — which was wrong.
 
-**Occupation is evidenced.** Test pits dug on the fort interior in 1982–83 found charcoal,
-burnt clay, burnt and unburnt bone (food waste) and pottery — a domestic assemblage. Only
-one post-hole was found and it lay against the wall, so no house plan was recovered. The
-excavation report from that campaign is lost; the work survives as a summary (Fagerlund
-2009).
+There is one positive trace of timber: the 0.5 m deep hole **just inside** the inner wall
+that held a wooden pole, ¹⁴C AD 430–660. One pole is not a palisade, and it is inside, not
+outside. Show it as what it is.
 
-**What the interior stone means is contested, and the two readings look completely
-different in 3D.** There is a good deal of loose stone on the fort plateau. Olausson
-(1997:110) read it as the remains of buildings and published a sketch of the settlement;
-others (e.g. Bornfalk Back 2023) read the same stone as cleared surfaces — ground picked
-clear of stone, with the stone heaped at the margins. The Mälardalen fort survey lists
-Broborg among the Uppland forts that *may* have house terraces, with an explicit
+Offer three named states rather than one "reconstruction", all off by default and badged
+conjectural, reusing `palisade.ts`'s line and ghosted material:
+
+- **(a) Bare stone wall, no superstructure** — the default, and the one the excavated
+  evidence most nearly supports.
+- **(b) External palisade** — posts along the outside face, per the placement rule above.
+- **(c) Timber-laced / breastwork** — flagged as having no positive evidence at this site.
+
+### 7.5 Interior — occupied, and now dated
+
+This was originally written as "do not populate it with buildings." That was wrong twice
+over, and the excavation literature settles the first half of it.
+
+**Occupation is not merely evidenced, it is dated.** The 1982–83 test pits found charcoal,
+burnt clay, burnt and unburnt bone (food waste) and pottery. The 2017 excavation went
+further: a **settlement layer inside the fort**, superimposed on the residue of the wall's
+own weathering, radiocarbon dated to **AD 432–542**. A glass bead of 400–575 CE came from
+inside the fort. People were up there, in the fort's own century.
+
+**What the interior *stone* means is still contested, and the two readings look completely
+different in 3D.** Olausson (1997:110) read the loose stone on the plateau as building
+remains and published a sketch of the settlement; Bornfalk Back (2023) reads the same stone
+as cleared surfaces — ground picked clear, stone heaped at the margins. The Mälardalen
+survey lists Broborg among Uppland forts that *may* have house terraces, with an explicit
 "eventuellt". For context: 5–6 of Uppland's ~30 Middle Iron Age forts have house terraces
-inside or immediately beside them, and just over one in five is a *boplatsborg* — a fort
-people lived in.
+inside or beside them, and just over one in five is a *boplatsborg*.
 
-**Render it as a two-state selector, exactly like the vitrification question in §7.4:**
+**Render it as a two-state selector, exactly like §7.4's vitrification question:**
 
 - **"Cleared surfaces"** — exposed bedrock and coarse blocks from the DEM and the SGU soil
-  class, with walked-flat, stone-picked patches where the KMR description places them.
-- **"Settlement"** — the same ground plus house terraces and archetype-H buildings on them,
-  following Olausson's published sketch for placement rather than free invention.
+  class, with walked-flat, stone-picked patches where KMR places them.
+- **"Settlement"** — the same ground plus house terraces and archetype-H buildings, following
+  Olausson's published sketch for placement rather than free invention.
 
-Both states carry the finds evidence, so neither is "the empty option": people were living
-or gathering up there under either reading. Default to "cleared surfaces" as the more
-conservative geometry, and never show the settlement state without the caveat.
-
-The single possible stone setting on the crown renders as archetype C in both states.
+Neither is "the empty option": the dated cultural layer holds under both. Default to
+"cleared surfaces" as the more conservative geometry. The possible stone setting on the
+crown renders as archetype C in both states.
 
 ### 7.6 Scene budget
 
@@ -1068,10 +1167,21 @@ or be skipped rather than guessed.
 7. **Which Broborg interior state is the default (§7.5)?** Recommendation: "cleared
    surfaces", as the more conservative geometry, with "settlement" one click away and
    Olausson's sketch cited on it.
-8. **Do we need a section measured through a rampart?** Both §5.1's biggest uncertainty and
-   §7.1's width contradiction would collapse if one real cross-section were measured off the
-   1 m LiDAR — which the pipeline can already do. This may be the single highest-value piece
-   of new work available, and it needs no fieldwork.
+8. ~~**Do we need a section measured through a rampart?**~~ **Answered — and better than
+   hoped.** Two excavated cross-sections through Broborg's inner wall are published as
+   drawings (Sjöblom et al. 2022, Figs. 5a/5b; the same sections as Englund 2018, Figs. 9–10),
+   from the October 2017 excavation. §5.1 and §7.2 are now built on the published wall
+   thickness rather than on inference. Remaining action: obtain Englund 2018 in full for the
+   layer detail behind those figures — it is an Upplandsmuseet report and should be findable
+   through Arkivsök.
+9. **Which dating do we show for the fort?** The radiocarbon, archaeomagnetic and bead dates
+   converge on roughly 430–580 CE, but a TL date of 740 ± 100 AD on burnt stone beneath the
+   vitrified layer does not fit. Recommendation: drive the app from the converged range and
+   disclose the outlier in the methods panel rather than dropping it.
+10. **Do we model Långhundraleden as navigable?** Kresten has the waterway navigable until
+   ~400–500 CE, i.e. it silts and lifts out of use across the fort's own lifetime. The app
+   already has a shoreline slider, so this is reachable — and it is arguably the fort's whole
+   reason for being where it is.
 
 ---
 
@@ -1105,9 +1215,27 @@ Hillforts, and Broborg specifically:
 - Kaj Borg (ed.), *Eketorp: fortification and settlement on Öland/Sweden. The monument*
   (Royal Acad. of Letters, History and Antiquities, 1976) — the Eketorp excavation
   monograph. **Not consulted**; it is where the wall-height question should be settled.
-- Kresten et al., *Geology of the vitrified hill-fort Broborg in Uppland, Sweden* — rampart
-  dimensions, lithology, the vitrified zone.
+- **Peter Kresten, Leif Kero & Jan Chyssler, "Geology of the vitrified hill-fort Broborg in
+  Uppland, Sweden", *Geologiska Föreningens i Stockholm Förhandlingar* 115:1 (1993), 13–24.**
+  Read in full. The primary source for §7.1 and §7.2: dry-stone construction of both
+  ramparts, ~2 m standing height and 4–6 m estimated thickness, absence of socket-beams,
+  40–60 cm inner-face blocks, the boulder-size classification and depletion survey, the
+  2–4 m unvitrified zone, the soil-covered inner face and top, palisade placement on the
+  outer face, and the constructive-vitrification argument.
   https://www.broborg.org/0_auxiliary/Geology_of_the_vitrified_hill_%20fort_%20Broborg_etc.pdf
+- **Rolf Sjöblom et al., "Assessment of the reason for the vitrification of a wall at a
+  hillfort. The example of Broborg in Sweden", *J. Archaeological Science: Reports* 43
+  (2022), 103459.** Read in full (open access via OSTI). Source for the ~200 m inner-wall
+  circumference, the ~150 m vitrified run, the excavated cross-sections (Figs. 5a/5b), the
+  dated settlement layer (AD 432–542), the pole-hole date (AD 430–660), and the seven-point
+  case for intentional vitrification. https://www.osti.gov/pages/biblio/1869778
+- Secondary Broborg literature cited by the above, for follow-up: **Löfstrand 1982/1983**
+  (first excavation); **Englund 2018a/b**, *Broborg fornborg / Broborg hillfort: a research
+  study of the vitrified wall*, Upplandsmuseet (the 2017 excavation, and the source of the
+  section drawings); **Fagerlund 2009** (synthesis of the 1982–83 work); **Kresten &
+  Ambrosiani 1992**; **Kresten & Kero 1992**; **Mejdahl 1983** (the outlying TL date);
+  **Ambrosiani 1961** (Långhundraleden); **Büchsenschütz & Ralston 1981** (palisade
+  placement).
 - *Archaeomagnetic dating of vitrified Broborg hillfort in southeast Uppsala, Sweden*,
   Journal of Archaeological Science: Reports.
   https://www.sciencedirect.com/science/article/abs/pii/S2352409X20301024
@@ -1151,8 +1279,11 @@ Graves and grave fields:
 - *Håga mound* — turf over a cairn, dimensions. https://en.wikipedia.org/wiki/H%C3%A5ga_mound
 - Upplandsmuseet, *Kättsta — boplatser och gravar under 2 000 år* (E4 excavations, Uppland).
   https://www.upplandsmuseet.se/globalassets/publikationer/rapportserien/rapporter-2006/2006_07.pdf
-- Länsstyrelsen Uppsala, *Brons– och järnålder i Uppsala län — uppdragsarkeologisk
-  kunskapsöversikt 2013*.
+- **Tina Fors, *Brons– och järnålder i Uppsala län — uppdragsarkeologisk kunskapsöversikt
+  2013*, Länsstyrelsens meddelandeserie 2014:06.** Read in full. The regional synthesis
+  behind §6.C's period-specific grave forms and §6.H's metric aisle typology (after Göthberg
+  2000 and Göthberg 2000:48; also Ljungkvist 2011:139, Ljungkvist & Victor 2007, Engström &
+  Wikborg 2007, Lagerstedt 2009, Fagerlund 2007:177/189).
   https://www.lansstyrelsen.se/download/18.1b1d393819324610c374987f/1732517954020/Brons%E2%80%93%20och%20j%C3%A4rn%C3%A5lder%20i%20Uppsala%20l%C3%A4n.pdf
 - *Skärvstenshögar med gravgömmor i östligaste Mälarområdet* — composition and function debate.
   https://www.academia.edu/111316862/
@@ -1195,36 +1326,38 @@ Runestones:
 Primary data used in §2, §3 and §5: `app/public/data/broborg/sites.json` (RAÄ/KMR, CC0,
 fetched 2026-08-20) and `pipeline/registry.json` (1 304 forts, national KMR extract).
 
-**Access note (updated after the 2026-08-25 allowlist change).** Now reachable and read in
-full text: `fornborgar.se`, `exarc.net`, `sv.wikipedia.org`, `raa.se`, `lup.lub.lu.se`.
-Still blocked by network policy: `cambridge.org`, `sciencedirect.com`, `nature.com`,
-`tandfonline.com`, `diva-portal.org`, `lansstyrelsen.se`, `upplandsmuseet.se`,
-`broborg.org`, `osti.gov`, `nist.gov`, `academia.edu`, `researchgate.net`, and
-`arkivsok.raa.se`. Sources on that second list are still cited from search-result summaries
-and should be checked in full text before their numbers are hard-coded.
+**Access note (updated 2026-08-25, after the second allowlist change).**
 
-**Samla has been retired.** `samla.raa.se` now redirects to a dead page on `raa.se`. RAÄ's
-publications moved to **DiVA** and its archaeological reports to **Arkivsök**
-(`arkivsok.raa.se`) — both currently blocked here. Arkivsök is the route to the Broborg
-material (Fagerlund 2009, and whatever survives of the 1982–83 campaign) and is the most
-useful remaining unlock.
+Read in **full text** this pass: Kresten, Kero & Chyssler 1993 (broborg.org); Sjöblom et al.
+2022 (OSTI); Fors 2014 (Länsstyrelsen Uppsala); Näsman 2013 (EXARC); the Mälardalen fort
+survey (fornborgar.se); Swedish Wikipedia. Downloaded but not mined in depth: the Kättsta E4
+report (Upplandsmuseet 2006:07) — it is a two-column layout that defeats plain text
+extraction, and the Fors synthesis already covers the same ground more usably.
 
-**Status of the three figures flagged in the first draft of this document:**
+Still unreachable: **DiVA** (`diva-portal.org` fails at connect), and `cambridge.org`,
+`sciencedirect.com`, `tandfonline.com`, `academia.edu`, `researchgate.net` all return HTTP
+403 — that is the publishers' own bot-blocking rather than the network policy, so allowlisting
+cannot fix it. `arkivsok.raa.se` now resolves and is the route to the Englund 2018 report.
 
-- *Stensträng 80–90 cm original height* — **verified verbatim** (Swedish Wikipedia citing
-  Nationalencyklopedin), together with the fence-footing reading and a dating of the turn of
-  the era to 550 CE. Adopted in §6.I.
-- *Eketorp's 4.8 m wall* — **not verified, and downgraded.** The phasing, diameter, cell
-  count and dry-stacked limestone construction are confirmed; the 4.8 m height is not in the
-  reference literature and traces to a 2007 popular-history article rather than to the 1976
-  excavation monograph. §5.1 and §6.A now lean on the *method* rather than the number.
-- *Broborg's rampart dimensions* — **resolved, and it was a real contradiction.** The
-  Mälardalen survey measures the wall at "widest 5 metres" against KMR's 8–15 m, which
-  matches the geological literature's 4–6 m and confirms the first draft's guess that the
-  two are measuring the wall body and the collapse spread respectively. §5.1 and §7.1 now
-  carry both readings and both height solutions (~1.7 m and ~2.9 m).
+**Samla has been retired.** `samla.raa.se` redirects to a dead page; RAÄ's publications moved
+to DiVA and its archaeological reports to Arkivsök.
 
-Two corrections that the newly opened sources forced, rather than merely confirmed, are
-recorded in place: §6.A.1 (four in five registered `Fornborg` records are probably not
-Migration Period forts) and §7.5 (the Broborg interior is occupied, and what the stone means
-is contested — the first draft's "do not populate it with buildings" was wrong).
+**What changed in this document as a result.** Sections rewritten from primary sources rather
+than summaries: §5.1 (the rampart transform — method changed, not just numbers), §7.1–§7.5
+(the whole Broborg worked example), §6.H (house construction), plus additions to §6.A, §6.C
+and §11.
+
+Corrections the primary sources forced, listed so the diff is auditable:
+
+| First draft said | Sources say |
+|---|---|
+| Rampart height 1.0–6.1 m, unpinnable | **2.1–3.4 m**, because the wall is *still standing* 2 m at a measured 4–6 m thickness |
+| KMR's 8–15 m vs. literature 4–6 m is the document's worst ambiguity | Resolved: spread vs. wall body. The transform now consumes both |
+| Palisade posts "set on or behind the crest" | Palisades stand on the **outer face**; Kresten uses this against the destruction model |
+| Timber lacing an open possibility | **"Socket-beams or other timber constructions are apparently lacking"** at Broborg |
+| "Do not populate the interior with buildings" | A **dated settlement layer**, AD 432–542, inside the fort |
+| Eketorp's 4.8 m wall as method exemplar | Figure's provenance is weak; §5.1 no longer needs it |
+
+**Remaining verification debt.** Englund 2018 (Upplandsmuseet) for the 2017 section detail;
+the Eketorp monograph (Borg ed. 1976) for the wall-height question; and the Cambridge
+mound-materials paper behind §6.B, which is still only a summary.
