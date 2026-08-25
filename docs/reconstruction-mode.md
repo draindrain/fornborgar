@@ -170,7 +170,7 @@ entirely inferential.
 | **F** | **Standing stone & stone figure** | (constituents of Gravfält), Stenkammargrav | Late Bronze Age – Late Iron Age | Yes |
 | **G** | **Grave field** | Gravfält, Grav- och boplatsområde | Composite | Yes |
 | **H** | **Farmstead** | Boplats, Boplatsområde, Boplatslämning övrig, Husgrund förhistorisk/medeltida, Boplatsvall | Whole Iron Age | **No** |
-| **I** | **Field boundary** | Hägnad, Hägnadssystem | ~0–500 CE | Yes, low |
+| **I** | **Field boundary** | Hägnad, Hägnadssystem | ~0–550 CE | Yes, low |
 | **J** | **Cultivated ground** | Fossil åker, Område med fossil åkermark, Röjningsröse, Röjningsröseområde, Terrassering | Bronze Age – Medieval | Yes, low |
 | **K** | **Route & monument stone** | Färdväg, Färdvägssystem, Runristning | Route: broad; runestone: 950–1130 CE | Yes |
 
@@ -218,9 +218,10 @@ transform. Three are needed.
 
 ### 5.1 Transform 1 — rampart re-profiling by cross-section conservation
 
-The established method (used to argue Eketorp's wall stood ~4.8 m from its collapse
-volume) is to conserve the wall's cross-sectional area: today's wide, low rubble spread is
-yesterday's narrow, tall wall lying down.
+The method is to conserve the wall's cross-sectional area: today's wide, low rubble spread
+is yesterday's narrow, tall wall lying down. It is the reasoning behind the widely quoted
+~4.8 m estimate for Eketorp's wall — a figure whose provenance is weaker than its
+circulation suggests (§6.A), so lean on the *method* here, not on that number.
 
 ```
 A_now  = α · W_now · H_now            α ≈ 0.5 (triangular spread) … 0.6 (rounded)
@@ -241,10 +242,19 @@ widths 3–4 m and crest widths 2–2.5 m:
 | 15.0 | 2.0 | 0.50 | 4.0 | 2.5 | 3.92 m |
 | 15.0 | 2.0 | 0.60 | 3.0 | 2.0 | 6.12 m |
 
+**A prior warning about the input.** The transform needs `W_now` and `H_now` measured over
+the *same* cross-section, and the published figures for Broborg are not: KMR says the inner
+rampart is 8–15 m wide, while the Mälardalen fort survey measures the wall at "widest
+5 metres" and the geological literature at 4–6 m thick (§7.1). Those describe different
+things — the full outward collapse spread versus the surviving wall body — and the 2 m
+height belongs to the wall body, not to an average over a 15 m spread. Feeding the survey's
+5 m through the same formula gives **h_orig ≈ 1.7 m**; feeding KMR's mid-range 11.5 m gives
+**≈ 2.9 m**. Until someone measures a real section, both stay on the table.
+
 **Read this table as the honest result, not as a failure.** Across the plausible parameter
 box the answer spans 1.0–6.1 m, so the method *cannot pin a height*. What it does do is
-bound it: taking the mid-range profile the fort actually presents, Broborg's inner wall
-stood roughly **2.3–3.5 m** of stone. That is independently consistent with two things the
+bound it: under every reading above, Broborg's inner wall stood somewhere around
+**1.7–3.5 m** of stone. That is independently consistent with two things the
 record and the literature already say — that `kallmurning` survives *in place* to 1 m on
 the inner wall and 1.5 m on the outer, and that Uppland ramparts are generally read as
 stone bases that carried some further timber construction.
@@ -326,10 +336,17 @@ The two great excavated reference forts are Öland limestone ringforts and must 
 with care — they are a **different building tradition** from a Mälardalen boulder rampart:
 - **Ismantorp**: 127 m diameter, wall ~400 m round and 3–4 m high, **nine** gates, 88–95
   house foundations in radial blocks around a central open space.
-- **Eketorp**: fully excavated 1964–74, phase I dated ~300 ± 50 to 500 ± 50 CE, ~80 m
-  diameter in its 400s phase with ~52 internal cells; limestone dry-stacked without mortar.
-  Its wall was argued to have stood ~4.8 m from collapse volume, with a parapet — an
-  interpretation, and the full-scale on-site reconstruction built on it is itself debated.
+- **Eketorp**: the only one of Öland's ~20 known forts to be **completely excavated**
+  (1964–74, ~27 000 finds), in three phases — Eketorp I (300–400 CE), II (400–650 CE,
+  enlarged to ~80 m diameter with 53 internal cells), III (1170–1240 CE, the stone cells
+  partly replaced by ~100 timber-framed houses and a second wall added). Limestone, stacked
+  without mortar. Reconstructed on site by RAÄ under Mårten Stenberger with the architect
+  Nils Arne Rosén.
+  **Caution on the famous 4.8 m wall height.** It is widely repeated, but it does not appear
+  in the site's own reference literature; the trail leads to a 2007 popular-history article,
+  not to the excavation monograph (Borg ed. 1976). Treat it as *a figure in circulation*,
+  not as an excavated measurement, until someone reads the monograph. The full-scale
+  reconstruction built on such readings is itself criticised — see §9.
 
 **What it looked like.** A pale, hard-edged band of grey stone drawn along the top of a
 rocky hill, following every kink of the crest, and stopping wherever the natural cliff took
@@ -342,9 +359,11 @@ defender stepped up onto a broad rubble-and-earth bank and looked over a low cre
 almost certainly stood above the stone — a palisade, a breastwork, or both — but no
 excavated post-setting at Broborg says what, so it is the single least constrained element
 in the whole model. The entrances were narrow, 3–5 m gaps with squared, carefully built
-stone cheeks, the only places where the wall's construction was visible in section. Inside
-was not a town: cleared, walked-flat patches of ground among coarse boulder moraine and
-bare rock outcrop.
+stone cheeks, the only places where the wall's construction was visible in section. What
+went on inside varies by fort and is often disputed: at some, cleared and walked-flat
+patches of ground among coarse boulder moraine and bare rock outcrop; at others — just over
+one in five of Uppland's Middle Iron Age forts — terraced platforms carrying real
+buildings.
 
 **Recipe.**
 1. Take the measured crest polyline (`rampart.json`).
@@ -355,7 +374,10 @@ bare rock outcrop.
    range (`0,3–1 m` at Broborg; corpus median range 0.2–0.4 m), seeded per site so it is
    reproducible, laid in courses that follow the batter.
 5. Cut entrances where the description places them (`I VNV och ÖSÖ … 3-5 m br`), squaring
-   the wall ends into built cheeks.
+   the wall ends into built cheeks. Middle Iron Age forts often carry an **`utskott`** — an
+   extra length of wall that overlaps the entrance gap, so the approach is funnelled between
+   two wall ends rather than passing straight through (Olausson 1995:143ff). Support it in
+   the archetype and switch it on where the crest line's own geometry shows the overlap.
 6. Optional timber superstructure — **off by default and badged conjectural**, reusing the
    existing `palisade.ts` line and material.
 
@@ -372,6 +394,48 @@ bare rock outcrop.
 | Stone colour | Local bedrock class from SGU | Derived |
 
 **Confidence: the line is measured, the height is bounded, the top is a guess.**
+
+#### A.1 Not every registered `Fornborg` is a Migration Period fort — and there is a filter
+
+This is the biggest honesty problem in the whole feature, and it only appears at national
+scope. Our registry holds **1 304** records typed `Fornborg`. In Uppland, **181** are
+registered — but a systematic field survey judges only about **30 of them (~17 %)** to be
+Middle Iron Age forts, of which only **9** are dated by ¹⁴C or datable finds. On Södertörn
+the figure is ~20 % of ~90. Olausson's dissertation reached a compatible conclusion by a
+different route: only about a third of Uppland's "fornborgar" are genuinely fortified
+installations, which is why he preferred the neutral term *vallanläggning*.
+
+So **rendering all 1 304 as standing Migration Period ramparts at 500 CE would be
+systematically false** for roughly four out of five of them. The rest are older enclosed
+hills (*hägnade berg*), symbolic boundaries, or undatable.
+
+The useful part: the discriminating criteria are published, and most of them are things
+this pipeline already parses out of the KMR description.
+
+| Olausson's criterion | Parseable? |
+|---|---|
+| `kallmurning` — dry-stone walling preserved or partly preserved | **Yes** — string match |
+| Wall **≥ 1 m high** | **Yes** — already parsed (§3) |
+| A wall right round, or across the non-steep side | Partly — from the crest line + DEM slope |
+| `utskott` — an overlapping extra wall length, often at the entrance | Partly — from crest-line geometry |
+| Overlooks its own territory or a waterway | **Yes** — the app already computes viewsheds |
+| Older enclosures: wall absent on outcrop, or a merely symbolic stone row | Yes — by negation |
+| Older enclosures: larger enclosed area | **Yes** — `extentSpanM` is in the registry |
+
+The operational definition used by the Mälardalen survey is tight enough to implement
+directly: *registered as `Fornborg`, with a wall right round (or across the non-steep side)
+that has preserved or partly preserved `kallmurning`, and is 1 metre or more high.*
+
+**Recommendation:** compute a `fortConfidence` per registry site from these criteria and let
+it drive the reconstruction. High confidence → the full standing rampart. Low confidence →
+fall back to a low stone bank or to marker mode, and say why in the popup. A site the app
+cannot classify should look *unresolved*, not confidently Migration Period.
+
+Two landscape facts worth carrying with it: of Uppland's ~30 Middle Iron Age forts, **all
+but three lie directly at, or within 300 m of, water** — which interacts directly with the
+app's paleo-shoreline slider, since the relevant water is the Iron Age shoreline and not
+today's. And forts are argued to be associated with a nearby *storgård*, often a Tuna farm
+(Carlsson 2015:161).
 
 ### B. Earth mound (`Hög`)
 
@@ -545,31 +609,62 @@ the archetype where reconstruction mode is furthest from the data.
 
 **Literature.** The Scandinavian Iron Age farm is built around the **three-aisled
 longhouse**: two rows of internal roof-bearing posts paired into trestles across the
-building, carrying the roof on purlins, dividing the interior into a wide central aisle and
-two narrower side aisles used for sleeping places, storage and stalling. Length runs
-10–50 m against 5–9 m width, exceptionally to 80 m; the wealthiest farms sit in the
-30–50 m range. Entrances are commonly in the middle of a long wall. Farms are not single
-buildings: at Gene (Ångermanland) the excavated farm has a large longhouse plus workshop
-and store, with a smithy added later; the general layout is a yard in front of the houses,
-an outdoor hearth area, a well, and enclosures and fields beyond.
+building, carrying the roof on purlins. Length runs 10–50 m against 5–9 m width,
+exceptionally to 80 m; the wealthiest farms sit in the 30–50 m range. Entrances are
+commonly in the middle of a long wall. Farms are not single buildings: at Gene
+(Ångermanland) the excavated farm has a large longhouse plus workshop and store, with a
+smithy added later; the general layout is a yard in front of the houses, an outdoor hearth
+area, a well, and enclosures and fields beyond.
+
+Four details from Näsman's critical review of Scandinavian house reconstructions are worth
+more than the general description, because each is a thing reconstructions routinely get
+wrong:
+
+- **The walls are real walls, at least 1 m high, and they carry load** (Näsman 1976, 120;
+  Myhre 1980, 168). The 1930s Lojsta reconstruction misread very low excavated dry-stone
+  walling as a mere footing under a tall steep roof; later excavation corrected this.
+- **The roof is hipped, not gabled.** The bulk of Iron Age houses had hipped roofs
+  (Herschend 1980; Lund & Thomsen 1982; Näsman 1983), with an opening at the top of the hip
+  angle serving as a smoke vent.
+- **The hip slopes at the same pitch as the long sides, or steeper — never shallower.**
+  Every hipped roof in the ethnological comparanda from the Netherlands to Estonia behaves
+  this way, and shallower hips are a recurring reconstruction error (the Eketorp-II houses
+  built in 1978 among them). The smoke vent is also **much smaller** than usually
+  reconstructed — often a fixed board with a small hole, meant to let smoke and moist air
+  out rather than light in.
+- **The central aisle takes less than half the house breadth from the 3rd to the 8th
+  century CE**, narrower than in earlier Iron Age houses, because the walls had come to
+  take a heavier share of the roof load (Hvass 1982; Myhre 1980, 178). This matters here
+  precisely because it is period-specific: Näsman's explicit warning is that wall-construction
+  data from a 1st-century-BC house sample cannot be used uncritically for a 5th-century
+  house — which is exactly the house this app needs.
+
+Trestle spacing is not uniform along the building: it is regular and close in the byre and
+more varied in the dwelling end, with a large span across the hearth area.
 
 **Roofing is the weakest link and must be labelled as such.** There is very little
 archaeological evidence for roof covering, so reconstructions everywhere fall back on
 ethnological analogy from local vernacular building — thatch in Denmark, turf sods in
-Norway and on Öland. The Gene reconstruction — 40 m × 9 m, modelled on house II at
-Genesmon dated ~350–600 CE, which is precisely Broborg's period — uses **birch bark under
-turf** (`nävertak`) with walls of wattle sealed with clay. That is the best regional
-analogue available for a Mälardalen/Norrland Migration Period farm and is the recommended
-default. Smaller **`grophus`** (sunken-floored buildings) serve as workshops and stores.
+Norway and on Öland, with birch bark or straw as a water-shield beneath the sods. The Gene
+reconstruction — 40 m × 9 m, modelled on house II at Genesmon dated ~350–600 CE, which is
+precisely Broborg's period — uses **birch bark under turf** (`nävertak`) with walls of
+wattle sealed with clay. That is the best regional analogue available for a Mälardalen
+Migration Period farm and is the recommended default. Smaller **`grophus`** (sunken-floored
+buildings) serve as workshops and stores. Näsman's verdict on the state of the art is worth
+quoting as-is: *"An entirely convincing hipped roof construction is so far not presented by
+any Scandinavian reconstructions."*
 
-**What it looked like.** A long, low, heavy-roofed building sitting close to the ground,
-its roof far bigger than its walls — a steep, dark, turf-covered slope running the whole
-length of the house, green in summer and grey-brown in winter, its ridge broken by smoke
-escaping through a vent rather than a chimney. Below the roof, walls barely a person's
-height: woven hazel or willow wattle daubed and smoothed with clay, pale ochre-grey and
-patched, or in places a low dry-stone footing carrying the wall plate. A wide doorway in
-the middle of the long side, worn ground in front of it, an open yard packed hard by feet
-and hooves, an outdoor hearth, a well, one or two smaller buildings and a half-sunk
+**What it looked like.** A long building under an enormous hipped roof — the roof easily
+twice the height of the wall below it, sweeping down on all four sides so the building has
+no gable, only a long ridge that stops short and falls away at each end. The covering is
+turf over birch bark: green and shaggy in summer, grey-brown and flattened in winter,
+thick enough to read as a slab of the ground lifted onto the house. At the top of each hip,
+a small dark opening — not an open louvre, a board with a hole in it — leaking a thin
+haze of woodsmoke. Below, walls a good metre or more high and clearly structural: woven
+hazel or willow daubed and smoothed with clay, pale ochre-grey, patched in different
+shades where it has been repaired, standing on a low footing of set stone. A wide doorway
+in the middle of the long side, ground worn bare in front of it, an open yard packed hard
+by feet and hooves, an outdoor hearth, a well, one or two smaller buildings and a half-sunk
 workshop, and beyond them a fence and the fields.
 
 | Parameter | Value / default | Tier |
@@ -578,9 +673,14 @@ workshop, and beyond them a fence and the fields.
 | Building count, position, orientation | Yard layout heuristic | **Assumed** |
 | Longhouse length | 20–40 m (default 30 m) | Assumed |
 | Longhouse width | 6–8 m (default 7 m) | Assumed |
-| Trestle spacing | 2.0–3.0 m | Assumed |
-| Roof pitch | 45° | Assumed |
-| Roof covering | Birch bark under turf (Gene analogue) | **Assumed** |
+| Central aisle width | **< 50 % of house breadth** (period-specific, 3rd–8th c.) | **Derived** (literature) |
+| Wall height | ≥ 1.0 m, load-bearing | **Derived** (literature) |
+| Roof form | **Hipped**, smoke vent at the top of each hip | **Derived** (literature) |
+| Hip pitch | ≥ long-side pitch, never lower | **Derived** (literature) |
+| Long-side roof pitch | 45° | Assumed |
+| Smoke vent | Small; board with a hole, not an open louvre | Derived (literature) |
+| Trestle spacing | 2.0–3.0 m; closer in the byre, wider at the hearth | Assumed |
+| Roof covering | Turf over birch bark (Gene analogue) | **Assumed** |
 | Walls | Wattle-and-daub on a low stone footing | Assumed |
 | Ancillary buildings | 1–2 + 1 `grophus` | Assumed |
 
@@ -595,9 +695,11 @@ temptation to leave it on will be real.
 **80–90 cm high**, and in many cases too low to have worked as barriers on their own — they
 are widely read as **footings for a wooden fence above**. Their function is to separate
 grazed outland from arable and meadow, with cattle droveways running from the outland in
-toward the farm. In eastern Östergötland the systems come into use around **100 CE and go
-out of use around 500 CE** — they are contemporary with, and then end alongside, the
-Migration Period forts. One of Sweden's largest such landscapes is in Täby, southern
+toward the farm. They are generally of the Roman Iron Age and Migration Period — **the turn
+of the era to 550 CE** — and in eastern Östergötland specifically the systems come into use
+around **100 CE and go out of use around 500 CE**, contemporary with, and then ending
+alongside, the Migration Period forts. Width varies far more than height: a recorded
+Gotland example is ~5 m wide. One of Sweden's largest such landscapes is in Täby, southern
 Uppland, ~30 km². Detailed regional studies indicate the stone rows are generally *older*
 than the forts, possibly back to around year 0.
 
@@ -613,9 +715,9 @@ it.
 | Line geometry | KMR LineString / Polygon | Measured |
 | Stone calibre | Parsed; corpus median range for `Hägnad` is **1.0–2.0 m** — markedly larger than grave stone | Measured |
 | Stone footing height | 0.8–0.9 m | **Derived** (literature) |
-| Footing width | 0.8–1.2 m | Assumed |
+| Footing width | 0.8–1.2 m default; recorded examples reach ~5 m | Assumed |
 | Timber fence above | Optional, off by default; +0.8 m | **Assumed** |
-| Active period | ~0–500 CE | Derived |
+| Active period | ~0–550 CE (Östergötland systems ~100–500 CE) | Derived |
 
 ### J. Cultivated ground (`Fossil åker`, `Område med fossil åkermark`, `Röjningsröse`, `Röjningsröseområde`, `Terrassering`)
 
@@ -698,8 +800,17 @@ and gives this site an evidence base almost no other fort in the registry has.
   **Collapsed outward.**
 - **Outer rampart:** ~140 m long, 7–10 m wide, 0.5–1.5 m high; same stone; `kallmurning` to
   1.5 m in places; entrances 3–5 m wide at ÖSÖ and NNÖ. **Collapsed both ways.**
-- **Interior:** cleared surfaces among coarse-blocky moraine and exposed bedrock, with a
-  possible stone setting on the central crown, round, 7 m diameter, 0.4 m high.
+- **Wall width — two incompatible published figures, and it matters.** KMR gives the inner
+  rampart as **8–15 m** wide; the Mälardalen fort survey measures Broborg's walls at
+  **"highest wall height 2 metres, widest 5 metres"**, and the geological literature calls
+  the ramparts **4–6 m thick**. The 5 m and the 4–6 m agree with each other and describe the
+  *wall body*; KMR's 8–15 m is almost certainly the full spread of a rampart the same record
+  says is *"raserad utåt"* — collapsed outward — including the earth-backed inner bank. See
+  §5.1 for what this does to the height estimate. It is the single most consequential
+  ambiguity in this document.
+- **Interior:** described by KMR as cleared surfaces among coarse-blocky moraine and exposed
+  bedrock, with a possible stone setting on the central crown, round, 7 m diameter, 0.4 m
+  high. **What that interior stone means is contested** — see §7.5.
 - **Materials:** granitic gneiss and amphibolite; a fine-grained basaltic dyke on the hill
   is a candidate source of the mafic material.
 - **Vitrification:** along the **inner face**, a zone 100–150 cm wide and 40–70 cm deep of
@@ -759,13 +870,39 @@ set on or behind the crest; **(c)** a timber breastwork / laced framework. Optio
 specific tie-in here: burnt timber lacing leaves glassy tunnels through a wall core, and
 Broborg's vitrification is exactly the phenomenon that debate turns on.
 
-### 7.5 Interior
+### 7.5 Interior — occupied, but nobody agrees what the stone is
 
-Do **not** populate it with buildings. Mainland Uppland forts are not Ölandic ringforts;
-Broborg's record describes cleared surfaces among boulder moraine and outcrop, and no house
-foundations. Render: exposed bedrock and coarse blocks from the DEM and the SGU soil class,
-cleared and walked-flat patches where the description places them, and the single possible
-stone setting on the crown as archetype C.
+This was originally written as "do not populate it with buildings." That was wrong, and the
+correction is worth stating plainly.
+
+**Occupation is evidenced.** Test pits dug on the fort interior in 1982–83 found charcoal,
+burnt clay, burnt and unburnt bone (food waste) and pottery — a domestic assemblage. Only
+one post-hole was found and it lay against the wall, so no house plan was recovered. The
+excavation report from that campaign is lost; the work survives as a summary (Fagerlund
+2009).
+
+**What the interior stone means is contested, and the two readings look completely
+different in 3D.** There is a good deal of loose stone on the fort plateau. Olausson
+(1997:110) read it as the remains of buildings and published a sketch of the settlement;
+others (e.g. Bornfalk Back 2023) read the same stone as cleared surfaces — ground picked
+clear of stone, with the stone heaped at the margins. The Mälardalen fort survey lists
+Broborg among the Uppland forts that *may* have house terraces, with an explicit
+"eventuellt". For context: 5–6 of Uppland's ~30 Middle Iron Age forts have house terraces
+inside or immediately beside them, and just over one in five is a *boplatsborg* — a fort
+people lived in.
+
+**Render it as a two-state selector, exactly like the vitrification question in §7.4:**
+
+- **"Cleared surfaces"** — exposed bedrock and coarse blocks from the DEM and the SGU soil
+  class, with walked-flat, stone-picked patches where the KMR description places them.
+- **"Settlement"** — the same ground plus house terraces and archetype-H buildings on them,
+  following Olausson's published sketch for placement rather than free invention.
+
+Both states carry the finds evidence, so neither is "the empty option": people were living
+or gathering up there under either reading. Default to "cleared surfaces" as the more
+conservative geometry, and never show the settlement state without the caveat.
+
+The single possible stone setting on the crown renders as archetype C in both states.
 
 ### 7.6 Scene budget
 
@@ -788,7 +925,7 @@ up lying:
 | Archetype | Built | In use | Ruin |
 |---|---|---|---|
 | D Cairn, E fire-cracked mound | Bronze Age | –500 CE | Iron Age onward |
-| I Field boundary | ~0 CE | to ~500 CE | after ~500 CE |
+| I Field boundary | ~0 CE | to ~550 CE | after ~550 CE |
 | A Fort | ~400 CE | ~400–550 CE | after ~550 CE |
 | B Mound, C stone setting, G grave field | continuous | 400–1050 CE | after 1050 CE |
 | H Farmstead | continuous | whole Iron Age | — |
@@ -833,6 +970,17 @@ Three rules follow, and they are what keep the mode honest:
    formulae from §5.1 and §5.2 and the sensitivity table, in the same style
    `rampart.json`'s `derivation.description` already uses for the crest extraction. A
    visitor who wants to know why the wall is 2.9 m and not 1.5 m can read the arithmetic.
+
+**A cautionary case worth keeping in view.** The first Swedish Iron Age house
+reconstruction was built at Lojsta on Gotland in the 1930s from a handful of excavated
+plans. Its wall construction was wrong — excavated low dry-stone walling was misread as a
+footing under a tall steep roof, where later excavation showed real load-bearing walls at
+least a metre high — and Stenberger said so within about twenty years. Näsman's review
+notes that the Lojsta house was *still* being used to illustrate papers on Gotland Iron Age
+settlement fifty years after the criticism. A built reconstruction outlives the evidence
+that justified it and crowds out its own corrections. A rendered one propagates faster and
+costs nothing to copy. That is the risk this section exists to manage, and it is the reason
+the §5 transforms are published with their arithmetic rather than their conclusions.
 
 Recommended defaults, following the 2026-08-23 amendment (model and conjecture layers
 default ON) but with one exception:
@@ -913,6 +1061,17 @@ or be skipped rather than guessed.
    may have three lines of description. The parser must degrade to archetype defaults, and the
    app must show *how much* of a given site is measured versus defaulted — otherwise a
    thin-record fort silently renders as confidently as Broborg.
+6. **Do we implement `fortConfidence` (§6.A.1) before shipping national reconstruction?**
+   Roughly four in five registered `Fornborg` records are probably not Migration Period
+   forts. Recommendation: yes, and treat it as blocking — this is the one error that would
+   be wrong 1 000 times over rather than once.
+7. **Which Broborg interior state is the default (§7.5)?** Recommendation: "cleared
+   surfaces", as the more conservative geometry, with "settlement" one click away and
+   Olausson's sketch cited on it.
+8. **Do we need a section measured through a rampart?** Both §5.1's biggest uncertainty and
+   §7.1's width contradiction would collapse if one real cross-section were measured off the
+   1 m LiDAR — which the pipeline can already do. This may be the single highest-value piece
+   of new work available, and it needs no fieldwork.
 
 ---
 
@@ -926,8 +1085,26 @@ Hillforts, and Broborg specifically:
   https://sv.wikipedia.org/wiki/Michael_Olausson_(arkeolog)
 - *Fornborg*, Swedish Wikipedia — general construction, distribution, palisade evidence.
   https://sv.wikipedia.org/wiki/Fornborg
-- *Fornborgar i Mälardalen* — regional summaries, Uppland fort counts and rampart dimensions.
-  https://fornborgar.se/sammanfattning-uppland/
+- **Fornborgar i Mälardalen** — the systematic Uppland/Södertörn field survey. Three pages
+  are load-bearing for this document:
+  *Sammanfattning Uppland* (181 registered vs. ~30 Middle Iron Age forts, 9 dated; siting
+  within 300 m of water; house terraces and *boplatsborgar*) —
+  https://fornborgar.se/sammanfattning-uppland/ ·
+  *Husby-Långhundra 156 Broborg* (95×85 m, "highest wall height 2 m, widest 5 m"; the
+  contested interior; the 1982–83 test pits) —
+  https://fornborgar.se/husby-langhundra-1561-broborg/ ·
+  *Datering av fornborgar* (Olausson's discriminating criteria and the survey's operational
+  definition) — https://fornborgar.se/datering-av-fornborgar/
+- Secondary citations reached through those pages, listed so they can be chased in full text:
+  **Olausson 1995**:53, :143ff (typology A/B; `utskott`); **Olausson 1997**:110 (Broborg
+  interior read as buildings, with a settlement sketch); **Olausson 2009**:44 (siting);
+  **Fagerlund 2009** (summary of the lost 1982–83 Broborg test-pit report); **Bornfalk Back
+  2023** (interior read as cleared surfaces); **Schneider 2011**:190–192 (the *bro* element
+  as a boat landing); **Carlsson 2015**:161 (forts and *storgårdar* / Tuna farms); **Åsa
+  Wall 2003**, *De hägnade bergens landskap* (Södertörn).
+- Kaj Borg (ed.), *Eketorp: fortification and settlement on Öland/Sweden. The monument*
+  (Royal Acad. of Letters, History and Antiquities, 1976) — the Eketorp excavation
+  monograph. **Not consulted**; it is where the wall-height question should be settled.
 - Kresten et al., *Geology of the vitrified hill-fort Broborg in Uppland, Sweden* — rampart
   dimensions, lithology, the vitrified zone.
   https://www.broborg.org/0_auxiliary/Geology_of_the_vitrified_hill_%20fort_%20Broborg_etc.pdf
@@ -982,9 +1159,16 @@ Graves and grave fields:
 
 Settlement and landscape:
 
-- EXARC, *Aspects on Realizing House Reconstructions: a Scandinavian Perspective* — roofing
-  evidence gap, three-aisled trestle construction, ethnological analogy.
+- Ulf Näsman, *Aspects on Realizing House Reconstructions: a Scandinavian Perspective*,
+  EXARC Journal 2013/2 — **the source for most of §6.H**: load-bearing walls ≥1 m, hipped
+  roofs with a hip pitch never shallower than the long sides, small board-and-hole smoke
+  vents, the period-specific central-aisle proportion, the roofing-evidence gap, and the
+  Lojsta cautionary tale used in §9.
   https://exarc.net/issue-2013-2/ea/aspects-realizing-house-reconstructions-scandinavian-perspective
+  Secondary citations within it, for full-text follow-up: Näsman 1976:120 and Myhre 1980:168
+  (wall height); Herschend 1980, Lund & Thomsen 1982, Näsman 1983:200 (hipped roofs); Hvass
+  1982 and Myhre 1980:178 (central-aisle proportion, 3rd–8th c.); Åhstrand 1768 (Öland sod
+  roofs over birch bark); Boethius & Nihlén 1932 (Lojsta).
 - *Gene fornby* / *Genesmon* — the 40 × 9 m reconstructed longhouse on house II, ~350–600 CE,
   birch-bark-and-turf roof, clay-sealed wattle walls.
   https://en.wikipedia.org/wiki/Gene_fornby · https://sv.wikipedia.org/wiki/Genesmon
@@ -1011,13 +1195,36 @@ Runestones:
 Primary data used in §2, §3 and §5: `app/public/data/broborg/sites.json` (RAÄ/KMR, CC0,
 fetched 2026-08-20) and `pipeline/registry.json` (1 304 forts, national KMR extract).
 
-**Access note.** Several sources above were read through search-result summaries rather than
-full text, because this session's network policy blocks direct fetches to
-`cambridge.org`, `sciencedirect.com`, `exarc.net`, `lup.lub.lu.se`, `lansstyrelsen.se`,
-`upplandsmuseet.se`, `broborg.org`, `diva-portal.org` and `fornborgar.se`. Every number
-quoted in this document should be checked against full text before it is hard-coded into
-the pipeline. The ones most worth verifying first are the Eketorp 4.8 m wall-height
-estimate (§6.A), the stensträng 80–90 cm original height (§6.I), and the Broborg rampart
-dimensions (§7.1), where the literature's "4–6 m thick" and the KMR record's "8–15 m wide"
-are probably measuring different things — the surviving wall core versus the full rubble
-spread — and that discrepancy directly drives §5.1's height estimate.
+**Access note (updated after the 2026-08-25 allowlist change).** Now reachable and read in
+full text: `fornborgar.se`, `exarc.net`, `sv.wikipedia.org`, `raa.se`, `lup.lub.lu.se`.
+Still blocked by network policy: `cambridge.org`, `sciencedirect.com`, `nature.com`,
+`tandfonline.com`, `diva-portal.org`, `lansstyrelsen.se`, `upplandsmuseet.se`,
+`broborg.org`, `osti.gov`, `nist.gov`, `academia.edu`, `researchgate.net`, and
+`arkivsok.raa.se`. Sources on that second list are still cited from search-result summaries
+and should be checked in full text before their numbers are hard-coded.
+
+**Samla has been retired.** `samla.raa.se` now redirects to a dead page on `raa.se`. RAÄ's
+publications moved to **DiVA** and its archaeological reports to **Arkivsök**
+(`arkivsok.raa.se`) — both currently blocked here. Arkivsök is the route to the Broborg
+material (Fagerlund 2009, and whatever survives of the 1982–83 campaign) and is the most
+useful remaining unlock.
+
+**Status of the three figures flagged in the first draft of this document:**
+
+- *Stensträng 80–90 cm original height* — **verified verbatim** (Swedish Wikipedia citing
+  Nationalencyklopedin), together with the fence-footing reading and a dating of the turn of
+  the era to 550 CE. Adopted in §6.I.
+- *Eketorp's 4.8 m wall* — **not verified, and downgraded.** The phasing, diameter, cell
+  count and dry-stacked limestone construction are confirmed; the 4.8 m height is not in the
+  reference literature and traces to a 2007 popular-history article rather than to the 1976
+  excavation monograph. §5.1 and §6.A now lean on the *method* rather than the number.
+- *Broborg's rampart dimensions* — **resolved, and it was a real contradiction.** The
+  Mälardalen survey measures the wall at "widest 5 metres" against KMR's 8–15 m, which
+  matches the geological literature's 4–6 m and confirms the first draft's guess that the
+  two are measuring the wall body and the collapse spread respectively. §5.1 and §7.1 now
+  carry both readings and both height solutions (~1.7 m and ~2.9 m).
+
+Two corrections that the newly opened sources forced, rather than merely confirmed, are
+recorded in place: §6.A.1 (four in five registered `Fornborg` records are probably not
+Migration Period forts) and §7.5 (the Broborg interior is occupied, and what the stone means
+is contested — the first draft's "do not populate it with buildings" was wrong).
