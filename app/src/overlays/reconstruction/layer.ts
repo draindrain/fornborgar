@@ -114,6 +114,13 @@ interface Batch {
   key: string;
   archetype: string;
   family: MaterialFamily;
+  /**
+   * True where the family shades smoothly and therefore needs real vertex
+   * normals. The flat-shaded families compute face normals in the fragment
+   * shader (see `shapes.buildShape`), so recomputing an attribute they ignore
+   * would be pure cost on every exaggeration change.
+   */
+  smooth: boolean;
   positions: number[];
   colors: number[];
   indices: number[];
@@ -299,6 +306,11 @@ export class ReconstructionLayer {
         array[i * 3 + 1] = batch.groundArray[i] * exaggeration + batch.localArray[i];
       }
       position.needsUpdate = true;
+      // Normals have to be computed *after* the vertices are seated, and again
+      // whenever they move: the surface's shape depends on the exaggerated
+      // ground it is draped over, and normals computed on the unseated geometry
+      // would all point straight up — a mound lit as a flat disc.
+      if (batch.smooth) mesh.geometry.computeVertexNormals();
       mesh.geometry.computeBoundingSphere();
     }
     this.refreshAccents(exaggeration);
@@ -322,9 +334,15 @@ export class ReconstructionLayer {
     this.group.clear();
   }
 
-  /** The invisible pick volumes, for the app's raycaster. */
+  /**
+   * The invisible pick volumes, for the app's raycaster.
+   *
+   * Empty while the mode is off: the group being hidden does not clear a child's
+   * own `visible` flag, so a marker-mode click on empty ground would otherwise
+   * still open the card of whatever monument stands there in the other mode.
+   */
   get pickables(): THREE.Object3D[] {
-    return this.pickTargets;
+    return this.enabled ? this.pickTargets : [];
   }
 
   // ------------------------------------------------------------ construction -
@@ -501,6 +519,7 @@ export class ReconstructionLayer {
         key,
         archetype,
         family,
+        smooth: family === 'turf' || family === 'soil',
         positions: [],
         colors: [],
         indices: [],
@@ -581,7 +600,7 @@ export class ReconstructionLayer {
       x: cx,
       z: cz,
       groundY: this.options.groundAt(cx, cz),
-      localY: profileHeight(spec.kind, 0, 1, Math.max(0.02, spec.heightM)) - size * 0.15,
+      localY: profileHeight(spec.kind, 0, spec.diameterM / 2, Math.max(0.02, spec.heightM)) - size * 0.15,
       sizeM: size,
       heightM: size,
       rotation: mulberry32(spec.seed ^ 0x2c1f)() * Math.PI * 2,
@@ -666,7 +685,12 @@ export class ReconstructionLayer {
       geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
       geometry.setAttribute('color', new THREE.BufferAttribute(new Float32Array(batch.colors), 3));
       geometry.setIndex(new THREE.BufferAttribute(new Uint32Array(batch.indices), 1));
-      geometry.computeVertexNormals();
+      // Normals are left to `refreshHeights`, which runs at the end of this
+      // method: at this point every Y is still zero.
+      geometry.setAttribute(
+        'normal',
+        new THREE.BufferAttribute(new Float32Array(batch.groundArray.length * 3), 3),
+      );
 
       const mesh = new THREE.Mesh(geometry, this.materialFor(batch.family));
       mesh.name = `reconstruction-${batch.key}`;

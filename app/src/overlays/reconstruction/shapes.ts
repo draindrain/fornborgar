@@ -94,9 +94,18 @@ export function profileHeight(kind: ProfileKind, t: number, a: number, h: number
   switch (kind) {
     case 'cap': {
       // Spherical cap of base radius `a` and height `h`.
-      const R = (a * a + h * h) / (2 * h);
+      //
+      // The plain formula is only single-valued while the cap is a *minor* one
+      // (h ≤ a): past that the sphere's base circle lies on its lower branch,
+      // the surface overhangs its own footprint, and the rim stops meeting the
+      // ground. Nothing in the corpus is taller than it is wide — the tallest
+      // re-profiled mound here is under 5 m at 17 m across — so the honest fix
+      // is a hemisphere stretched to the stated height rather than a shape no
+      // monument takes.
+      const cap = Math.min(h, a);
+      const R = (a * a + cap * cap) / (2 * cap);
       const r = u * a;
-      return Math.sqrt(Math.max(0, R * R - r * r)) - (R - h);
+      return (Math.sqrt(Math.max(0, R * R - r * r)) - (R - cap)) * (h / cap);
     }
     case 'cone': {
       // A cone at the material's repose angle, its apex rounded over the inner
@@ -259,6 +268,7 @@ export function buildShape(spec: ShapeSpec): ShapeBuild {
   const stone = Math.max(0.05, mid(spec.stoneM));
   const rotation = ((spec.orientationDeg ?? 0) * Math.PI) / 180;
   const { spokes, rings } = tessellation(Math.max(a, b), stone);
+  const meanRadius = (a + b) / 2;
 
   const random = mulberry32(spec.seed);
   const family = materialFor(spec.archetype);
@@ -293,7 +303,10 @@ export function buildShape(spec: ShapeSpec): ShapeBuild {
     for (let s = 0; s < spokes; s++) {
       const theta = (s / spokes) * Math.PI * 2;
       const radius = planRadius(spec.form, a, b, theta) * t * wobble[s];
-      const local = profileHeight(spec.kind, t, 1, height);
+      // The real plan radius, not a normalised 1: a cap's shape is its aspect
+      // ratio, so passing a unit radius against a metric height would make every
+      // monument taller than 1 m a different shape than the transform intended.
+      const local = profileHeight(spec.kind, t, meanRadius, height);
       const x = Math.cos(theta) * radius;
       const z = Math.sin(theta) * radius;
       // Rotate the whole plan onto the record's own orientation.
@@ -440,7 +453,7 @@ export function kerbPlacements(spec: ShapeSpec, kerbStone: Range | null): StoneP
       x: x * Math.cos(rotation) - z * Math.sin(rotation),
       z: x * Math.sin(rotation) + z * Math.cos(rotation),
       // Standing "a little proud" of the surface it bounds.
-      y: profileHeight(spec.kind, 1, 1, Math.max(0.02, spec.heightM)) + size * 0.15,
+      y: profileHeight(spec.kind, 1, (a + b) / 2, Math.max(0.02, spec.heightM)) + size * 0.15,
       sizeM: size * jitter,
       rotation: random() * Math.PI * 2,
       tilt: (random() * 2 - 1) * 0.2,

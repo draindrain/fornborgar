@@ -66,35 +66,11 @@ function check(id, ok, detail) {
 }
 
 /**
- * Every reconstruction vertex's Y, batch by batch, at a given exaggeration.
- * Read straight off the live scene graph: this is the rendered geometry, not a
- * recomputation of it.
+ * Median frame time over `frames` rendered frames, in milliseconds.
+ *
+ * Kept as a string and `eval`-ed in the page rather than passed as a function,
+ * because it has to be async inside the page's own rAF loop.
  */
-const READ_HEIGHTS = `(exaggeration) => {
-  const app = window.__app;
-  app.terrain.setExaggeration(exaggeration);
-  app.reconstruction.layer.refreshHeights();
-  const out = [];
-  for (const child of app.reconstruction.layer.group.children) {
-    const attribute = child.geometry && child.geometry.getAttribute
-      ? child.geometry.getAttribute('position')
-      : null;
-    if (!attribute) continue;
-    const array = attribute.array;
-    const xs = [];
-    const ys = [];
-    const zs = [];
-    for (let i = 0; i < array.length; i += 3) {
-      xs.push(array[i]);
-      ys.push(array[i + 1]);
-      zs.push(array[i + 2]);
-    }
-    out.push({ name: child.name, xs, ys, zs });
-  }
-  return out;
-}`;
-
-/** Median frame time over `frames` rendered frames, in milliseconds. */
 const MEASURE_FRAMES = `async (frames) => {
   const samples = [];
   let last = performance.now();
@@ -115,8 +91,6 @@ const MEASURE_FRAMES = `async (frames) => {
 }`;
 
 const url = `${BASE}/?site=${encodeURIComponent(SITE)}`;
-let heightsAtOne = null;
-let heightsAtTwoFive = null;
 let firstLoadSignature = null;
 let report = {};
 
@@ -156,36 +130,64 @@ try {
   );
 
   // --- §0: on the terrain at ×1 and ×2.5, no drift, no change in height ----
-  heightsAtOne = await page.evaluate(READ_HEIGHTS, 1);
-  heightsAtTwoFive = await page.evaluate(READ_HEIGHTS, 2.5);
-  const heightsAtFour = await page.evaluate(READ_HEIGHTS, 4);
-  await page.evaluate(READ_HEIGHTS, 1.5); // leave the app where it started
+  // The comparison runs *inside* the page: the scene carries a few hundred
+  // thousand vertices, and shipping three copies of them across the CDP bridge
+  // to compare them here would cost minutes and prove nothing extra.
+  const exaggerationCheck = await page.evaluate(() => {
+    const app = window.__app;
+    const batches = () =>
+      app.reconstruction.layer.group.children
+        .map((child) => child.geometry && child.geometry.getAttribute('position'))
+        .filter(Boolean)
+        .map((attribute) => attribute.array);
 
-  let drift = 0;
-  let slopeError = 0;
-  let sampled = 0;
-  for (let b = 0; b < heightsAtOne.length; b++) {
-    const one = heightsAtOne[b];
-    const two = heightsAtTwoFive[b];
-    const four = heightsAtFour[b];
-    if (!two || !four || one.xs.length !== two.xs.length) continue;
-    for (let i = 0; i < one.xs.length; i++) {
-      drift = Math.max(drift, Math.abs(one.xs[i] - two.xs[i]), Math.abs(one.zs[i] - two.zs[i]));
-      // y = ground·e + trueMetricHeight is exactly affine in e, so the slope
-      // measured 1→2.5 must equal the one measured 1→4. A height that scaled
-      // with exaggeration — the failure this whole layer is arranged to avoid —
-      // is precisely what would break it.
-      const slopeA = (two.ys[i] - one.ys[i]) / 1.5;
-      const slopeB = (four.ys[i] - one.ys[i]) / 3;
-      slopeError = Math.max(slopeError, Math.abs(slopeA - slopeB));
-      sampled++;
+    const snapshot = (exaggeration) => {
+      app.terrain.setExaggeration(exaggeration);
+      app.reconstruction.layer.refreshHeights();
+      return batches().map((array) => Float32Array.from(array));
+    };
+
+    const one = snapshot(1);
+    const twoFive = snapshot(2.5);
+    const four = snapshot(4);
+    app.terrain.setExaggeration(1.5); // leave the app where it started
+    app.reconstruction.layer.refreshHeights();
+
+    let drift = 0;
+    let slopeError = 0;
+    let sampled = 0;
+    for (let b = 0; b < one.length; b++) {
+      if (!twoFive[b] || !four[b] || one[b].length !== twoFive[b].length) continue;
+      for (let i = 0; i < one[b].length; i += 3) {
+        // x and z must not move at all: exaggeration is a Y scale and nothing else.
+        drift = Math.max(
+          drift,
+          Math.abs(one[b][i] - twoFive[b][i]),
+          Math.abs(one[b][i + 2] - twoFive[b][i + 2]),
+        );
+        // y = ground·e + trueMetricHeight is exactly affine in e, so the slope
+        // measured 1→2.5 must equal the one measured 1→4. A height that scaled
+        // with exaggeration — the failure this whole layer is arranged to avoid —
+        // is precisely what would break it, and nothing else would.
+        const slopeA = (twoFive[b][i + 1] - one[b][i + 1]) / 1.5;
+        const slopeB = (four[b][i + 1] - one[b][i + 1]) / 3;
+        slopeError = Math.max(slopeError, Math.abs(slopeA - slopeB));
+        sampled++;
+      }
     }
-  }
-  check('no-lateral-drift', drift === 0, `max |Δx|,|Δz| = ${drift}`);
+    return { drift, slopeError, sampled, batches: one.length };
+  });
+
+  check(
+    'no-lateral-drift',
+    exaggerationCheck.drift === 0,
+    `max |Δx|,|Δz| = ${exaggerationCheck.drift} over ${exaggerationCheck.batches} batches`,
+  );
   check(
     'true-metric-height',
-    sampled > 10000 && slopeError < 1e-3,
-    `${sampled} vertices, worst slope mismatch ${slopeError.toExponential(2)} m`,
+    exaggerationCheck.sampled > 10000 && exaggerationCheck.slopeError < 1e-3,
+    `${exaggerationCheck.sampled} vertices, worst slope mismatch ` +
+      `${exaggerationCheck.slopeError.toExponential(2)} m between ×1, ×2.5 and ×4`,
   );
 
   // --- §8: the gate moves -------------------------------------------------

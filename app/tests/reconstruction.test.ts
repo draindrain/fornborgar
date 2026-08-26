@@ -271,6 +271,16 @@ describe('profileHeight (§5.2)', () => {
     expect(drop(0.4, 0.5)).toBeCloseTo(drop(0.7, 0.8), 6);
   });
 
+  it('meets the ground at the rim even for a monument taller than it is wide', () => {
+    // The plain spherical-cap formula stops being single-valued once h > a, and
+    // its rim then lands well above zero — a step where the monument should meet
+    // the ground. A pathological record must not produce one.
+    for (const [a, h] of [[3, 1.6], [1, 1.6], [0.5, 4], [8.5, 0.35]] as const) {
+      expect(profileHeight('cap', 1, a, h)).toBeCloseTo(0, 6);
+      expect(profileHeight('cap', 0, a, h)).toBeCloseTo(h, 6);
+    }
+  });
+
   it('keeps a platform flat across its middle — flatness is the type (§6.C)', () => {
     expect(profileHeight('platform', 0.5, 3, 0.4)).toBeGreaterThan(0.4 * 0.98);
   });
@@ -326,11 +336,23 @@ describe('buildShape', () => {
   });
 
   it('meets the ground exactly at the rim, so nothing hovers or is buried', () => {
-    const build = buildShape(spec({ archetype: 'cairn', kind: 'cone', heightM: 2 }));
-    const vertices = build.offsets.length / 3;
-    let minY = Infinity;
-    for (let i = 0; i < vertices; i++) minY = Math.min(minY, build.offsets[i * 3 + 1]);
-    expect(minY).toBe(0);
+    // Every kind, and a tall narrow case with each — the rim is where a profile
+    // bug shows up as a step, and it is the one place the mesh must be exact.
+    for (const kind of ['cap', 'cone', 'platform'] as const) {
+      for (const [diameterM, heightM] of [[6, 0.4], [7, 2], [3, 2.5]] as const) {
+        const build = buildShape(spec({ archetype: 'cairn', kind, diameterM, heightM }));
+        const vertices = build.offsets.length / 3;
+        let minY = Infinity;
+        let maxY = -Infinity;
+        for (let i = 0; i < vertices; i++) {
+          minY = Math.min(minY, build.offsets[i * 3 + 1]);
+          maxY = Math.max(maxY, build.offsets[i * 3 + 1]);
+        }
+        expect(minY).toBe(0);
+        // …and the apex still reaches the height the §5 transform asked for.
+        expect(maxY).toBeGreaterThan(heightM * 0.9);
+      }
+    }
   });
 
   it('reaches the reconstructed height at its apex', () => {
@@ -753,9 +775,30 @@ describe('ReconstructionLayer', () => {
     expect(summary.sampled).toBeLessThanOrEqual(summary.requested);
   });
 
-  it('gives every drawn record a click target', () => {
+  it('gives every drawn record a click target, but only while the mode is on', () => {
+    // The group being hidden does not clear a child's own `visible` flag, so a
+    // marker-mode click on empty ground must not find a monument's pick volume.
+    layer.setEnabled(false);
+    expect(layer.pickables.length).toBe(0);
+    layer.setEnabled(true);
     expect(layer.pickables.length).toBeGreaterThan(50);
     for (const pick of layer.pickables) expect(pick.userData['siteId']).toBeTruthy();
+    layer.setEnabled(false);
+  });
+
+  it('lights smooth-shaded monuments off their seated surface, not off a flat disc', () => {
+    // Normals must be computed after the vertices are seated on the terrain and
+    // again whenever they move; computed on the unseated geometry they would all
+    // point straight up, and a mound would shade like a painted circle.
+    exaggeration = 1;
+    layer.refreshHeights();
+    const mound = meshes().find((m) => m.name === 'reconstruction-mound:turf')!;
+    const normals = mound.geometry.getAttribute('normal').array as Float32Array;
+    let sideways = 0;
+    for (let i = 0; i < normals.length; i += 3) {
+      if (Math.hypot(normals[i], normals[i + 2]) > 0.15) sideways++;
+    }
+    expect(sideways).toBeGreaterThan(normals.length / 3 / 4);
   });
 
   it('is byte-identical for the same seed — a reload is the same scene', () => {
