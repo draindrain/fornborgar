@@ -236,6 +236,18 @@ export interface SitesLayerEvents {
 
 const CLICK_SLOP_PX = 6;
 
+/**
+ * How big a click target is, for "the most specific target wins".
+ *
+ * Read off `userData.pickRadius` where the owner set one; a target without it
+ * sorts last, which keeps the old nearest-hit behaviour for anything that has
+ * not opted in.
+ */
+function pickExtent(object: THREE.Object3D): number {
+  const radius = (object.userData as { pickRadius?: number }).pickRadius;
+  return typeof radius === 'number' && Number.isFinite(radius) ? radius : Number.POSITIVE_INFINITY;
+}
+
 export class SitesLayer {
   readonly group = new THREE.Group();
   readonly sites: SiteRecord[];
@@ -476,7 +488,12 @@ export class SitesLayer {
       this.pickMaterial(),
     );
     pick.position.set(site.position.x, 0, site.position.z);
-    pick.userData = { siteId: site.id, x: site.position.x, z: site.position.z };
+    pick.userData = {
+      siteId: site.id,
+      x: site.position.x,
+      z: site.position.z,
+      pickRadius: Math.max(14, style.radius * 1.2),
+    };
     this.pickTargets.push(pick);
     this.register(site.id, pick);
     this.group.add(pick);
@@ -546,7 +563,15 @@ export class SitesLayer {
     const targets: THREE.Object3D[] = [...this.pickTargets, ...(this.extraPickables?.() ?? [])];
     const hits = this.raycaster.intersectObjects(targets, false).filter((hit) => hit.object.visible);
     if (hits.length > 0) {
-      this.select((hits[0].object.userData as { siteId: string }).siteId);
+      // The most *specific* target wins, not the nearest. Reconstruction mode
+      // gives a grave field one pick volume the size of its whole extent — that
+      // is right, since its monuments have no records of their own — and a
+      // record standing inside that extent would otherwise be unclickable
+      // wherever the field's cylinder wall happens to be nearer to the camera.
+      const best = hits.reduce((a, b) =>
+        pickExtent(b.object) < pickExtent(a.object) ? b : a,
+      );
+      this.select((best.object.userData as { siteId: string }).siteId);
     } else if (this.selectedId !== null) {
       this.select(null); // click on empty ground closes the popup
     }

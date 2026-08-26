@@ -782,7 +782,17 @@ describe('ReconstructionLayer', () => {
     expect(layer.pickables.length).toBe(0);
     layer.setEnabled(true);
     expect(layer.pickables.length).toBeGreaterThan(50);
-    for (const pick of layer.pickables) expect(pick.userData['siteId']).toBeTruthy();
+    for (const pick of layer.pickables) {
+      expect(pick.userData['siteId']).toBeTruthy();
+      // The handler picks the most *specific* target, so every volume has to
+      // say how big it is — a grave field's covers its whole extent.
+      expect(pick.userData['pickRadius']).toBeGreaterThan(0);
+    }
+    const field = file.monuments.find((m) => m.field && m.field.count > 100)!;
+    const mound = file.monuments.find((m) => m.archetype === 'mound')!;
+    const radiusOf = (id: string) =>
+      layer.pickables.find((p) => p.userData['siteId'] === id)!.userData['pickRadius'] as number;
+    expect(radiusOf(field.id)).toBeGreaterThan(radiusOf(mound.id) * 5);
     layer.setEnabled(false);
   });
 

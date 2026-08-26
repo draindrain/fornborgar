@@ -188,6 +188,17 @@ export interface MonumentSummary {
 export class ReconstructionLayer {
   /** Add this to the scene — **outside** the terrain group (contract §0). */
   readonly group = new THREE.Group();
+  /**
+   * The click volumes, deliberately **not** in the scene.
+   *
+   * They are invisible geometry: a material with `visible: false` is skipped at
+   * draw time, but the object still goes through frustum culling and render-list
+   * sorting every frame, and there is one per record. Kept out of the graph they
+   * cost nothing, and `raycaster.intersectObjects` does not care whether an
+   * object is in a scene — only that its world matrix is current, which
+   * `refreshHeights` sees to.
+   */
+  private readonly pickGroup = new THREE.Group();
   readonly file: ReconstructionFile;
 
   private readonly options: Required<Pick<ReconstructionOptions, 'groundAt' | 'getExaggeration'>> &
@@ -318,13 +329,18 @@ export class ReconstructionLayer {
       const data = pick.userData as { x: number; z: number };
       pick.position.y = this.options.groundAt(data.x, data.z) * exaggeration;
     }
+    // The pick volumes are outside the scene graph, so nothing else will bring
+    // their world matrices up to date before the raycaster reads them.
+    this.pickGroup.updateMatrixWorld(true);
   }
 
   dispose(): void {
-    this.group.traverse((object) => {
-      const mesh = object as THREE.Mesh;
-      if (mesh.isMesh) mesh.geometry?.dispose();
-    });
+    for (const root of [this.group, this.pickGroup]) {
+      root.traverse((object) => {
+        const mesh = object as THREE.Mesh;
+        if (mesh.isMesh) mesh.geometry?.dispose();
+      });
+    }
     for (const material of this.materials.values()) material.dispose();
     this.materials.clear();
     this.pickMaterial?.dispose();
@@ -332,6 +348,7 @@ export class ReconstructionLayer {
     this.accentMeshes = [];
     this.pickTargets.length = 0;
     this.group.clear();
+    this.pickGroup.clear();
   }
 
   /**
@@ -637,9 +654,17 @@ export class ReconstructionLayer {
       this.pickMaterial,
     );
     pick.position.set(record.position.x, 0, record.position.z);
-    pick.userData = { siteId: monument.id, x: record.position.x, z: record.position.z };
+    pick.userData = {
+      siteId: monument.id,
+      x: record.position.x,
+      z: record.position.z,
+      // A grave field's volume covers its whole extent, which is correct — its
+      // monuments have no records of their own — so the handler needs to know
+      // how specific this target is to break the tie with anything inside it.
+      pickRadius: radius,
+    };
     this.pickTargets.push(pick);
-    this.group.add(pick);
+    this.pickGroup.add(pick);
   }
 
   // -------------------------------------------------------------- materials --
