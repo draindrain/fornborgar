@@ -38,6 +38,13 @@ const TIMEOUT_MS = Number(opt('timeout', '900000'));
 const EXECUTABLE = opt('chromium', '/opt/pw-browsers/chromium-1194/chrome-linux/chrome');
 /** How much slower reconstruction mode may be than marker mode before it fails. */
 const FRAME_BUDGET = Number(opt('frame-budget', '1.6'));
+/**
+ * Frames sampled per mode. Small on purpose: these runs fall back to software
+ * WebGL, where one frame of the 4 M-vertex terrain is measured in seconds, and
+ * the check is a median ratio between two modes in the same page rather than an
+ * absolute number — it converges long before a benchmark would.
+ */
+const FRAMES = Number(opt('frames', '16'));
 
 // Unlike verify-sites.mjs this never needs the agent proxy: the whole check runs
 // against a locally previewed build with repo-relative bundles, and routing a
@@ -86,7 +93,7 @@ const MEASURE_FRAMES = `async (frames) => {
     requestAnimationFrame(tick);
   });
   // Drop the first few: the first frame after a mode switch pays for upload.
-  const warm = samples.slice(5).sort((a, b) => a - b);
+  const warm = samples.slice(4).sort((a, b) => a - b);
   return warm[Math.floor(warm.length / 2)];
 }`;
 
@@ -228,14 +235,14 @@ try {
   );
 
   // --- frame time: reconstruction vs marker mode, same page ---------------
-  const markerFrame = await page.evaluate(async (body) => {
+  const markerFrame = await page.evaluate(async ([body, frames]) => {
     window.__app.reconstruction.setEnabled(false);
-    return await eval(`(${body})`)(40);
-  }, MEASURE_FRAMES);
-  const reconstructionFrame = await page.evaluate(async (body) => {
+    return await eval(`(${body})`)(frames);
+  }, [MEASURE_FRAMES, FRAMES]);
+  const reconstructionFrame = await page.evaluate(async ([body, frames]) => {
     window.__app.reconstruction.setEnabled(true);
-    return await eval(`(${body})`)(40);
-  }, MEASURE_FRAMES);
+    return await eval(`(${body})`)(frames);
+  }, [MEASURE_FRAMES, FRAMES]);
   const ratio = reconstructionFrame / markerFrame;
   check(
     'frame-time',
