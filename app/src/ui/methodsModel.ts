@@ -18,6 +18,7 @@ import { formatYear } from '../water/shoreline';
 import { dynamicClass, type LandcoverLegend } from '../landcover/legend';
 import type { RampartFile } from '../overlays/palisade';
 import type { SitesFile } from '../overlays/sites';
+import type { ReconstructionFile } from '../overlays/reconstruction/schema';
 
 export type Provenance = 'measured' | 'model' | 'conjecture';
 
@@ -136,6 +137,86 @@ const PALISADE_STATUS =
   'specific form is claimed. The crest line the posts stand on is measured (derived ' +
   'from the LiDAR DEM); everything else — that there were posts at all, their height ' +
   'and spacing — is an adjustable guess, rendered deliberately schematic.';
+
+/**
+ * §9.2: the *mode* is disclosed, not just its layers. §9.3: every §5 transform is
+ * reversible and quoted — "a visitor who wants to know why the wall is 2.9 m and
+ * not 1.5 m can read the arithmetic" — so the panel gets the formulae, not the
+ * conclusions.
+ */
+const RECONSTRUCTION_STATUS =
+  'Reconstruction mode shows INTERPRETATIONS. Marker mode shows the register: what is ' +
+  'recorded here, and where. Reconstruction mode answers a different and much less certain ' +
+  'question — what a visitor would have seen standing here while these monuments were in ' +
+  'use — and most of the answer is inference. Every monument states its own provenance per ' +
+  'part rather than averaging to one label: a mound is measured in plan, modelled in ' +
+  'profile and conjectural in surface, and its popup says so.';
+
+const RECONSTRUCTION_RUIN_RULE =
+  'Every number the register carries is a measurement of a RUIN. "Hög, 7 m diam, 0,7 m h" ' +
+  'is a mound that has stood for fifteen centuries, lost its organic volume, slumped ' +
+  'outward and in a third of cases been dug into; drawing 0.7 m of height would not be a ' +
+  'reconstruction but the ruin, extruded. Across the corpus mounds survive at a mean flank ' +
+  'angle of about 11°, cairns 10° and stone settings 8°, where dry-stacked stone stands near ' +
+  '35° and loose earth near 30°. So three stated, reversible transforms convert the ' +
+  'measurements, and each monument records which one was applied to it.';
+
+const RECONSTRUCTION_TRANSFORMS =
+  'Rampart height: h_orig = h_standing + (W_spread − t_wall) · d_apron · p / t_wall — the ' +
+  'wall that is still standing, plus the height its own fallen debris apron represents, with ' +
+  'p = 0.85 for the packing difference between built wall and rubble. At Broborg the wall is ' +
+  'not an unknown shape to be guessed at: it still stands about 2 m at an estimated 4–6 m ' +
+  'thickness (Kresten, Kero & Chyssler 1993), so most of the answer is simply there. Across ' +
+  'the whole plausible parameter box the result spans 2.1–3.4 m; the app draws 2.5 m. ' +
+  'Mound and cairn profile: where a kantkedja (kerb) is recorded — 54 % of the corpus — the ' +
+  'kerb fixes the original footprint, so the diameter is kept and the surface restored to a ' +
+  'smooth spherical cap through it. Where no kerb is recorded the base may have crept ' +
+  'outward, so the monument is rebuilt conserving volume at its material’s angle of repose, ' +
+  'which makes the corpus-median mound narrower and more than twice as tall: 7.0 × 0.7 m ' +
+  'becomes 5.7 × 1.6 m. Applying the second rule to a kerbed mound would visibly pull it ' +
+  'inside its own surviving kerb, which is the built-in check on the first. Robbing pits: ' +
+  '32 % of records describe a pit with dimensions, so filling it is a measured operation. ' +
+  'Stone settings and fire-cracked mounds are never inflated — flatness is the type, and the ' +
+  'work there is cleaning rather than raising.';
+
+const RECONSTRUCTION_PLACEMENT =
+  'A Gravfält record is a compositional recipe, not a shape: it enumerates its own contents. ' +
+  '28 of the 31 grave-field records here state their own monument count — the counts run from ' +
+  '5 to 230 — and give a size range per constituent class, so what is in a grave field is ' +
+  'measured. Where each monument stands is not, and that is the only genuinely inferential ' +
+  'part of the archetype. Positions come from landscape rules rather than invention: wet ' +
+  'land-cover classes are excluded, local prominence and slope are read from the DEM, larger ' +
+  'monuments are biased toward the highest and most visible ground, and blue-noise spacing ' +
+  'keeps nothing intersecting. Everything is seeded from the site id, so the same scene ' +
+  'appears on every machine and in every screenshot.';
+
+const RECONSTRUCTION_FORT_FILTER =
+  'Not every registered Fornborg is a Migration Period fort, and this is the one error that ' +
+  'would be wrong a thousand times over rather than once. Uppland registers 181 and a ' +
+  'systematic field survey judges about 30 of them to be Middle Iron Age, of which 9 are ' +
+  'dated. So a fort is drawn as a standing rampart only where its own record meets the ' +
+  'survey’s published test — dry-stone walling (kallmurning) preserved, a wall 1 m or more ' +
+  'high, running right round or across the non-steep side. Below that threshold the app draws ' +
+  'the low bank the register actually records and says why in the popup: a site the app ' +
+  'cannot classify should look unresolved, not confidently Migration Period.';
+
+const RECONSTRUCTION_TIME =
+  'The archetypes are not contemporaneous, and pretending otherwise would be the easiest way ' +
+  'for this mode to lie. Monuments appear and disappear with the year slider: at 500 CE the ' +
+  'fort stands and there are no runestones on screen, because Uppland’s runestones were raised ' +
+  'between the late 900s and the early 1100s; at 1050 CE the fort is long ruined and falls back ' +
+  'to its flat marker, which is the measured geometry. Dating is by TYPE, not per record — KMR ' +
+  'carries almost no per-record dating. Broborg is the exception: radiocarbon, archaeomagnetic ' +
+  'and bead dates converge on roughly 430–580 CE.';
+
+const RECONSTRUCTION_VITRIFIED =
+  'Broborg is one of only three Swedish forts vitrified sensu stricto. Whether the wall was ' +
+  'vitrified while in use is contested: Sjöblom et al. (2022) read the glassy cake along the ' +
+  'inner face as deliberate and constructive, on seven grounds including selectively enriched ' +
+  'amphibolite with hewn edges and cultural layers lying on top of the vitrification residue; ' +
+  'Bornfalk Back (2023) contests the reading. The band is offered as a state, not a verdict — ' +
+  'under the constructive reading the fort looked vitrified while in use, under the destruction ' +
+  'reading it was ordinary dry stone until the day it burned.';
 
 const VIEWSHED_METHOD =
   'Viewshed: XDraw algorithm over the 2 m context grid in a Web Worker, validated ' +
@@ -306,6 +387,7 @@ export function buildMethodsModel(
   rampart: RampartFile | null,
   sites: SitesFile | null,
   landcover: LandcoverLegend | null = null,
+  reconstruction: ReconstructionFile | null = null,
 ): MethodsModel {
   const sections: MethodsSection[] = [];
 
@@ -414,6 +496,36 @@ export function buildMethodsModel(
       title: 'Palisade',
       badge: provenanceOf(manifest, 'palisade') ?? 'conjecture',
       paragraphs: [PALISADE_STATUS, rampart.derivation.description],
+    });
+  }
+
+  if (reconstruction) {
+    const coverage = reconstruction.coverage as Record<string, number>;
+    const percent = (key: string): string =>
+      typeof coverage[key] === 'number' ? `${Math.round(coverage[key] * 100)} %` : 'most';
+    const paragraphs = [
+      RECONSTRUCTION_STATUS,
+      RECONSTRUCTION_RUIN_RULE,
+      RECONSTRUCTION_TRANSFORMS,
+      `What the register actually affords, measured on these ${coverage['records'] ?? 0} records: ` +
+        `${percent('planParsed')} carry a plan size, ${percent('heightParsed')} a height, ` +
+        `${percent('stoneParsed')} a constituent stone-size range, ${percent('kerbParsed')} a ` +
+        `kantkedja and ${percent('pitsParsed')} a robbing pit with dimensions. Where a value ` +
+        `cannot be read the archetype default is used, the popup names the field, and the ` +
+        `monument's parse confidence drops — nothing is invented silently.`,
+      RECONSTRUCTION_PLACEMENT,
+      RECONSTRUCTION_FORT_FILTER,
+      RECONSTRUCTION_TIME,
+    ];
+    if (reconstruction.monuments.some((monument) => monument.fort?.ramparts.some((r) => r.vitrified))) {
+      paragraphs.push(RECONSTRUCTION_VITRIFIED);
+    }
+    paragraphs.push(reconstruction.derivation.description);
+    sections.push({
+      id: 'reconstruction',
+      title: 'Reconstruction mode',
+      badge: provenanceOf(manifest, 'reconstruction') ?? 'conjecture',
+      paragraphs,
     });
   }
 

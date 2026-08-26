@@ -1,0 +1,9042 @@
+{
+ "schemaVersion": 1,
+ "site": "broborg",
+ "generated": "2026-08-26",
+ "derivation": {
+  "method": "kmr-description-parse",
+  "description": "Reconstruction parameters parsed from the KMR free-text descriptions in sites.json, with the ruin→original transforms of docs/reconstruction-mode.md §5 applied. Every number KMR records is a measurement of a ruin, so three stated transforms convert them: (§5.1) a rampart's original height is its still-standing height plus the height its own collapse apron represents, h_orig = h_standing + (W_spread − t_wall)·d_apron·p / t_wall; (§5.2) a mound or cairn whose kantkedja is recorded keeps its measured footprint and is restored to a smooth spherical cap through that kerb, while one with no kerb is rebuilt volume-conserving at its material's angle of repose, which makes the corpus-median mound narrower and taller (7.0 × 0.7 m → 5.7 × 1.6 m); (§5.3) recorded robbing pits are filled, which is a measured operation because the register gives their dimensions. Stone settings and fire-cracked mounds are never inflated — flatness is the type. Where a field cannot be parsed the archetype default is used, the field's source reads \"assumed\", its name appears in the monument's fallbacks list, and parseConfidence drops; nothing is invented silently. Positions and extent polygons are not repeated here — this file joins back to sites.json by id.",
+  "transforms": [
+   "rampart-apron-conservation",
+   "mound-reprofile",
+   "pit-fill"
+  ],
+  "params": {
+   "packing": 0.85,
+   "apronDepthM": 0.45,
+   "wallThicknessM": 5.0,
+   "reposeEarthDeg": 30.0,
+   "reposeStoneDeg": 35.0,
+   "pitFillFactor": 0.5,
+   "fortConfidenceThreshold": 0.6
+  }
+ },
+ "defaults": {
+  "cairn": {
+   "diameterM": 7.0,
+   "heightM": 0.6,
+   "stoneM": [
+    0.4,
+    0.6
+   ],
+   "material": "stone",
+   "reprofile": true,
+   "form": "round"
+  },
+  "clearance-cairn": {
+   "diameterM": 5.0,
+   "heightM": 0.35,
+   "stoneM": [
+    0.2,
+    0.5
+   ],
+   "material": "stone",
+   "reprofile": false,
+   "form": "round"
+  },
+  "cultivated-ground": {
+   "diameterM": 30.0,
+   "heightM": 0.3,
+   "stoneM": [
+    0.2,
+    0.5
+   ],
+   "material": "stone",
+   "reprofile": false,
+   "form": "round"
+  },
+  "farmstead": {
+   "diameterM": 30.0,
+   "heightM": 1.0,
+   "stoneM": [
+    0.2,
+    0.5
+   ],
+   "material": "stone",
+   "reprofile": false,
+   "form": "round"
+  },
+  "field-boundary": {
+   "diameterM": 1.0,
+   "heightM": 0.85,
+   "stoneM": [
+    1.0,
+    2.0
+   ],
+   "material": "stone",
+   "reprofile": false,
+   "form": "round"
+  },
+  "fire-cracked-mound": {
+   "diameterM": 6.0,
+   "heightM": 0.4,
+   "stoneM": [
+    0.03,
+    0.2
+   ],
+   "material": "stone",
+   "reprofile": false,
+   "form": "round"
+  },
+  "fort": {
+   "diameterM": 120.0,
+   "heightM": 1.5,
+   "stoneM": [
+    0.3,
+    1.0
+   ],
+   "material": "stone",
+   "reprofile": false,
+   "form": "round"
+  },
+  "grave-field": {
+   "diameterM": 6.0,
+   "heightM": 0.4,
+   "stoneM": [
+    0.2,
+    0.4
+   ],
+   "material": "stone",
+   "reprofile": false,
+   "form": "round"
+  },
+  "mound": {
+   "diameterM": 7.0,
+   "heightM": 0.7,
+   "stoneM": [
+    0.2,
+    0.3
+   ],
+   "material": "earth",
+   "reprofile": true,
+   "form": "round"
+  },
+  "route": {
+   "diameterM": 2.0,
+   "heightM": 0.0,
+   "stoneM": [
+    0.05,
+    0.2
+   ],
+   "material": "stone",
+   "reprofile": false,
+   "form": "round"
+  },
+  "runestone": {
+   "diameterM": 1.0,
+   "heightM": 1.9,
+   "stoneM": [
+    0.6,
+    1.2
+   ],
+   "material": "stone",
+   "reprofile": false,
+   "form": "round"
+  },
+  "standing-stone": {
+   "diameterM": 1.0,
+   "heightM": 1.4,
+   "stoneM": [
+    0.6,
+    1.4
+   ],
+   "material": "stone",
+   "reprofile": false,
+   "form": "round"
+  },
+  "stone-setting": {
+   "diameterM": 6.0,
+   "heightM": 0.4,
+   "stoneM": [
+    0.2,
+    0.4
+   ],
+   "material": "stone",
+   "reprofile": false,
+   "form": "round"
+  }
+ },
+ "coverage": {
+  "records": 127,
+  "reconstructed": 127,
+  "unmappedTypes": 0,
+  "byArchetype": {
+   "cairn": 7,
+   "clearance-cairn": 1,
+   "farmstead": 4,
+   "field-boundary": 2,
+   "fire-cracked-mound": 9,
+   "fort": 1,
+   "grave-field": 31,
+   "mound": 12,
+   "runestone": 2,
+   "stone-setting": 58
+  },
+  "planParsed": 0.913,
+  "heightParsed": 0.898,
+  "stoneParsed": 0.874,
+  "formParsed": 0.913,
+  "kerbParsed": 0.551,
+  "pitsParsed": 0.307,
+  "turfNoted": 0.756,
+  "damageNoted": 0.11,
+  "graveFields": 31,
+  "graveFieldsWithStatedCount": 28,
+  "sampledMonuments": 1215,
+  "withWarnings": 1
+ },
+ "monuments": [
+  {
+   "id": "L1940:6792",
+   "lamningstyp": "Stensättning",
+   "archetype": "stone-setting",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 8.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 8.0,
+    "heightM": 1.2,
+    "transform": "none",
+    "presentHeightM": 1.2,
+    "presentDiameterM": 8.0,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.7,
+     1.4
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": {
+     "heightM": 1.2,
+     "stoneM": [
+      0.7,
+      1.4
+     ]
+    },
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "derived"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.95
+  },
+  {
+   "id": "L1940:6793",
+   "lamningstyp": "Stensättning",
+   "archetype": "stone-setting",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "square",
+    "diameterM": 4.0,
+    "lengthM": 4.0,
+    "widthM": 4.0,
+    "orientationDeg": 45.0,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 4.0,
+    "heightM": 0.6,
+    "transform": "none",
+    "presentHeightM": 0.6,
+    "presentDiameterM": 4.0,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.3,
+     0.8
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": {
+     "heightM": 0.5,
+     "stoneM": [
+      0.3,
+      0.8
+     ]
+    },
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "derived"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.95
+  },
+  {
+   "id": "L1940:6933",
+   "lamningstyp": "Stensättning",
+   "archetype": "stone-setting",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 6.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 6.0,
+    "heightM": 1.0,
+    "transform": "none",
+    "presentHeightM": 1.0,
+    "presentDiameterM": 6.0,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.3,
+     0.5
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": {
+     "heightM": null,
+     "stoneM": [
+      0.8,
+      1.0
+     ]
+    },
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "derived"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.95
+  },
+  {
+   "id": "L1940:6934",
+   "lamningstyp": "Stensättning",
+   "archetype": "stone-setting",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 7.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 7.0,
+    "heightM": 0.8,
+    "transform": "none",
+    "presentHeightM": 0.8,
+    "presentDiameterM": 7.0,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.5,
+     0.7
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": {
+     "heightM": 0.4,
+     "stoneM": [
+      0.6,
+      1.1
+     ]
+    },
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "derived"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.95
+  },
+  {
+   "id": "L1941:4635",
+   "lamningstyp": "Stensättning",
+   "archetype": "stone-setting",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 8.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 8.0,
+    "heightM": 0.5,
+    "transform": "none",
+    "presentHeightM": 0.5,
+    "presentDiameterM": 8.0,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.5
+    ],
+    "turfed": true,
+    "filled": true,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": null,
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "derived"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.9
+  },
+  {
+   "id": "L1941:4705",
+   "lamningstyp": "Gravfält",
+   "archetype": "grave-field",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "rectangular",
+    "diameterM": 60.0,
+    "lengthM": 80.0,
+    "widthM": 45.0,
+    "orientationDeg": 0.0,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 60.0,
+    "heightM": 2.0,
+    "transform": "none",
+    "presentHeightM": 2.0,
+    "presentDiameterM": 60.0,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.3,
+     0.5
+    ],
+    "turfed": true,
+    "filled": true,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": null,
+    "pits": []
+   },
+   "damaged": true,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "assumed",
+    "placement": "assumed"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.93,
+   "field": {
+    "count": 15,
+    "countSource": "measured",
+    "countStated": true,
+    "classes": [
+     {
+      "archetype": "stone-setting",
+      "form": "round",
+      "count": 8,
+      "moundLike": false,
+      "diameterM": [
+       3.0,
+       6.0
+      ],
+      "heightM": [
+       0.2,
+       0.5
+      ],
+      "stoneM": [
+       0.2,
+       0.4
+      ],
+      "source": "measured"
+     },
+     {
+      "archetype": "standing-stone",
+      "form": null,
+      "count": 3,
+      "moundLike": false,
+      "diameterM": [
+       0.7,
+       1.3
+      ],
+      "heightM": [
+       0.85,
+       0.85
+      ],
+      "stoneM": [
+       0.6,
+       1.4
+      ],
+      "source": "assumed"
+     },
+     {
+      "archetype": "mound",
+      "form": null,
+      "count": 4,
+      "moundLike": false,
+      "diameterM": [
+       7.0,
+       8.0
+      ],
+      "heightM": [
+       1.0,
+       1.5
+      ],
+      "stoneM": [
+       0.2,
+       0.3
+      ],
+      "source": "measured"
+     }
+    ]
+   }
+  },
+  {
+   "id": "L1941:4717",
+   "lamningstyp": "Runristning",
+   "archetype": "runestone",
+   "period": {
+    "builtCE": 950,
+    "abandonedCE": null
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 8.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 8.0,
+    "heightM": 0.5,
+    "transform": "none",
+    "presentHeightM": 0.5,
+    "presentDiameterM": 8.0,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.5
+    ],
+    "turfed": true,
+    "filled": true,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": null,
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "derived"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.9
+  },
+  {
+   "id": "L1941:4891",
+   "lamningstyp": "Hög",
+   "archetype": "mound",
+   "period": {
+    "builtCE": 400,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 7.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 5.92,
+    "heightM": 1.71,
+    "transform": "repose-reprofile",
+    "presentHeightM": 0.8,
+    "presentDiameterM": 7.0,
+    "heightGain": 2.14,
+    "source": "derived"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.5
+    ],
+    "turfed": true,
+    "filled": true,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": null,
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "derived",
+    "surface": "assumed"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.9
+  },
+  {
+   "id": "L1941:4945",
+   "lamningstyp": "Grav markerad av sten/block",
+   "archetype": "stone-setting",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 8.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 8.0,
+    "heightM": 0.3,
+    "transform": "pit-omit",
+    "presentHeightM": 0.3,
+    "presentDiameterM": 8.0,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.3,
+     0.5
+    ],
+    "turfed": true,
+    "filled": true,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": null,
+    "pits": [
+     {
+      "lengthM": 2.0,
+      "widthM": 1.5,
+      "depthM": 0.5
+     }
+    ]
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "derived"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.95
+  },
+  {
+   "id": "L1941:4946",
+   "lamningstyp": "Stensättning",
+   "archetype": "stone-setting",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 8.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 8.0,
+    "heightM": 0.3,
+    "transform": "pit-omit",
+    "presentHeightM": 0.3,
+    "presentDiameterM": 8.0,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.3,
+     0.5
+    ],
+    "turfed": true,
+    "filled": true,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": null,
+    "pits": [
+     {
+      "lengthM": 2.0,
+      "widthM": 1.5,
+      "depthM": 0.5
+     }
+    ]
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "derived"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.95
+  },
+  {
+   "id": "L1941:4947",
+   "lamningstyp": "Röse",
+   "archetype": "cairn",
+   "period": {
+    "builtCE": -1700,
+    "abandonedCE": -500
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 10.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 8.72,
+    "heightM": 3.05,
+    "transform": "repose-reprofile",
+    "presentHeightM": 1.5,
+    "presentDiameterM": 10.0,
+    "heightGain": 2.03,
+    "source": "derived"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.5
+    ],
+    "turfed": false,
+    "filled": true,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": null,
+    "pits": []
+   },
+   "damaged": true,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "derived",
+    "surface": "derived"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.9
+  },
+  {
+   "id": "L1941:4952",
+   "lamningstyp": "Hög",
+   "archetype": "mound",
+   "period": {
+    "builtCE": 400,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 7.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 5.92,
+    "heightM": 1.71,
+    "transform": "repose-reprofile",
+    "presentHeightM": 0.8,
+    "presentDiameterM": 7.0,
+    "heightGain": 2.14,
+    "source": "derived"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.5
+    ],
+    "turfed": true,
+    "filled": true,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": null,
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "derived",
+    "surface": "assumed"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.9
+  },
+  {
+   "id": "L1941:4953",
+   "lamningstyp": "Stensättning",
+   "archetype": "stone-setting",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 8.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 8.0,
+    "heightM": 0.5,
+    "transform": "none",
+    "presentHeightM": 0.5,
+    "presentDiameterM": 8.0,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.5
+    ],
+    "turfed": true,
+    "filled": true,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": null,
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "derived"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.9
+  },
+  {
+   "id": "L1941:4954",
+   "lamningstyp": "Röjningsröse",
+   "archetype": "clearance-cairn",
+   "period": {
+    "builtCE": -1700,
+    "abandonedCE": 1600
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 10.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 10.0,
+    "heightM": 0.6,
+    "transform": "none",
+    "presentHeightM": 0.6,
+    "presentDiameterM": 10.0,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.1,
+     0.6
+    ],
+    "turfed": false,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": null,
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "derived"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.9
+  },
+  {
+   "id": "L1941:5017",
+   "lamningstyp": "Stensättning",
+   "archetype": "stone-setting",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 12.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 12.0,
+    "heightM": 1.0,
+    "transform": "none",
+    "presentHeightM": 1.0,
+    "presentDiameterM": 12.0,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.4,
+     1.0
+    ],
+    "turfed": false,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": {
+     "heightM": 0.45,
+     "stoneM": null
+    },
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "derived"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.95
+  },
+  {
+   "id": "L1941:5116",
+   "lamningstyp": "Stensättning",
+   "archetype": "stone-setting",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 4.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 4.0,
+    "heightM": 0.3,
+    "transform": "none",
+    "presentHeightM": 0.3,
+    "presentDiameterM": 4.0,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.4
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": {
+     "heightM": 0.15,
+     "stoneM": null
+    },
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "derived"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.95
+  },
+  {
+   "id": "L1941:5182",
+   "lamningstyp": "Grav markerad av sten/block",
+   "archetype": "stone-setting",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 6.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "assumed"
+   },
+   "profile": {
+    "diameterM": 6.0,
+    "heightM": 0.4,
+    "transform": "none",
+    "presentHeightM": 0.4,
+    "presentDiameterM": 6.0,
+    "heightGain": 1.0,
+    "source": "assumed"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.4
+    ],
+    "turfed": false,
+    "filled": null,
+    "centreStone": false,
+    "source": "assumed"
+   },
+   "features": {
+    "kerb": null,
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "assumed",
+    "profile": "assumed",
+    "surface": "assumed"
+   },
+   "fallbacks": [
+    "plan.diameterM",
+    "plan.form",
+    "profile.heightM",
+    "surface.stoneM"
+   ],
+   "parseConfidence": 0.0
+  },
+  {
+   "id": "L1941:5480",
+   "lamningstyp": "Gravfält",
+   "archetype": "grave-field",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "rectangular",
+    "diameterM": 185.2,
+    "lengthM": 245.0,
+    "widthM": 140.0,
+    "orientationDeg": 0.0,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 185.2,
+    "heightM": 0.4,
+    "transform": "none",
+    "presentHeightM": 0.4,
+    "presentDiameterM": 185.2,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.3,
+     0.6
+    ],
+    "turfed": true,
+    "filled": true,
+    "centreStone": true,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": null,
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "assumed",
+    "placement": "assumed"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.95,
+   "field": {
+    "count": 65,
+    "countSource": "measured",
+    "countStated": true,
+    "classes": [
+     {
+      "archetype": "stone-setting",
+      "form": "round",
+      "count": 57,
+      "moundLike": false,
+      "diameterM": [
+       3.0,
+       8.0
+      ],
+      "heightM": [
+       0.2,
+       0.6
+      ],
+      "stoneM": [
+       0.3,
+       0.6
+      ],
+      "source": "measured"
+     },
+     {
+      "archetype": "standing-stone",
+      "form": null,
+      "count": 1,
+      "moundLike": false,
+      "diameterM": [
+       0.7,
+       1.3
+      ],
+      "heightM": [
+       2.0,
+       2.0
+      ],
+      "stoneM": [
+       0.6,
+       1.4
+      ],
+      "source": "assumed"
+     },
+     {
+      "archetype": "mound",
+      "form": null,
+      "count": 5,
+      "moundLike": false,
+      "diameterM": [
+       6.0,
+       9.0
+      ],
+      "heightM": [
+       0.42,
+       0.98
+      ],
+      "stoneM": [
+       0.6,
+       1.2
+      ],
+      "source": "measured"
+     },
+     {
+      "archetype": "cairn",
+      "form": null,
+      "count": 2,
+      "moundLike": false,
+      "diameterM": [
+       10.0,
+       10.0
+      ],
+      "heightM": [
+       1.0,
+       1.0
+      ],
+      "stoneM": [
+       0.4,
+       0.6
+      ],
+      "source": "measured"
+     }
+    ]
+   }
+  },
+  {
+   "id": "L1941:5542",
+   "lamningstyp": "Gravfält",
+   "archetype": "grave-field",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "rectangular",
+    "diameterM": 137.84,
+    "lengthM": 190.0,
+    "widthM": 100.0,
+    "orientationDeg": 135.0,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 137.84,
+    "heightM": 1.0,
+    "transform": "none",
+    "presentHeightM": 1.0,
+    "presentDiameterM": 137.84,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.5
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": {
+     "heightM": 0.3,
+     "stoneM": null
+    },
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "assumed",
+    "placement": "assumed"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.97,
+   "field": {
+    "count": 80,
+    "countSource": "measured",
+    "countStated": true,
+    "classes": [
+     {
+      "archetype": "stone-setting",
+      "form": "round",
+      "count": 40,
+      "moundLike": false,
+      "diameterM": [
+       3.0,
+       8.0
+      ],
+      "heightM": [
+       0.2,
+       0.5
+      ],
+      "stoneM": [
+       0.2,
+       0.4
+      ],
+      "source": "measured"
+     },
+     {
+      "archetype": "stone-setting",
+      "form": "square",
+      "count": 4,
+      "moundLike": false,
+      "diameterM": [
+       2.0,
+       7.0
+      ],
+      "heightM": [
+       0.2,
+       0.4
+      ],
+      "stoneM": [
+       0.2,
+       0.4
+      ],
+      "source": "measured"
+     },
+     {
+      "archetype": "stone-setting",
+      "form": "rectangular",
+      "count": 1,
+      "moundLike": false,
+      "diameterM": [
+       3.0,
+       8.0
+      ],
+      "heightM": [
+       0.2,
+       0.5
+      ],
+      "stoneM": [
+       0.2,
+       0.4
+      ],
+      "source": "measured"
+     },
+     {
+      "archetype": "stone-setting",
+      "form": "triangular",
+      "count": 3,
+      "moundLike": false,
+      "diameterM": [
+       3.0,
+       8.0
+      ],
+      "heightM": [
+       0.2,
+       0.5
+      ],
+      "stoneM": [
+       0.2,
+       0.4
+      ],
+      "source": "measured"
+     },
+     {
+      "archetype": "standing-stone",
+      "form": null,
+      "count": 30,
+      "moundLike": false,
+      "diameterM": [
+       0.7,
+       1.3
+      ],
+      "heightM": [
+       0.8,
+       1.5
+      ],
+      "stoneM": [
+       0.6,
+       1.4
+      ],
+      "source": "assumed"
+     },
+     {
+      "archetype": "mound",
+      "form": null,
+      "count": 2,
+      "moundLike": false,
+      "diameterM": [
+       7.0,
+       8.0
+      ],
+      "heightM": [
+       1.0,
+       1.0
+      ],
+      "stoneM": [
+       0.2,
+       0.3
+      ],
+      "source": "measured"
+     }
+    ]
+   }
+  },
+  {
+   "id": "L1941:5552",
+   "lamningstyp": "Gravfält",
+   "archetype": "grave-field",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "oval",
+    "diameterM": 74.16,
+    "lengthM": 110.0,
+    "widthM": 50.0,
+    "orientationDeg": 45.0,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 74.16,
+    "heightM": 0.5,
+    "transform": "none",
+    "presentHeightM": 0.5,
+    "presentDiameterM": 74.16,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.3,
+     0.6
+    ],
+    "turfed": true,
+    "filled": true,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": {
+     "heightM": null,
+     "stoneM": [
+      0.5,
+      0.7
+     ]
+    },
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "assumed",
+    "surface": "assumed",
+    "placement": "assumed"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.8,
+   "field": {
+    "count": 20,
+    "countSource": "measured",
+    "countStated": false,
+    "classes": [
+     {
+      "archetype": "stone-setting",
+      "form": "round",
+      "count": 20,
+      "moundLike": false,
+      "diameterM": [
+       4.2,
+       7.8
+      ],
+      "heightM": [
+       0.24,
+       0.56
+      ],
+      "stoneM": [
+       0.2,
+       0.4
+      ],
+      "source": "assumed"
+     }
+    ]
+   }
+  },
+  {
+   "id": "L1941:5580",
+   "lamningstyp": "Grav markerad av sten/block",
+   "archetype": "stone-setting",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 8.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 8.0,
+    "heightM": 0.3,
+    "transform": "pit-omit",
+    "presentHeightM": 0.3,
+    "presentDiameterM": 8.0,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.3,
+     0.5
+    ],
+    "turfed": true,
+    "filled": true,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": null,
+    "pits": [
+     {
+      "lengthM": 2.0,
+      "widthM": 1.5,
+      "depthM": 0.5
+     }
+    ]
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "derived"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.95
+  },
+  {
+   "id": "L1941:5685",
+   "lamningstyp": "Stensättning",
+   "archetype": "stone-setting",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "rectangular",
+    "diameterM": 7.35,
+    "lengthM": 9.0,
+    "widthM": 6.0,
+    "orientationDeg": 90.0,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 7.35,
+    "heightM": 0.25,
+    "transform": "none",
+    "presentHeightM": 0.25,
+    "presentDiameterM": 7.35,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     1.0
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": {
+     "heightM": 0.25,
+     "stoneM": null
+    },
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "derived"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.95
+  },
+  {
+   "id": "L1941:5697",
+   "lamningstyp": "Grav markerad av sten/block",
+   "archetype": "stone-setting",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 6.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "assumed"
+   },
+   "profile": {
+    "diameterM": 6.0,
+    "heightM": 0.4,
+    "transform": "none",
+    "presentHeightM": 0.4,
+    "presentDiameterM": 6.0,
+    "heightGain": 1.0,
+    "source": "assumed"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.4
+    ],
+    "turfed": false,
+    "filled": null,
+    "centreStone": false,
+    "source": "assumed"
+   },
+   "features": {
+    "kerb": null,
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "assumed",
+    "profile": "assumed",
+    "surface": "assumed"
+   },
+   "fallbacks": [
+    "plan.diameterM",
+    "plan.form",
+    "profile.heightM",
+    "surface.stoneM"
+   ],
+   "parseConfidence": 0.0
+  },
+  {
+   "id": "L1941:5698",
+   "lamningstyp": "Stensättning",
+   "archetype": "stone-setting",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 4.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 4.0,
+    "heightM": 0.3,
+    "transform": "none",
+    "presentHeightM": 0.3,
+    "presentDiameterM": 4.0,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.4
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": {
+     "heightM": 0.15,
+     "stoneM": null
+    },
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "derived"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.95
+  },
+  {
+   "id": "L1941:5699",
+   "lamningstyp": "Stensättning",
+   "archetype": "stone-setting",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 7.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 7.0,
+    "heightM": 0.5,
+    "transform": "pit-omit",
+    "presentHeightM": 0.5,
+    "presentDiameterM": 7.0,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.6
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": null,
+    "pits": [
+     {
+      "lengthM": 2.0,
+      "widthM": 2.0,
+      "depthM": 0.4
+     }
+    ]
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "derived"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.95
+  },
+  {
+   "id": "L1941:9013",
+   "lamningstyp": "Stensättning",
+   "archetype": "stone-setting",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 6.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 6.0,
+    "heightM": 0.4,
+    "transform": "none",
+    "presentHeightM": 0.4,
+    "presentDiameterM": 6.0,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.6
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": {
+     "heightM": null,
+     "stoneM": null
+    },
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "derived"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.95
+  },
+  {
+   "id": "L1941:9092",
+   "lamningstyp": "Hög",
+   "archetype": "mound",
+   "period": {
+    "builtCE": 400,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 7.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "assumed"
+   },
+   "profile": {
+    "diameterM": 5.65,
+    "heightM": 1.63,
+    "transform": "repose-reprofile",
+    "presentHeightM": 0.7,
+    "presentDiameterM": 7.0,
+    "heightGain": 2.33,
+    "source": "assumed"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.3
+    ],
+    "turfed": false,
+    "filled": null,
+    "centreStone": false,
+    "source": "assumed"
+   },
+   "features": {
+    "kerb": null,
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "assumed",
+    "profile": "assumed",
+    "surface": "assumed"
+   },
+   "fallbacks": [
+    "plan.diameterM",
+    "plan.form",
+    "profile.heightM",
+    "surface.stoneM"
+   ],
+   "parseConfidence": 0.0
+  },
+  {
+   "id": "L1941:9134",
+   "lamningstyp": "Stensättning",
+   "archetype": "stone-setting",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 5.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 5.0,
+    "heightM": 0.3,
+    "transform": "none",
+    "presentHeightM": 0.3,
+    "presentDiameterM": 5.0,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     1.5,
+     1.5
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": true,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": null,
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "derived"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.9
+  },
+  {
+   "id": "L1941:9232",
+   "lamningstyp": "Hög",
+   "archetype": "mound",
+   "period": {
+    "builtCE": 400,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 12.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 9.71,
+    "heightM": 2.8,
+    "transform": "repose-reprofile+pit-fill",
+    "presentHeightM": 1.2,
+    "presentDiameterM": 12.0,
+    "heightGain": 2.33,
+    "source": "derived"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.4
+    ],
+    "turfed": false,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": null,
+    "pits": [
+     {
+      "lengthM": 2.0,
+      "widthM": 1.0,
+      "depthM": 0.3
+     },
+     {
+      "lengthM": 1.0,
+      "widthM": 1.0,
+      "depthM": 0.1
+     }
+    ]
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "derived",
+    "surface": "assumed"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.95
+  },
+  {
+   "id": "L1941:9245",
+   "lamningstyp": "Stensättning",
+   "archetype": "stone-setting",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "rectangular",
+    "diameterM": 7.42,
+    "lengthM": 11.0,
+    "widthM": 5.0,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 7.42,
+    "heightM": 0.15,
+    "transform": "none",
+    "presentHeightM": 0.15,
+    "presentDiameterM": 7.42,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.3,
+     0.5
+    ],
+    "turfed": true,
+    "filled": true,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": {
+     "heightM": 0.38,
+     "stoneM": null
+    },
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "derived"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.95
+  },
+  {
+   "id": "L1941:9259",
+   "lamningstyp": "Stensättning",
+   "archetype": "stone-setting",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "rectangular",
+    "diameterM": 7.42,
+    "lengthM": 11.0,
+    "widthM": 5.0,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 7.42,
+    "heightM": 0.15,
+    "transform": "none",
+    "presentHeightM": 0.15,
+    "presentDiameterM": 7.42,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.3,
+     0.5
+    ],
+    "turfed": true,
+    "filled": true,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": {
+     "heightM": 0.38,
+     "stoneM": null
+    },
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "derived"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.95
+  },
+  {
+   "id": "L1941:9260",
+   "lamningstyp": "Stensättning",
+   "archetype": "stone-setting",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "rectangular",
+    "diameterM": 7.42,
+    "lengthM": 11.0,
+    "widthM": 5.0,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 7.42,
+    "heightM": 0.15,
+    "transform": "none",
+    "presentHeightM": 0.15,
+    "presentDiameterM": 7.42,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.3,
+     0.5
+    ],
+    "turfed": true,
+    "filled": true,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": {
+     "heightM": 0.38,
+     "stoneM": null
+    },
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "derived"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.95
+  },
+  {
+   "id": "L1941:9321",
+   "lamningstyp": "Gravfält",
+   "archetype": "grave-field",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "rectangular",
+    "diameterM": 36.74,
+    "lengthM": 45.0,
+    "widthM": 30.0,
+    "orientationDeg": 90.0,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 36.74,
+    "heightM": 0.17,
+    "transform": "none",
+    "presentHeightM": 0.17,
+    "presentDiameterM": 36.74,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.5
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": true,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": {
+     "heightM": 0.25,
+     "stoneM": [
+      0.6,
+      1.5
+     ]
+    },
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "assumed",
+    "surface": "assumed",
+    "placement": "assumed"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.8,
+   "field": {
+    "count": 7,
+    "countSource": "measured",
+    "countStated": true,
+    "classes": [
+     {
+      "archetype": "stone-setting",
+      "form": "round",
+      "count": 7,
+      "diameterM": [
+       4.2,
+       7.8
+      ],
+      "heightM": [
+       0.24,
+       0.56
+      ],
+      "stoneM": [
+       0.2,
+       0.4
+      ],
+      "moundLike": false,
+      "source": "assumed",
+      "note": "record states a count but no composition"
+     }
+    ]
+   }
+  },
+  {
+   "id": "L1941:9481",
+   "lamningstyp": "Gravfält",
+   "archetype": "grave-field",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "rectangular",
+    "diameterM": 79.37,
+    "lengthM": 90.0,
+    "widthM": 70.0,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 79.37,
+    "heightM": 1.6,
+    "transform": "none",
+    "presentHeightM": 1.6,
+    "presentDiameterM": 79.37,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.3,
+     0.5
+    ],
+    "turfed": true,
+    "filled": true,
+    "centreStone": true,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": {
+     "heightM": null,
+     "stoneM": [
+      0.5,
+      1.0
+     ]
+    },
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "assumed",
+    "placement": "assumed"
+   },
+   "fallbacks": [],
+   "parseConfidence": 1.0,
+   "field": {
+    "count": 23,
+    "countSource": "measured",
+    "countStated": true,
+    "classes": [
+     {
+      "archetype": "stone-setting",
+      "form": "round",
+      "count": 15,
+      "moundLike": false,
+      "diameterM": [
+       3.0,
+       6.0
+      ],
+      "heightM": [
+       0.2,
+       0.4
+      ],
+      "stoneM": [
+       0.2,
+       0.4
+      ],
+      "source": "measured"
+     },
+     {
+      "archetype": "stone-setting",
+      "form": null,
+      "count": 1,
+      "moundLike": false,
+      "diameterM": [
+       3.0,
+       6.0
+      ],
+      "heightM": [
+       0.2,
+       0.4
+      ],
+      "stoneM": [
+       0.2,
+       0.4
+      ],
+      "source": "measured"
+     },
+     {
+      "archetype": "stone-setting",
+      "form": "rectangular",
+      "count": 1,
+      "moundLike": false,
+      "diameterM": [
+       3.0,
+       6.0
+      ],
+      "heightM": [
+       0.2,
+       0.4
+      ],
+      "stoneM": [
+       0.2,
+       0.4
+      ],
+      "source": "measured"
+     },
+     {
+      "archetype": "stone-setting",
+      "form": "triangular",
+      "count": 1,
+      "moundLike": false,
+      "diameterM": [
+       3.0,
+       6.0
+      ],
+      "heightM": [
+       0.2,
+       0.4
+      ],
+      "stoneM": [
+       0.2,
+       0.4
+      ],
+      "source": "measured"
+     },
+     {
+      "archetype": "mound",
+      "form": null,
+      "count": 5,
+      "moundLike": false,
+      "diameterM": [
+       11.4,
+       11.4
+      ],
+      "heightM": [
+       1.6,
+       1.6
+      ],
+      "stoneM": [
+       0.2,
+       0.3
+      ],
+      "source": "measured"
+     }
+    ]
+   }
+  },
+  {
+   "id": "L1941:9534",
+   "lamningstyp": "Hög",
+   "archetype": "mound",
+   "period": {
+    "builtCE": 400,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 12.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 9.71,
+    "heightM": 2.8,
+    "transform": "repose-reprofile+pit-fill",
+    "presentHeightM": 1.2,
+    "presentDiameterM": 12.0,
+    "heightGain": 2.33,
+    "source": "derived"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.4
+    ],
+    "turfed": false,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": null,
+    "pits": [
+     {
+      "lengthM": 2.0,
+      "widthM": 1.0,
+      "depthM": 0.3
+     },
+     {
+      "lengthM": 1.0,
+      "widthM": 1.0,
+      "depthM": 0.1
+     }
+    ]
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "derived",
+    "surface": "assumed"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.95
+  },
+  {
+   "id": "L1941:9535",
+   "lamningstyp": "Hög",
+   "archetype": "mound",
+   "period": {
+    "builtCE": 400,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 12.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 9.71,
+    "heightM": 2.8,
+    "transform": "repose-reprofile+pit-fill",
+    "presentHeightM": 1.2,
+    "presentDiameterM": 12.0,
+    "heightGain": 2.33,
+    "source": "derived"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.4
+    ],
+    "turfed": false,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": null,
+    "pits": [
+     {
+      "lengthM": 2.0,
+      "widthM": 1.0,
+      "depthM": 0.3
+     },
+     {
+      "lengthM": 1.0,
+      "widthM": 1.0,
+      "depthM": 0.1
+     }
+    ]
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "derived",
+    "surface": "assumed"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.95
+  },
+  {
+   "id": "L1941:9611",
+   "lamningstyp": "Stensättning",
+   "archetype": "stone-setting",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 6.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 6.0,
+    "heightM": 0.2,
+    "transform": "none",
+    "presentHeightM": 0.2,
+    "presentDiameterM": 6.0,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.4
+    ],
+    "turfed": true,
+    "filled": true,
+    "centreStone": false,
+    "source": "assumed"
+   },
+   "features": {
+    "kerb": null,
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "assumed"
+   },
+   "fallbacks": [
+    "surface.stoneM"
+   ],
+   "parseConfidence": 0.75
+  },
+  {
+   "id": "L1941:9612",
+   "lamningstyp": "Stensättning",
+   "archetype": "stone-setting",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 6.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 6.0,
+    "heightM": 0.2,
+    "transform": "none",
+    "presentHeightM": 0.2,
+    "presentDiameterM": 6.0,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.4
+    ],
+    "turfed": true,
+    "filled": true,
+    "centreStone": false,
+    "source": "assumed"
+   },
+   "features": {
+    "kerb": null,
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "assumed"
+   },
+   "fallbacks": [
+    "surface.stoneM"
+   ],
+   "parseConfidence": 0.75
+  },
+  {
+   "id": "L1941:9634",
+   "lamningstyp": "Stensättning",
+   "archetype": "stone-setting",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 4.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 4.0,
+    "heightM": 0.15,
+    "transform": "pit-omit",
+    "presentHeightM": 0.15,
+    "presentDiameterM": 4.0,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.4
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": false,
+    "source": "assumed"
+   },
+   "features": {
+    "kerb": null,
+    "pits": [
+     {
+      "lengthM": 2.0,
+      "widthM": 2.0,
+      "depthM": 0.4
+     }
+    ]
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "assumed"
+   },
+   "fallbacks": [
+    "surface.stoneM"
+   ],
+   "parseConfidence": 0.8
+  },
+  {
+   "id": "L1941:9635",
+   "lamningstyp": "Gravfält",
+   "archetype": "grave-field",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "rectangular",
+    "diameterM": 37.42,
+    "lengthM": 40.0,
+    "widthM": 35.0,
+    "orientationDeg": 0.0,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 37.42,
+    "heightM": 0.2,
+    "transform": "pit-omit",
+    "presentHeightM": 0.2,
+    "presentDiameterM": 37.42,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.5
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": {
+     "heightM": 0.15,
+     "stoneM": null
+    },
+    "pits": [
+     {
+      "lengthM": 1.0,
+      "widthM": 1.0,
+      "depthM": 0.15
+     }
+    ]
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "assumed",
+    "surface": "assumed",
+    "placement": "assumed"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.8,
+   "field": {
+    "count": 6,
+    "countSource": "measured",
+    "countStated": true,
+    "classes": [
+     {
+      "archetype": "stone-setting",
+      "form": "round",
+      "count": 6,
+      "diameterM": [
+       4.2,
+       7.8
+      ],
+      "heightM": [
+       0.24,
+       0.56
+      ],
+      "stoneM": [
+       0.2,
+       0.4
+      ],
+      "moundLike": false,
+      "source": "assumed",
+      "note": "record states a count but no composition"
+     }
+    ]
+   }
+  },
+  {
+   "id": "L1941:9771",
+   "lamningstyp": "Hägnad",
+   "archetype": "field-boundary",
+   "period": {
+    "builtCE": 0,
+    "abandonedCE": 550
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 1.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "assumed"
+   },
+   "profile": {
+    "diameterM": 1.0,
+    "heightM": 0.85,
+    "transform": "none",
+    "presentHeightM": 0.85,
+    "presentDiameterM": 1.0,
+    "heightGain": 1.0,
+    "source": "assumed"
+   },
+   "surface": {
+    "stoneM": [
+     0.5,
+     0.6
+    ],
+    "turfed": false,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": null,
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "assumed",
+    "profile": "assumed",
+    "surface": "derived"
+   },
+   "fallbacks": [
+    "plan.diameterM",
+    "plan.form",
+    "profile.heightM"
+   ],
+   "parseConfidence": 0.15
+  },
+  {
+   "id": "L1941:9772",
+   "lamningstyp": "Hägnad",
+   "archetype": "field-boundary",
+   "period": {
+    "builtCE": 0,
+    "abandonedCE": 550
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 1.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "assumed"
+   },
+   "profile": {
+    "diameterM": 1.0,
+    "heightM": 0.85,
+    "transform": "none",
+    "presentHeightM": 0.85,
+    "presentDiameterM": 1.0,
+    "heightGain": 1.0,
+    "source": "assumed"
+   },
+   "surface": {
+    "stoneM": [
+     0.5,
+     0.6
+    ],
+    "turfed": false,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": null,
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "assumed",
+    "profile": "assumed",
+    "surface": "derived"
+   },
+   "fallbacks": [
+    "plan.diameterM",
+    "plan.form",
+    "profile.heightM"
+   ],
+   "parseConfidence": 0.15
+  },
+  {
+   "id": "L1943:6864",
+   "lamningstyp": "Stensättning",
+   "archetype": "stone-setting",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "oval",
+    "diameterM": 7.07,
+    "lengthM": 10.0,
+    "widthM": 5.0,
+    "orientationDeg": 90.0,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 7.07,
+    "heightM": 0.4,
+    "transform": "pit-omit",
+    "presentHeightM": 0.4,
+    "presentDiameterM": 7.07,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.4
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": {
+     "heightM": 0.25,
+     "stoneM": null
+    },
+    "pits": [
+     {
+      "lengthM": 4.0,
+      "widthM": 4.0,
+      "depthM": 0.4
+     },
+     {
+      "lengthM": 3.0,
+      "widthM": 2.0,
+      "depthM": 0.3
+     }
+    ]
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "derived"
+   },
+   "fallbacks": [],
+   "parseConfidence": 1.0
+  },
+  {
+   "id": "L1943:6865",
+   "lamningstyp": "Stensättning",
+   "archetype": "stone-setting",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 7.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 7.0,
+    "heightM": 0.4,
+    "transform": "pit-omit",
+    "presentHeightM": 0.4,
+    "presentDiameterM": 7.0,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.3
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": null,
+    "pits": [
+     {
+      "lengthM": 1.5,
+      "widthM": 1.5,
+      "depthM": 0.25
+     },
+     {
+      "lengthM": 1.5,
+      "widthM": 1.5,
+      "depthM": 0.5
+     }
+    ]
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "derived"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.95
+  },
+  {
+   "id": "L1943:6866",
+   "lamningstyp": "Hög",
+   "archetype": "mound",
+   "period": {
+    "builtCE": 400,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 7.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 5.77,
+    "heightM": 1.66,
+    "transform": "repose-reprofile+pit-fill",
+    "presentHeightM": 0.7,
+    "presentDiameterM": 7.0,
+    "heightGain": 2.37,
+    "source": "derived"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.3
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": null,
+    "pits": [
+     {
+      "lengthM": 1.5,
+      "widthM": 1.5,
+      "depthM": 0.25
+     },
+     {
+      "lengthM": 1.5,
+      "widthM": 1.5,
+      "depthM": 0.5
+     }
+    ]
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "derived",
+    "surface": "assumed"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.95
+  },
+  {
+   "id": "L1943:6881",
+   "lamningstyp": "Gravfält",
+   "archetype": "grave-field",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "rectangular",
+    "diameterM": 46.9,
+    "lengthM": 55.0,
+    "widthM": 40.0,
+    "orientationDeg": 0.0,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 46.9,
+    "heightM": 0.8,
+    "transform": "pit-omit",
+    "presentHeightM": 0.8,
+    "presentDiameterM": 46.9,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.3
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": {
+     "heightM": 0.25,
+     "stoneM": null
+    },
+    "pits": [
+     {
+      "lengthM": 3.0,
+      "widthM": 3.0,
+      "depthM": 0.4
+     },
+     {
+      "lengthM": 7.0,
+      "widthM": 6.0,
+      "depthM": 0.25
+     }
+    ]
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "assumed",
+    "placement": "assumed"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.93,
+   "field": {
+    "count": 8,
+    "countSource": "measured",
+    "countStated": false,
+    "classes": [
+     {
+      "archetype": "stone-setting",
+      "form": "round",
+      "count": 4,
+      "moundLike": false,
+      "diameterM": [
+       4.0,
+       7.0
+      ],
+      "heightM": [
+       0.2,
+       0.5
+      ],
+      "stoneM": [
+       0.2,
+       0.4
+      ],
+      "source": "measured"
+     },
+     {
+      "archetype": "stone-setting",
+      "form": "rectangular",
+      "count": 3,
+      "moundLike": false,
+      "diameterM": [
+       6.48,
+       6.48
+      ],
+      "heightM": [
+       0.3,
+       0.3
+      ],
+      "stoneM": [
+       0.2,
+       0.4
+      ],
+      "source": "measured"
+     },
+     {
+      "archetype": "mound",
+      "form": null,
+      "count": 1,
+      "moundLike": false,
+      "diameterM": [
+       4.9,
+       9.1
+      ],
+      "heightM": [
+       0.42,
+       0.98
+      ],
+      "stoneM": [
+       0.2,
+       0.3
+      ],
+      "source": "assumed"
+     }
+    ]
+   }
+  },
+  {
+   "id": "L1943:6886",
+   "lamningstyp": "Skärvstenshög",
+   "archetype": "fire-cracked-mound",
+   "period": {
+    "builtCE": -1700,
+    "abandonedCE": -500
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 5.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 5.0,
+    "heightM": 0.3,
+    "transform": "none",
+    "presentHeightM": 0.3,
+    "presentDiameterM": 5.0,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.4
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": {
+     "heightM": 0.3,
+     "stoneM": [
+      1.1,
+      1.1
+     ]
+    },
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "derived"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.95
+  },
+  {
+   "id": "L1943:6887",
+   "lamningstyp": "Stensättning",
+   "archetype": "stone-setting",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 3.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 3.0,
+    "heightM": 0.2,
+    "transform": "none",
+    "presentHeightM": 0.2,
+    "presentDiameterM": 3.0,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.4
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": {
+     "heightM": 0.3,
+     "stoneM": [
+      1.1,
+      1.1
+     ]
+    },
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "derived"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.95
+  },
+  {
+   "id": "L1943:6888",
+   "lamningstyp": "Skärvstenshög",
+   "archetype": "fire-cracked-mound",
+   "period": {
+    "builtCE": -1700,
+    "abandonedCE": -500
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 9.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 9.0,
+    "heightM": 0.5,
+    "transform": "pit-omit",
+    "presentHeightM": 0.5,
+    "presentDiameterM": 9.0,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.3
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": null,
+    "pits": [
+     {
+      "lengthM": 2.5,
+      "widthM": 2.5,
+      "depthM": 0.4
+     }
+    ]
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "derived"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.95
+  },
+  {
+   "id": "L1943:6889",
+   "lamningstyp": "Hög",
+   "archetype": "mound",
+   "period": {
+    "builtCE": 400,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 7.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 5.65,
+    "heightM": 1.63,
+    "transform": "repose-reprofile",
+    "presentHeightM": 0.7,
+    "presentDiameterM": 7.0,
+    "heightGain": 2.33,
+    "source": "derived"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.3
+    ],
+    "turfed": false,
+    "filled": null,
+    "centreStone": true,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": null,
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "derived",
+    "surface": "assumed"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.9
+  },
+  {
+   "id": "L1943:6937",
+   "lamningstyp": "Gravfält",
+   "archetype": "grave-field",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "rectangular",
+    "diameterM": 45.83,
+    "lengthM": 60.0,
+    "widthM": 35.0,
+    "orientationDeg": 22.5,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 45.83,
+    "heightM": 0.3,
+    "transform": "none",
+    "presentHeightM": 0.3,
+    "presentDiameterM": 45.83,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.6
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": {
+     "heightM": 0.4,
+     "stoneM": null
+    },
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "assumed",
+    "placement": "assumed"
+   },
+   "fallbacks": [],
+   "parseConfidence": 1.0,
+   "field": {
+    "count": 8,
+    "countSource": "measured",
+    "countStated": true,
+    "classes": [
+     {
+      "archetype": "stone-setting",
+      "form": "round",
+      "count": 6,
+      "moundLike": false,
+      "diameterM": [
+       4.0,
+       7.0
+      ],
+      "heightM": [
+       0.2,
+       0.4
+      ],
+      "stoneM": [
+       0.2,
+       0.4
+      ],
+      "source": "measured"
+     },
+     {
+      "archetype": "stone-setting",
+      "form": "rectangular",
+      "count": 2,
+      "moundLike": false,
+      "diameterM": [
+       4.0,
+       7.0
+      ],
+      "heightM": [
+       0.2,
+       0.4
+      ],
+      "stoneM": [
+       0.2,
+       0.4
+      ],
+      "source": "measured"
+     }
+    ]
+   }
+  },
+  {
+   "id": "L1943:6944",
+   "lamningstyp": "Grav- och boplatsområde",
+   "archetype": "grave-field",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "rectangular",
+    "diameterM": 53.62,
+    "lengthM": 115.0,
+    "widthM": 25.0,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 53.62,
+    "heightM": 0.25,
+    "transform": "none",
+    "presentHeightM": 0.25,
+    "presentDiameterM": 53.62,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.8
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": {
+     "heightM": 0.2,
+     "stoneM": [
+      0.3,
+      1.0
+     ]
+    },
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "assumed",
+    "placement": "assumed"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.9,
+   "field": {
+    "count": 7,
+    "countSource": "measured",
+    "countStated": true,
+    "classes": [
+     {
+      "archetype": "fire-cracked-mound",
+      "form": null,
+      "count": 2,
+      "moundLike": false,
+      "diameterM": [
+       3.5,
+       3.5
+      ],
+      "heightM": [
+       0.3,
+       0.3
+      ],
+      "stoneM": [
+       0.3,
+       1.0
+      ],
+      "source": "measured"
+     },
+     {
+      "archetype": "stone-setting",
+      "form": "round",
+      "count": 5,
+      "moundLike": false,
+      "diameterM": [
+       4.2,
+       7.8
+      ],
+      "heightM": [
+       0.2,
+       0.3
+      ],
+      "stoneM": [
+       0.2,
+       0.8
+      ],
+      "source": "assumed"
+     }
+    ]
+   }
+  },
+  {
+   "id": "L1943:6957",
+   "lamningstyp": "Gravfält",
+   "archetype": "grave-field",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "rectangular",
+    "diameterM": 146.97,
+    "lengthM": 240.0,
+    "widthM": 90.0,
+    "orientationDeg": 0.0,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 146.97,
+    "heightM": 0.9,
+    "transform": "pit-omit",
+    "presentHeightM": 0.9,
+    "presentDiameterM": 146.97,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.4,
+     0.4
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": {
+     "heightM": 0.3,
+     "stoneM": null
+    },
+    "pits": [
+     {
+      "lengthM": 2.0,
+      "widthM": 2.0,
+      "depthM": 0.5
+     }
+    ]
+   },
+   "damaged": true,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "assumed",
+    "placement": "assumed"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.87,
+   "field": {
+    "count": 100,
+    "countSource": "measured",
+    "countStated": true,
+    "classes": [
+     {
+      "archetype": "stone-setting",
+      "form": "round",
+      "count": 65,
+      "moundLike": false,
+      "diameterM": [
+       4.0,
+       8.0
+      ],
+      "heightM": [
+       0.2,
+       0.4
+      ],
+      "stoneM": [
+       0.2,
+       0.4
+      ],
+      "source": "measured"
+     },
+     {
+      "archetype": "standing-stone",
+      "form": null,
+      "count": 34,
+      "moundLike": false,
+      "diameterM": [
+       0.7,
+       1.3
+      ],
+      "heightM": [
+       0.3,
+       2.0
+      ],
+      "stoneM": [
+       0.6,
+       1.4
+      ],
+      "source": "assumed"
+     },
+     {
+      "archetype": "mound",
+      "form": null,
+      "count": 1,
+      "moundLike": false,
+      "diameterM": [
+       4.9,
+       9.1
+      ],
+      "heightM": [
+       0.42,
+       0.98
+      ],
+      "stoneM": [
+       0.2,
+       0.3
+      ],
+      "source": "assumed"
+     }
+    ]
+   }
+  },
+  {
+   "id": "L1943:6961",
+   "lamningstyp": "Stensättning",
+   "archetype": "stone-setting",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 6.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 6.0,
+    "heightM": 0.3,
+    "transform": "none",
+    "presentHeightM": 0.3,
+    "presentDiameterM": 6.0,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.4
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": {
+     "heightM": 0.25,
+     "stoneM": null
+    },
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "derived"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.95
+  },
+  {
+   "id": "L1943:6962",
+   "lamningstyp": "Gravfält",
+   "archetype": "grave-field",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "rectangular",
+    "diameterM": 109.54,
+    "lengthM": 160.0,
+    "widthM": 75.0,
+    "orientationDeg": 90.0,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 109.54,
+    "heightM": 0.9,
+    "transform": "pit-omit",
+    "presentHeightM": 0.9,
+    "presentDiameterM": 109.54,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.3
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": true,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": {
+     "heightM": 0.2,
+     "stoneM": null
+    },
+    "pits": [
+     {
+      "lengthM": 2.0,
+      "widthM": 2.0,
+      "depthM": 0.6
+     }
+    ]
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "assumed",
+    "placement": "assumed"
+   },
+   "fallbacks": [],
+   "parseConfidence": 1.0,
+   "field": {
+    "count": 110,
+    "countSource": "measured",
+    "countStated": true,
+    "classes": [
+     {
+      "archetype": "stone-setting",
+      "form": "round",
+      "count": 104,
+      "moundLike": false,
+      "diameterM": [
+       3.0,
+       10.0
+      ],
+      "heightM": [
+       0.2,
+       0.5
+      ],
+      "stoneM": [
+       0.2,
+       0.4
+      ],
+      "source": "measured"
+     },
+     {
+      "archetype": "mound",
+      "form": null,
+      "count": 6,
+      "moundLike": false,
+      "diameterM": [
+       7.0,
+       11.0
+      ],
+      "heightM": [
+       0.6,
+       1.2
+      ],
+      "stoneM": [
+       0.2,
+       0.3
+      ],
+      "source": "measured"
+     }
+    ]
+   }
+  },
+  {
+   "id": "L1943:7016",
+   "lamningstyp": "Stensättning",
+   "archetype": "stone-setting",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 6.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 6.0,
+    "heightM": 0.5,
+    "transform": "pit-omit",
+    "presentHeightM": 0.5,
+    "presentDiameterM": 6.0,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     1.3
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": null,
+    "pits": [
+     {
+      "lengthM": 1.5,
+      "widthM": 1.5,
+      "depthM": 0.4
+     }
+    ]
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "derived"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.95
+  },
+  {
+   "id": "L1943:7017",
+   "lamningstyp": "Stensättning",
+   "archetype": "stone-setting",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 10.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 10.0,
+    "heightM": 0.3,
+    "transform": "none",
+    "presentHeightM": 0.3,
+    "presentDiameterM": 10.0,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.3
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": true,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": {
+     "heightM": 0.2,
+     "stoneM": null
+    },
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "derived"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.95
+  },
+  {
+   "id": "L1943:7035",
+   "lamningstyp": "Gravfält",
+   "archetype": "grave-field",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "rectangular",
+    "diameterM": 167.03,
+    "lengthM": 310.0,
+    "widthM": 90.0,
+    "orientationDeg": 22.5,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 167.03,
+    "heightM": 1.05,
+    "transform": "pit-omit",
+    "presentHeightM": 1.05,
+    "presentDiameterM": 167.03,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.4
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": true,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": {
+     "heightM": 0.25,
+     "stoneM": null
+    },
+    "pits": [
+     {
+      "lengthM": 1.5,
+      "widthM": 1.5,
+      "depthM": 0.45
+     }
+    ]
+   },
+   "damaged": true,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "assumed",
+    "surface": "assumed",
+    "placement": "assumed"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.8,
+   "field": {
+    "count": 230,
+    "countSource": "measured",
+    "countStated": true,
+    "classes": [
+     {
+      "archetype": "stone-setting",
+      "form": "round",
+      "count": 155,
+      "moundLike": false,
+      "diameterM": [
+       4.2,
+       7.8
+      ],
+      "heightM": [
+       0.2,
+       0.4
+      ],
+      "stoneM": [
+       0.2,
+       0.4
+      ],
+      "source": "assumed"
+     },
+     {
+      "archetype": "stone-setting",
+      "form": "rectangular",
+      "count": 20,
+      "moundLike": false,
+      "diameterM": [
+       4.2,
+       7.8
+      ],
+      "heightM": [
+       0.2,
+       0.4
+      ],
+      "stoneM": [
+       0.2,
+       0.4
+      ],
+      "source": "assumed"
+     },
+     {
+      "archetype": "standing-stone",
+      "form": null,
+      "count": 40,
+      "moundLike": false,
+      "diameterM": [
+       0.7,
+       1.3
+      ],
+      "heightM": [
+       0.5,
+       1.5
+      ],
+      "stoneM": [
+       0.6,
+       1.4
+      ],
+      "source": "assumed"
+     },
+     {
+      "archetype": "mound",
+      "form": null,
+      "count": 15,
+      "moundLike": false,
+      "diameterM": [
+       4.9,
+       9.1
+      ],
+      "heightM": [
+       0.6,
+       1.5
+      ],
+      "stoneM": [
+       0.2,
+       0.3
+      ],
+      "source": "assumed"
+     }
+    ]
+   }
+  },
+  {
+   "id": "L1943:7041",
+   "lamningstyp": "Gravfält",
+   "archetype": "grave-field",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "rectangular",
+    "diameterM": 42.43,
+    "lengthM": 60.0,
+    "widthM": 30.0,
+    "orientationDeg": 0.0,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 42.43,
+    "heightM": 0.4,
+    "transform": "none",
+    "presentHeightM": 0.4,
+    "presentDiameterM": 42.43,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.3,
+     0.8
+    ],
+    "turfed": false,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": {
+     "heightM": 0.15,
+     "stoneM": null
+    },
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "assumed",
+    "surface": "assumed",
+    "placement": "assumed"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.8,
+   "field": {
+    "count": 6,
+    "countSource": "measured",
+    "countStated": true,
+    "classes": [
+     {
+      "archetype": "stone-setting",
+      "form": "round",
+      "count": 6,
+      "moundLike": false,
+      "diameterM": [
+       4.2,
+       7.8
+      ],
+      "heightM": [
+       0.24,
+       0.56
+      ],
+      "stoneM": [
+       0.2,
+       0.4
+      ],
+      "source": "assumed"
+     }
+    ]
+   }
+  },
+  {
+   "id": "L1943:7090",
+   "lamningstyp": "Röse",
+   "archetype": "cairn",
+   "period": {
+    "builtCE": -1700,
+    "abandonedCE": -500
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 16.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 16.0,
+    "heightM": 1.72,
+    "transform": "kerb-fixed+pit-fill",
+    "presentHeightM": 1.7,
+    "presentDiameterM": 16.0,
+    "heightGain": 1.01,
+    "source": "derived"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.7
+    ],
+    "turfed": false,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": {
+     "heightM": 0.25,
+     "stoneM": null
+    },
+    "pits": [
+     {
+      "lengthM": 3.0,
+      "widthM": 3.0,
+      "depthM": 0.5
+     }
+    ]
+   },
+   "damaged": true,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "derived",
+    "surface": "derived"
+   },
+   "fallbacks": [],
+   "parseConfidence": 1.0
+  },
+  {
+   "id": "L1943:7091",
+   "lamningstyp": "Stensättning",
+   "archetype": "stone-setting",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "square",
+    "diameterM": 5.0,
+    "lengthM": 5.0,
+    "widthM": 5.0,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 5.0,
+    "heightM": 0.2,
+    "transform": "pit-omit",
+    "presentHeightM": 0.2,
+    "presentDiameterM": 5.0,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.3
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": {
+     "heightM": 0.25,
+     "stoneM": [
+      0.4,
+      0.7
+     ]
+    },
+    "pits": [
+     {
+      "lengthM": 3.0,
+      "widthM": 2.0,
+      "depthM": 0.5
+     },
+     {
+      "lengthM": 0.7,
+      "widthM": 0.7,
+      "depthM": 0.2
+     }
+    ]
+   },
+   "damaged": true,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "derived"
+   },
+   "fallbacks": [],
+   "parseConfidence": 1.0
+  },
+  {
+   "id": "L1943:7092",
+   "lamningstyp": "Stensättning",
+   "archetype": "stone-setting",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "square",
+    "diameterM": 5.0,
+    "lengthM": 5.0,
+    "widthM": 5.0,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 5.0,
+    "heightM": 0.2,
+    "transform": "pit-omit",
+    "presentHeightM": 0.2,
+    "presentDiameterM": 5.0,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.3
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": {
+     "heightM": 0.25,
+     "stoneM": [
+      0.4,
+      0.7
+     ]
+    },
+    "pits": [
+     {
+      "lengthM": 3.0,
+      "widthM": 2.0,
+      "depthM": 0.5
+     },
+     {
+      "lengthM": 0.7,
+      "widthM": 0.7,
+      "depthM": 0.2
+     }
+    ]
+   },
+   "damaged": true,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "derived"
+   },
+   "fallbacks": [],
+   "parseConfidence": 1.0
+  },
+  {
+   "id": "L1943:7093",
+   "lamningstyp": "Stensättning",
+   "archetype": "stone-setting",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "square",
+    "diameterM": 5.0,
+    "lengthM": 5.0,
+    "widthM": 5.0,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 5.0,
+    "heightM": 0.2,
+    "transform": "pit-omit",
+    "presentHeightM": 0.2,
+    "presentDiameterM": 5.0,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.3
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": {
+     "heightM": 0.25,
+     "stoneM": [
+      0.4,
+      0.7
+     ]
+    },
+    "pits": [
+     {
+      "lengthM": 3.0,
+      "widthM": 2.0,
+      "depthM": 0.5
+     },
+     {
+      "lengthM": 0.7,
+      "widthM": 0.7,
+      "depthM": 0.2
+     }
+    ]
+   },
+   "damaged": true,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "derived"
+   },
+   "fallbacks": [],
+   "parseConfidence": 1.0
+  },
+  {
+   "id": "L1943:7094",
+   "lamningstyp": "Stensättning",
+   "archetype": "stone-setting",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 8.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 8.0,
+    "heightM": 0.4,
+    "transform": "none",
+    "presentHeightM": 0.4,
+    "presentDiameterM": 8.0,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.9
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": {
+     "heightM": 0.3,
+     "stoneM": null
+    },
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "derived"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.95
+  },
+  {
+   "id": "L1943:7106",
+   "lamningstyp": "Gravfält",
+   "archetype": "grave-field",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "rectangular",
+    "diameterM": 74.16,
+    "lengthM": 100.0,
+    "widthM": 55.0,
+    "orientationDeg": 0.0,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 74.16,
+    "heightM": 0.35,
+    "transform": "pit-omit",
+    "presentHeightM": 0.35,
+    "presentDiameterM": 74.16,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.4
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": {
+     "heightM": 0.25,
+     "stoneM": null
+    },
+    "pits": [
+     {
+      "lengthM": 3.0,
+      "widthM": 3.0,
+      "depthM": 0.45
+     }
+    ]
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "assumed",
+    "placement": "assumed"
+   },
+   "fallbacks": [],
+   "parseConfidence": 1.0,
+   "field": {
+    "count": 14,
+    "countSource": "measured",
+    "countStated": true,
+    "classes": [
+     {
+      "archetype": "stone-setting",
+      "form": "round",
+      "count": 14,
+      "moundLike": false,
+      "diameterM": [
+       3.0,
+       6.0
+      ],
+      "heightM": [
+       0.2,
+       0.5
+      ],
+      "stoneM": [
+       0.2,
+       0.4
+      ],
+      "source": "measured"
+     }
+    ]
+   }
+  },
+  {
+   "id": "L1943:7174",
+   "lamningstyp": "Stensättning",
+   "archetype": "stone-setting",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 8.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 8.0,
+    "heightM": 0.4,
+    "transform": "none",
+    "presentHeightM": 0.4,
+    "presentDiameterM": 8.0,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.4
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": {
+     "heightM": 0.25,
+     "stoneM": null
+    },
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "derived"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.95
+  },
+  {
+   "id": "L1943:7175",
+   "lamningstyp": "Stensättning",
+   "archetype": "stone-setting",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 8.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 8.0,
+    "heightM": 0.4,
+    "transform": "none",
+    "presentHeightM": 0.4,
+    "presentDiameterM": 8.0,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.4
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": {
+     "heightM": 0.25,
+     "stoneM": null
+    },
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "derived"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.95
+  },
+  {
+   "id": "L1943:7176",
+   "lamningstyp": "Stensättning",
+   "archetype": "stone-setting",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 8.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 8.0,
+    "heightM": 0.4,
+    "transform": "none",
+    "presentHeightM": 0.4,
+    "presentDiameterM": 8.0,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.4
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": {
+     "heightM": 0.25,
+     "stoneM": null
+    },
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "derived"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.95
+  },
+  {
+   "id": "L1943:7178",
+   "lamningstyp": "Stensättning",
+   "archetype": "stone-setting",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 8.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 8.0,
+    "heightM": 0.4,
+    "transform": "none",
+    "presentHeightM": 0.4,
+    "presentDiameterM": 8.0,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.9
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": {
+     "heightM": 0.3,
+     "stoneM": null
+    },
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "derived"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.95
+  },
+  {
+   "id": "L1943:7179",
+   "lamningstyp": "Röse",
+   "archetype": "cairn",
+   "period": {
+    "builtCE": -1700,
+    "abandonedCE": -500
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 8.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 8.0,
+    "heightM": 1.0,
+    "transform": "kerb-fixed",
+    "presentHeightM": 1.0,
+    "presentDiameterM": 8.0,
+    "heightGain": 1.0,
+    "source": "derived"
+   },
+   "surface": {
+    "stoneM": [
+     0.4,
+     0.7
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": {
+     "heightM": 0.45,
+     "stoneM": null
+    },
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "derived",
+    "surface": "derived"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.95
+  },
+  {
+   "id": "L1943:7180",
+   "lamningstyp": "Stensättning",
+   "archetype": "stone-setting",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 5.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 5.0,
+    "heightM": 0.2,
+    "transform": "none",
+    "presentHeightM": 0.2,
+    "presentDiameterM": 5.0,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.4,
+     0.7
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": {
+     "heightM": 0.45,
+     "stoneM": null
+    },
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "derived"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.95
+  },
+  {
+   "id": "L1943:7181",
+   "lamningstyp": "Stensättning",
+   "archetype": "stone-setting",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 5.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 5.0,
+    "heightM": 0.2,
+    "transform": "none",
+    "presentHeightM": 0.2,
+    "presentDiameterM": 5.0,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.4,
+     0.7
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": {
+     "heightM": 0.45,
+     "stoneM": null
+    },
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "derived"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.95
+  },
+  {
+   "id": "L1943:7207",
+   "lamningstyp": "Stensättning",
+   "archetype": "stone-setting",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 6.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "assumed"
+   },
+   "profile": {
+    "diameterM": 6.0,
+    "heightM": 0.4,
+    "transform": "none",
+    "presentHeightM": 0.4,
+    "presentDiameterM": 6.0,
+    "heightGain": 1.0,
+    "source": "assumed"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.4
+    ],
+    "turfed": false,
+    "filled": null,
+    "centreStone": false,
+    "source": "assumed"
+   },
+   "features": {
+    "kerb": null,
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "assumed",
+    "profile": "assumed",
+    "surface": "assumed"
+   },
+   "fallbacks": [
+    "plan.diameterM",
+    "plan.form",
+    "profile.heightM",
+    "surface.stoneM"
+   ],
+   "parseConfidence": 0.0
+  },
+  {
+   "id": "L1943:7208",
+   "lamningstyp": "Stensättning",
+   "archetype": "stone-setting",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 6.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "assumed"
+   },
+   "profile": {
+    "diameterM": 6.0,
+    "heightM": 0.4,
+    "transform": "none",
+    "presentHeightM": 0.4,
+    "presentDiameterM": 6.0,
+    "heightGain": 1.0,
+    "source": "assumed"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.4
+    ],
+    "turfed": false,
+    "filled": null,
+    "centreStone": false,
+    "source": "assumed"
+   },
+   "features": {
+    "kerb": null,
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "assumed",
+    "profile": "assumed",
+    "surface": "assumed"
+   },
+   "fallbacks": [
+    "plan.diameterM",
+    "plan.form",
+    "profile.heightM",
+    "surface.stoneM"
+   ],
+   "parseConfidence": 0.0
+  },
+  {
+   "id": "L1943:7228",
+   "lamningstyp": "Stensättning",
+   "archetype": "stone-setting",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 9.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 9.0,
+    "heightM": 0.3,
+    "transform": "none",
+    "presentHeightM": 0.3,
+    "presentDiameterM": 9.0,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.3
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": true,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": {
+     "heightM": 0.35,
+     "stoneM": null
+    },
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "derived"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.95
+  },
+  {
+   "id": "L1943:7229",
+   "lamningstyp": "Gravfält",
+   "archetype": "grave-field",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "rectangular",
+    "diameterM": 47.7,
+    "lengthM": 65.0,
+    "widthM": 35.0,
+    "orientationDeg": 67.5,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 47.7,
+    "heightM": 0.9,
+    "transform": "pit-omit",
+    "presentHeightM": 0.9,
+    "presentDiameterM": 47.7,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.4
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": {
+     "heightM": 0.25,
+     "stoneM": [
+      0.4,
+      0.6
+     ]
+    },
+    "pits": [
+     {
+      "lengthM": 1.0,
+      "widthM": 1.0,
+      "depthM": 0.3
+     }
+    ]
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "assumed",
+    "placement": "assumed"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.93,
+   "field": {
+    "count": 7,
+    "countSource": "measured",
+    "countStated": true,
+    "classes": [
+     {
+      "archetype": "stone-setting",
+      "form": "round",
+      "count": 4,
+      "moundLike": false,
+      "diameterM": [
+       4.0,
+       6.0
+      ],
+      "heightM": [
+       0.2,
+       0.4
+      ],
+      "stoneM": [
+       0.2,
+       0.4
+      ],
+      "source": "measured"
+     },
+     {
+      "archetype": "stone-setting",
+      "form": "rectangular",
+      "count": 2,
+      "moundLike": false,
+      "diameterM": [
+       4.24,
+       4.24
+      ],
+      "heightM": [
+       0.24,
+       0.56
+      ],
+      "stoneM": [
+       0.1,
+       0.3
+      ],
+      "source": "measured"
+     },
+     {
+      "archetype": "mound",
+      "form": null,
+      "count": 1,
+      "moundLike": false,
+      "diameterM": [
+       4.9,
+       9.1
+      ],
+      "heightM": [
+       0.42,
+       0.98
+      ],
+      "stoneM": [
+       0.2,
+       0.3
+      ],
+      "source": "assumed"
+     }
+    ]
+   }
+  },
+  {
+   "id": "L1943:7233",
+   "lamningstyp": "Röse",
+   "archetype": "cairn",
+   "period": {
+    "builtCE": -1700,
+    "abandonedCE": -500
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 8.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 8.0,
+    "heightM": 1.0,
+    "transform": "kerb-fixed",
+    "presentHeightM": 1.0,
+    "presentDiameterM": 8.0,
+    "heightGain": 1.0,
+    "source": "derived"
+   },
+   "surface": {
+    "stoneM": [
+     0.4,
+     0.7
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": {
+     "heightM": 0.45,
+     "stoneM": null
+    },
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "derived",
+    "surface": "derived"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.95
+  },
+  {
+   "id": "L1943:7246",
+   "lamningstyp": "Runristning",
+   "archetype": "runestone",
+   "period": {
+    "builtCE": 950,
+    "abandonedCE": null
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 1.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "assumed"
+   },
+   "profile": {
+    "diameterM": 1.0,
+    "heightM": 0.3,
+    "transform": "none",
+    "presentHeightM": 0.3,
+    "presentDiameterM": 1.0,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.6,
+     1.2
+    ],
+    "turfed": false,
+    "filled": null,
+    "centreStone": false,
+    "source": "assumed"
+   },
+   "features": {
+    "kerb": null,
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "assumed",
+    "profile": "measured",
+    "surface": "assumed"
+   },
+   "fallbacks": [
+    "plan.diameterM",
+    "plan.form",
+    "surface.stoneM"
+   ],
+   "parseConfidence": 0.25
+  },
+  {
+   "id": "L1943:7247",
+   "lamningstyp": "Gravfält",
+   "archetype": "grave-field",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "rectangular",
+    "diameterM": 48.99,
+    "lengthM": 60.0,
+    "widthM": 40.0,
+    "orientationDeg": 0.0,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 48.99,
+    "heightM": 0.35,
+    "transform": "none",
+    "presentHeightM": 0.35,
+    "presentDiameterM": 48.99,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.4
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": {
+     "heightM": 0.25,
+     "stoneM": null
+    },
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "assumed",
+    "placement": "assumed"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.93,
+   "field": {
+    "count": 5,
+    "countSource": "measured",
+    "countStated": true,
+    "classes": [
+     {
+      "archetype": "stone-setting",
+      "form": "round",
+      "count": 2,
+      "moundLike": false,
+      "diameterM": [
+       6.0,
+       9.0
+      ],
+      "heightM": [
+       0.3,
+       0.4
+      ],
+      "stoneM": [
+       0.2,
+       0.4
+      ],
+      "source": "measured"
+     },
+     {
+      "archetype": "stone-setting",
+      "form": "rectangular",
+      "count": 1,
+      "moundLike": false,
+      "diameterM": [
+       6.0,
+       9.0
+      ],
+      "heightM": [
+       0.3,
+       0.4
+      ],
+      "stoneM": [
+       0.2,
+       0.4
+      ],
+      "source": "measured"
+     },
+     {
+      "archetype": "stone-setting",
+      "form": "round",
+      "count": 2,
+      "diameterM": [
+       6.0,
+       9.0
+      ],
+      "heightM": [
+       0.3,
+       0.4
+      ],
+      "stoneM": [
+       0.2,
+       0.4
+      ],
+      "moundLike": false,
+      "source": "assumed",
+      "note": "counted in the record's total but not itemised"
+     }
+    ]
+   }
+  },
+  {
+   "id": "L1943:7251",
+   "lamningstyp": "Stensättning",
+   "archetype": "stone-setting",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 8.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 8.0,
+    "heightM": 0.4,
+    "transform": "none",
+    "presentHeightM": 0.4,
+    "presentDiameterM": 8.0,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.4
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": {
+     "heightM": 0.25,
+     "stoneM": null
+    },
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "derived"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.95
+  },
+  {
+   "id": "L1943:7252",
+   "lamningstyp": "Stensättning",
+   "archetype": "stone-setting",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 8.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 8.0,
+    "heightM": 0.4,
+    "transform": "none",
+    "presentHeightM": 0.4,
+    "presentDiameterM": 8.0,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.4
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": {
+     "heightM": 0.25,
+     "stoneM": null
+    },
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "derived"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.95
+  },
+  {
+   "id": "L1943:7264",
+   "lamningstyp": "Stensättning",
+   "archetype": "stone-setting",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 4.5,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 4.5,
+    "heightM": 0.35,
+    "transform": "none",
+    "presentHeightM": 0.35,
+    "presentDiameterM": 4.5,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.4,
+     0.4
+    ],
+    "turfed": false,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": {
+     "heightM": 0.3,
+     "stoneM": null
+    },
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "derived"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.95
+  },
+  {
+   "id": "L1943:7305",
+   "lamningstyp": "Skärvstenshög",
+   "archetype": "fire-cracked-mound",
+   "period": {
+    "builtCE": -1700,
+    "abandonedCE": -500
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 6.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 6.0,
+    "heightM": 0.6,
+    "transform": "none",
+    "presentHeightM": 0.6,
+    "presentDiameterM": 6.0,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.3
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": true,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": {
+     "heightM": 0.35,
+     "stoneM": null
+    },
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "derived"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.95
+  },
+  {
+   "id": "L1943:7306",
+   "lamningstyp": "Skärvstenshög",
+   "archetype": "fire-cracked-mound",
+   "period": {
+    "builtCE": -1700,
+    "abandonedCE": -500
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 6.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 6.0,
+    "heightM": 0.6,
+    "transform": "none",
+    "presentHeightM": 0.6,
+    "presentDiameterM": 6.0,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.3
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": true,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": {
+     "heightM": 0.35,
+     "stoneM": null
+    },
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "derived"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.95
+  },
+  {
+   "id": "L1943:7307",
+   "lamningstyp": "Gravfält",
+   "archetype": "grave-field",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "rectangular",
+    "diameterM": 84.85,
+    "lengthM": 120.0,
+    "widthM": 60.0,
+    "orientationDeg": 0.0,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 84.85,
+    "heightM": 0.9,
+    "transform": "none",
+    "presentHeightM": 0.9,
+    "presentDiameterM": 84.85,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.3
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": {
+     "heightM": 0.25,
+     "stoneM": null
+    },
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "assumed",
+    "placement": "assumed"
+   },
+   "fallbacks": [],
+   "parseConfidence": 1.0,
+   "field": {
+    "count": 50,
+    "countSource": "measured",
+    "countStated": true,
+    "classes": [
+     {
+      "archetype": "stone-setting",
+      "form": "round",
+      "count": 44,
+      "moundLike": false,
+      "diameterM": [
+       4.0,
+       8.0
+      ],
+      "heightM": [
+       0.2,
+       0.5
+      ],
+      "stoneM": [
+       0.2,
+       0.4
+      ],
+      "source": "measured"
+     },
+     {
+      "archetype": "mound",
+      "form": null,
+      "count": 6,
+      "moundLike": false,
+      "diameterM": [
+       7.0,
+       9.0
+      ],
+      "heightM": [
+       0.7,
+       1.1
+      ],
+      "stoneM": [
+       0.2,
+       0.3
+      ],
+      "source": "measured"
+     }
+    ]
+   }
+  },
+  {
+   "id": "L1943:7313",
+   "lamningstyp": "Skärvstenshög",
+   "archetype": "fire-cracked-mound",
+   "period": {
+    "builtCE": -1700,
+    "abandonedCE": -500
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 9.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 9.0,
+    "heightM": 0.6,
+    "transform": "pit-omit",
+    "presentHeightM": 0.6,
+    "presentDiameterM": 9.0,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.1,
+     0.1
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": null,
+    "pits": [
+     {
+      "lengthM": 2.0,
+      "widthM": 2.0,
+      "depthM": 0.3
+     }
+    ]
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "derived"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.95
+  },
+  {
+   "id": "L1943:7314",
+   "lamningstyp": "Röse",
+   "archetype": "cairn",
+   "period": {
+    "builtCE": -1700,
+    "abandonedCE": -500
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 10.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 10.0,
+    "heightM": 0.8,
+    "transform": "kerb-fixed",
+    "presentHeightM": 0.8,
+    "presentDiameterM": 10.0,
+    "heightGain": 1.0,
+    "source": "derived"
+   },
+   "surface": {
+    "stoneM": [
+     0.4,
+     0.7
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": {
+     "heightM": 0.25,
+     "stoneM": null
+    },
+    "pits": []
+   },
+   "damaged": true,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "derived",
+    "surface": "derived"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.95
+  },
+  {
+   "id": "L1943:7334",
+   "lamningstyp": "Stensättning",
+   "archetype": "stone-setting",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 5.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 5.0,
+    "heightM": 0.4,
+    "transform": "none",
+    "presentHeightM": 0.4,
+    "presentDiameterM": 5.0,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.4,
+     0.7
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": {
+     "heightM": 0.25,
+     "stoneM": null
+    },
+    "pits": []
+   },
+   "damaged": true,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "derived"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.95
+  },
+  {
+   "id": "L1943:7337",
+   "lamningstyp": "Skärvstenshög",
+   "archetype": "fire-cracked-mound",
+   "period": {
+    "builtCE": -1700,
+    "abandonedCE": -500
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 6.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 6.0,
+    "heightM": 0.4,
+    "transform": "none",
+    "presentHeightM": 0.4,
+    "presentDiameterM": 6.0,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.4
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": null,
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "derived"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.9
+  },
+  {
+   "id": "L1943:7380",
+   "lamningstyp": "Stensättning",
+   "archetype": "stone-setting",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "oval",
+    "diameterM": 7.07,
+    "lengthM": 10.0,
+    "widthM": 5.0,
+    "orientationDeg": 90.0,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 7.07,
+    "heightM": 0.4,
+    "transform": "pit-omit",
+    "presentHeightM": 0.4,
+    "presentDiameterM": 7.07,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.4
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": {
+     "heightM": 0.25,
+     "stoneM": null
+    },
+    "pits": [
+     {
+      "lengthM": 4.0,
+      "widthM": 4.0,
+      "depthM": 0.4
+     },
+     {
+      "lengthM": 3.0,
+      "widthM": 2.0,
+      "depthM": 0.3
+     }
+    ]
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "derived"
+   },
+   "fallbacks": [],
+   "parseConfidence": 1.0
+  },
+  {
+   "id": "L1943:7408",
+   "lamningstyp": "Skärvstenshög",
+   "archetype": "fire-cracked-mound",
+   "period": {
+    "builtCE": -1700,
+    "abandonedCE": -500
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 5.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 5.0,
+    "heightM": 0.3,
+    "transform": "none",
+    "presentHeightM": 0.3,
+    "presentDiameterM": 5.0,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.4
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": {
+     "heightM": 0.3,
+     "stoneM": [
+      1.1,
+      1.1
+     ]
+    },
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "derived"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.95
+  },
+  {
+   "id": "L1943:7459",
+   "lamningstyp": "Gravfält",
+   "archetype": "grave-field",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "rectangular",
+    "diameterM": 169.71,
+    "lengthM": 180.0,
+    "widthM": 160.0,
+    "orientationDeg": 0.0,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 169.71,
+    "heightM": 0.9,
+    "transform": "pit-omit",
+    "presentHeightM": 0.9,
+    "presentDiameterM": 169.71,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.4
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": true,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": {
+     "heightM": 0.3,
+     "stoneM": null
+    },
+    "pits": [
+     {
+      "lengthM": 17.0,
+      "widthM": 3.0,
+      "depthM": 0.4
+     },
+     {
+      "lengthM": 1.25,
+      "widthM": 1.25,
+      "depthM": 0.3
+     }
+    ]
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "assumed",
+    "placement": "assumed"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.96,
+   "field": {
+    "count": 162,
+    "countSource": "measured",
+    "countStated": true,
+    "classes": [
+     {
+      "archetype": "stone-setting",
+      "form": null,
+      "count": 1,
+      "moundLike": false,
+      "diameterM": [
+       7.14,
+       7.14
+      ],
+      "heightM": [
+       0.2,
+       0.3
+      ],
+      "stoneM": [
+       0.2,
+       0.4
+      ],
+      "source": "measured"
+     },
+     {
+      "archetype": "stone-setting",
+      "form": "round",
+      "count": 151,
+      "moundLike": false,
+      "diameterM": [
+       2.0,
+       10.0
+      ],
+      "heightM": [
+       0.2,
+       0.5
+      ],
+      "stoneM": [
+       0.2,
+       0.4
+      ],
+      "source": "measured"
+     },
+     {
+      "archetype": "standing-stone",
+      "form": null,
+      "count": 1,
+      "moundLike": false,
+      "diameterM": [
+       0.7,
+       1.3
+      ],
+      "heightM": [
+       0.6,
+       0.6
+      ],
+      "stoneM": [
+       0.6,
+       1.4
+      ],
+      "source": "assumed"
+     },
+     {
+      "archetype": "mound",
+      "form": null,
+      "count": 8,
+      "moundLike": false,
+      "diameterM": [
+       7.0,
+       9.0
+      ],
+      "heightM": [
+       0.6,
+       1.1
+      ],
+      "stoneM": [
+       0.2,
+       0.3
+      ],
+      "source": "measured"
+     },
+     {
+      "archetype": "cairn",
+      "form": null,
+      "count": 1,
+      "moundLike": false,
+      "diameterM": [
+       11.0,
+       11.0
+      ],
+      "heightM": [
+       0.9,
+       0.9
+      ],
+      "stoneM": [
+       0.4,
+       0.6
+      ],
+      "source": "measured"
+     }
+    ]
+   }
+  },
+  {
+   "id": "L1943:7485",
+   "lamningstyp": "Stensättning",
+   "archetype": "stone-setting",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 5.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 5.0,
+    "heightM": 0.3,
+    "transform": "none",
+    "presentHeightM": 0.3,
+    "presentDiameterM": 5.0,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.4,
+     0.6
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": null,
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "derived"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.9
+  },
+  {
+   "id": "L1943:7530",
+   "lamningstyp": "Röse",
+   "archetype": "cairn",
+   "period": {
+    "builtCE": -1700,
+    "abandonedCE": -500
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 15.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 12.09,
+    "heightM": 4.23,
+    "transform": "repose-reprofile",
+    "presentHeightM": 1.8,
+    "presentDiameterM": 15.0,
+    "heightGain": 2.35,
+    "source": "derived"
+   },
+   "surface": {
+    "stoneM": [
+     0.3,
+     0.6
+    ],
+    "turfed": false,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": null,
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "derived",
+    "surface": "derived"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.9
+  },
+  {
+   "id": "L1943:7531",
+   "lamningstyp": "Skärvstenshög",
+   "archetype": "fire-cracked-mound",
+   "period": {
+    "builtCE": -1700,
+    "abandonedCE": -500
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 9.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 9.0,
+    "heightM": 0.6,
+    "transform": "none",
+    "presentHeightM": 0.6,
+    "presentDiameterM": 9.0,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.3
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": null,
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "derived"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.9
+  },
+  {
+   "id": "L1943:7532",
+   "lamningstyp": "Grav- och boplatsområde",
+   "archetype": "grave-field",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "oval",
+    "diameterM": 6.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 6.0,
+    "heightM": 0.35,
+    "transform": "none",
+    "presentHeightM": 0.35,
+    "presentDiameterM": 6.0,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.5
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": true,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": {
+     "heightM": 0.35,
+     "stoneM": [
+      1.0,
+      1.0
+     ]
+    },
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "assumed",
+    "placement": "assumed"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.92,
+   "field": {
+    "count": 26,
+    "countSource": "measured",
+    "countStated": true,
+    "classes": [
+     {
+      "archetype": "fire-cracked-mound",
+      "form": null,
+      "count": 4,
+      "moundLike": false,
+      "diameterM": [
+       4.0,
+       8.0
+      ],
+      "heightM": [
+       0.2,
+       0.6
+      ],
+      "stoneM": [
+       0.4,
+       0.9
+      ],
+      "source": "measured"
+     },
+     {
+      "archetype": "stone-setting",
+      "form": "round",
+      "count": 18,
+      "moundLike": false,
+      "diameterM": [
+       3.0,
+       9.0
+      ],
+      "heightM": [
+       0.2,
+       0.5
+      ],
+      "stoneM": [
+       0.2,
+       0.4
+      ],
+      "source": "measured"
+     },
+     {
+      "archetype": "stone-setting",
+      "form": null,
+      "count": 1,
+      "moundLike": false,
+      "diameterM": [
+       3.0,
+       9.0
+      ],
+      "heightM": [
+       0.2,
+       0.5
+      ],
+      "stoneM": [
+       0.2,
+       0.4
+      ],
+      "source": "measured"
+     },
+     {
+      "archetype": "standing-stone",
+      "form": null,
+      "count": 1,
+      "moundLike": false,
+      "diameterM": [
+       0.7,
+       1.3
+      ],
+      "heightM": [
+       1.2,
+       1.2
+      ],
+      "stoneM": [
+       0.6,
+       1.4
+      ],
+      "source": "assumed"
+     },
+     {
+      "archetype": "stone-setting",
+      "form": "round",
+      "count": 2,
+      "diameterM": [
+       3.0,
+       9.0
+      ],
+      "heightM": [
+       0.2,
+       0.5
+      ],
+      "stoneM": [
+       0.2,
+       0.4
+      ],
+      "moundLike": false,
+      "source": "assumed",
+      "note": "counted in the record's total but not itemised"
+     }
+    ]
+   }
+  },
+  {
+   "id": "L1943:7551",
+   "lamningstyp": "Stensättning",
+   "archetype": "stone-setting",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 7.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 7.0,
+    "heightM": 0.3,
+    "transform": "none",
+    "presentHeightM": 0.3,
+    "presentDiameterM": 7.0,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.4
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": {
+     "heightM": 0.2,
+     "stoneM": null
+    },
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "derived"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.95
+  },
+  {
+   "id": "L1943:7552",
+   "lamningstyp": "Gravfält",
+   "archetype": "grave-field",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 6.5,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 6.5,
+    "heightM": 0.75,
+    "transform": "none",
+    "presentHeightM": 0.75,
+    "presentDiameterM": 6.5,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.5
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": {
+     "heightM": 0.25,
+     "stoneM": null
+    },
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "assumed",
+    "placement": "assumed"
+   },
+   "fallbacks": [],
+   "parseConfidence": 1.0,
+   "field": {
+    "count": 60,
+    "countSource": "measured",
+    "countStated": true,
+    "classes": [
+     {
+      "archetype": "stone-setting",
+      "form": "round",
+      "count": 57,
+      "moundLike": false,
+      "diameterM": [
+       3.0,
+       7.0
+      ],
+      "heightM": [
+       0.2,
+       0.4
+      ],
+      "stoneM": [
+       0.2,
+       0.3
+      ],
+      "source": "measured"
+     },
+     {
+      "archetype": "mound",
+      "form": null,
+      "count": 3,
+      "moundLike": false,
+      "diameterM": [
+       5.0,
+       8.0
+      ],
+      "heightM": [
+       0.5,
+       1.0
+      ],
+      "stoneM": [
+       0.2,
+       0.3
+      ],
+      "source": "measured"
+     }
+    ]
+   }
+  },
+  {
+   "id": "L1943:7600",
+   "lamningstyp": "Stensättning",
+   "archetype": "stone-setting",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 6.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "assumed"
+   },
+   "profile": {
+    "diameterM": 6.0,
+    "heightM": 0.4,
+    "transform": "none",
+    "presentHeightM": 0.4,
+    "presentDiameterM": 6.0,
+    "heightGain": 1.0,
+    "source": "assumed"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.4
+    ],
+    "turfed": false,
+    "filled": null,
+    "centreStone": false,
+    "source": "assumed"
+   },
+   "features": {
+    "kerb": null,
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "assumed",
+    "profile": "assumed",
+    "surface": "assumed"
+   },
+   "fallbacks": [
+    "plan.diameterM",
+    "plan.form",
+    "profile.heightM",
+    "surface.stoneM"
+   ],
+   "parseConfidence": 0.0
+  },
+  {
+   "id": "L1943:7615",
+   "lamningstyp": "Stensättning",
+   "archetype": "stone-setting",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 6.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "assumed"
+   },
+   "profile": {
+    "diameterM": 6.0,
+    "heightM": 0.4,
+    "transform": "none",
+    "presentHeightM": 0.4,
+    "presentDiameterM": 6.0,
+    "heightGain": 1.0,
+    "source": "assumed"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.4
+    ],
+    "turfed": false,
+    "filled": null,
+    "centreStone": false,
+    "source": "assumed"
+   },
+   "features": {
+    "kerb": null,
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "assumed",
+    "profile": "assumed",
+    "surface": "assumed"
+   },
+   "fallbacks": [
+    "plan.diameterM",
+    "plan.form",
+    "profile.heightM",
+    "surface.stoneM"
+   ],
+   "parseConfidence": 0.0
+  },
+  {
+   "id": "L1943:7618",
+   "lamningstyp": "Stensättning",
+   "archetype": "stone-setting",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 7.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 7.0,
+    "heightM": 0.3,
+    "transform": "none",
+    "presentHeightM": 0.3,
+    "presentDiameterM": 7.0,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.4
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": false,
+    "source": "assumed"
+   },
+   "features": {
+    "kerb": null,
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "assumed"
+   },
+   "fallbacks": [
+    "surface.stoneM"
+   ],
+   "parseConfidence": 0.75
+  },
+  {
+   "id": "L1943:7620",
+   "lamningstyp": "Gravfält",
+   "archetype": "grave-field",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "rectangular",
+    "diameterM": 101.98,
+    "lengthM": 130.0,
+    "widthM": 80.0,
+    "orientationDeg": 22.5,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 101.98,
+    "heightM": 0.65,
+    "transform": "pit-omit",
+    "presentHeightM": 0.65,
+    "presentDiameterM": 101.98,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.3
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": {
+     "heightM": 0.2,
+     "stoneM": null
+    },
+    "pits": [
+     {
+      "lengthM": 3.0,
+      "widthM": 3.0,
+      "depthM": 0.5
+     },
+     {
+      "lengthM": 1.0,
+      "widthM": 1.0,
+      "depthM": 0.3
+     }
+    ]
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "assumed",
+    "placement": "assumed"
+   },
+   "fallbacks": [],
+   "parseConfidence": 1.0,
+   "field": {
+    "count": 45,
+    "countSource": "measured",
+    "countStated": true,
+    "classes": [
+     {
+      "archetype": "stone-setting",
+      "form": "round",
+      "count": 43,
+      "moundLike": false,
+      "diameterM": [
+       14.0,
+       14.0
+      ],
+      "heightM": [
+       0.3,
+       0.3
+      ],
+      "stoneM": [
+       0.2,
+       0.4
+      ],
+      "source": "measured"
+     },
+     {
+      "archetype": "mound",
+      "form": null,
+      "count": 2,
+      "moundLike": false,
+      "diameterM": [
+       6.0,
+       9.0
+      ],
+      "heightM": [
+       0.6,
+       0.7
+      ],
+      "stoneM": [
+       0.2,
+       0.3
+      ],
+      "source": "measured"
+     }
+    ]
+   }
+  },
+  {
+   "id": "L1943:7670",
+   "lamningstyp": "Gravfält",
+   "archetype": "grave-field",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "rectangular",
+    "diameterM": 25.98,
+    "lengthM": 45.0,
+    "widthM": 15.0,
+    "orientationDeg": 90.0,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 25.98,
+    "heightM": 0.25,
+    "transform": "none",
+    "presentHeightM": 0.25,
+    "presentDiameterM": 25.98,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.3
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": {
+     "heightM": 0.2,
+     "stoneM": null
+    },
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "assumed",
+    "placement": "assumed"
+   },
+   "fallbacks": [],
+   "parseConfidence": 1.0,
+   "field": {
+    "count": 6,
+    "countSource": "measured",
+    "countStated": true,
+    "classes": [
+     {
+      "archetype": "stone-setting",
+      "form": "round",
+      "count": 6,
+      "moundLike": false,
+      "diameterM": [
+       4.0,
+       6.0
+      ],
+      "heightM": [
+       0.2,
+       0.3
+      ],
+      "stoneM": [
+       0.2,
+       0.3
+      ],
+      "source": "measured"
+     }
+    ]
+   }
+  },
+  {
+   "id": "L1943:7672",
+   "lamningstyp": "Hög",
+   "archetype": "mound",
+   "period": {
+    "builtCE": 400,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 7.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 5.4,
+    "heightM": 1.56,
+    "transform": "repose-reprofile+pit-fill",
+    "presentHeightM": 0.6,
+    "presentDiameterM": 7.0,
+    "heightGain": 2.6,
+    "source": "derived"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.4
+    ],
+    "turfed": false,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": null,
+    "pits": [
+     {
+      "lengthM": 1.5,
+      "widthM": 1.5,
+      "depthM": 0.2
+     }
+    ]
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "derived",
+    "surface": "assumed"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.95
+  },
+  {
+   "id": "L1943:7673",
+   "lamningstyp": "Gravfält",
+   "archetype": "grave-field",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "rectangular",
+    "diameterM": 109.09,
+    "lengthM": 170.0,
+    "widthM": 70.0,
+    "orientationDeg": 90.0,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 109.09,
+    "heightM": 1.5,
+    "transform": "pit-omit",
+    "presentHeightM": 1.5,
+    "presentDiameterM": 109.09,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.3
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": null,
+    "pits": [
+     {
+      "lengthM": 3.5,
+      "widthM": 3.5,
+      "depthM": 0.8
+     }
+    ]
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "assumed",
+    "placement": "assumed"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.9,
+   "field": {
+    "count": 35,
+    "countSource": "measured",
+    "countStated": true,
+    "classes": [
+     {
+      "archetype": "stone-setting",
+      "form": "round",
+      "count": 34,
+      "moundLike": false,
+      "diameterM": [
+       5.0,
+       8.0
+      ],
+      "heightM": [
+       0.2,
+       0.4
+      ],
+      "stoneM": [
+       0.2,
+       0.4
+      ],
+      "source": "measured"
+     },
+     {
+      "archetype": "mound",
+      "form": null,
+      "count": 1,
+      "moundLike": false,
+      "diameterM": [
+       4.9,
+       9.1
+      ],
+      "heightM": [
+       0.42,
+       0.98
+      ],
+      "stoneM": [
+       0.2,
+       0.3
+      ],
+      "source": "assumed"
+     }
+    ]
+   }
+  },
+  {
+   "id": "L1943:7689",
+   "lamningstyp": "Gravfält",
+   "archetype": "grave-field",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "rectangular",
+    "diameterM": 67.08,
+    "lengthM": 90.0,
+    "widthM": 50.0,
+    "orientationDeg": 45.0,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 67.08,
+    "heightM": 1.0,
+    "transform": "pit-omit",
+    "presentHeightM": 1.0,
+    "presentDiameterM": 67.08,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.4
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": {
+     "heightM": 0.25,
+     "stoneM": null
+    },
+    "pits": [
+     {
+      "lengthM": 4.0,
+      "widthM": 3.0,
+      "depthM": 0.7
+     },
+     {
+      "lengthM": 1.15,
+      "widthM": 1.15,
+      "depthM": 0.3
+     }
+    ]
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "assumed",
+    "placement": "assumed"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.9,
+   "field": {
+    "count": 30,
+    "countSource": "measured",
+    "countStated": true,
+    "classes": [
+     {
+      "archetype": "stone-setting",
+      "form": "round",
+      "count": 29,
+      "moundLike": false,
+      "diameterM": [
+       5.0,
+       8.0
+      ],
+      "heightM": [
+       0.2,
+       0.4
+      ],
+      "stoneM": [
+       0.2,
+       0.4
+      ],
+      "source": "measured"
+     },
+     {
+      "archetype": "mound",
+      "form": null,
+      "count": 1,
+      "moundLike": false,
+      "diameterM": [
+       4.9,
+       9.1
+      ],
+      "heightM": [
+       0.42,
+       0.98
+      ],
+      "stoneM": [
+       0.2,
+       0.3
+      ],
+      "source": "assumed"
+     }
+    ]
+   }
+  },
+  {
+   "id": "L1943:7692",
+   "lamningstyp": "Gravfält",
+   "archetype": "grave-field",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "rectangular",
+    "diameterM": 46.9,
+    "lengthM": 55.0,
+    "widthM": 40.0,
+    "orientationDeg": 90.0,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 46.9,
+    "heightM": 1.3,
+    "transform": "pit-omit",
+    "presentHeightM": 1.3,
+    "presentDiameterM": 46.9,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.4
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": null,
+    "pits": [
+     {
+      "lengthM": 6.0,
+      "widthM": 6.0,
+      "depthM": 0.4
+     }
+    ]
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "assumed",
+    "placement": "assumed"
+   },
+   "fallbacks": [],
+   "parseConfidence": 1.0,
+   "field": {
+    "count": 15,
+    "countSource": "measured",
+    "countStated": true,
+    "classes": [
+     {
+      "archetype": "stone-setting",
+      "form": "round",
+      "count": 13,
+      "moundLike": false,
+      "diameterM": [
+       5.0,
+       7.0
+      ],
+      "heightM": [
+       0.2,
+       0.4
+      ],
+      "stoneM": [
+       0.2,
+       0.4
+      ],
+      "source": "measured"
+     },
+     {
+      "archetype": "mound",
+      "form": null,
+      "count": 2,
+      "moundLike": false,
+      "diameterM": [
+       10.0,
+       13.0
+      ],
+      "heightM": [
+       1.2,
+       1.4
+      ],
+      "stoneM": [
+       0.2,
+       0.3
+      ],
+      "source": "measured"
+     }
+    ]
+   }
+  },
+  {
+   "id": "L1943:7744",
+   "lamningstyp": "Grav- och boplatsområde",
+   "archetype": "grave-field",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "rectangular",
+    "diameterM": 73.48,
+    "lengthM": 135.0,
+    "widthM": 40.0,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 73.48,
+    "heightM": 1.1,
+    "transform": "pit-omit",
+    "presentHeightM": 1.1,
+    "presentDiameterM": 73.48,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.4
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": true,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": {
+     "heightM": 0.4,
+     "stoneM": null
+    },
+    "pits": [
+     {
+      "lengthM": 10.0,
+      "widthM": 5.0,
+      "depthM": 0.6
+     },
+     {
+      "lengthM": 2.5,
+      "widthM": 2.5,
+      "depthM": 0.35
+     },
+     {
+      "lengthM": 6.0,
+      "widthM": 5.0,
+      "depthM": 0.08
+     }
+    ]
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "assumed",
+    "placement": "assumed"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.89,
+   "field": {
+    "count": 22,
+    "countSource": "measured",
+    "countStated": true,
+    "classes": [
+     {
+      "archetype": "fire-cracked-mound",
+      "form": null,
+      "count": 1,
+      "moundLike": false,
+      "diameterM": [
+       4.2,
+       7.8
+      ],
+      "heightM": [
+       0.24,
+       0.56
+      ],
+      "stoneM": [
+       0.03,
+       0.2
+      ],
+      "source": "assumed"
+     },
+     {
+      "archetype": "stone-setting",
+      "form": "round",
+      "count": 14,
+      "moundLike": false,
+      "diameterM": [
+       4.0,
+       8.0
+      ],
+      "heightM": [
+       0.1,
+       0.4
+      ],
+      "stoneM": [
+       0.2,
+       0.4
+      ],
+      "source": "measured"
+     },
+     {
+      "archetype": "stone-setting",
+      "form": "square",
+      "count": 2,
+      "moundLike": false,
+      "diameterM": [
+       4.2,
+       7.8
+      ],
+      "heightM": [
+       0.2,
+       0.2
+      ],
+      "stoneM": [
+       0.2,
+       0.4
+      ],
+      "source": "assumed"
+     },
+     {
+      "archetype": "stone-setting",
+      "form": "rectangular",
+      "count": 2,
+      "moundLike": false,
+      "diameterM": [
+       5.48,
+       5.48
+      ],
+      "heightM": [
+       0.2,
+       0.25
+      ],
+      "stoneM": [
+       0.2,
+       0.4
+      ],
+      "source": "measured"
+     },
+     {
+      "archetype": "standing-stone",
+      "form": null,
+      "count": 1,
+      "moundLike": false,
+      "diameterM": [
+       0.7,
+       1.3
+      ],
+      "heightM": [
+       0.4,
+       1.0
+      ],
+      "stoneM": [
+       0.6,
+       1.4
+      ],
+      "source": "assumed"
+     },
+     {
+      "archetype": "mound",
+      "form": null,
+      "count": 1,
+      "moundLike": false,
+      "diameterM": [
+       4.9,
+       9.1
+      ],
+      "heightM": [
+       0.42,
+       0.98
+      ],
+      "stoneM": [
+       0.2,
+       0.3
+      ],
+      "source": "assumed"
+     },
+     {
+      "archetype": "cairn",
+      "form": null,
+      "count": 1,
+      "moundLike": false,
+      "diameterM": [
+       18.0,
+       18.0
+      ],
+      "heightM": [
+       1.0,
+       1.2
+      ],
+      "stoneM": [
+       0.4,
+       0.6
+      ],
+      "source": "measured"
+     }
+    ]
+   }
+  },
+  {
+   "id": "L1943:7754",
+   "lamningstyp": "Stensättning",
+   "archetype": "stone-setting",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 13.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 13.0,
+    "heightM": 0.35,
+    "transform": "none",
+    "presentHeightM": 0.35,
+    "presentDiameterM": 13.0,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.5
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": {
+     "heightM": 0.25,
+     "stoneM": null
+    },
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "derived"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.95
+  },
+  {
+   "id": "L1943:7755",
+   "lamningstyp": "Stensättning",
+   "archetype": "stone-setting",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 7.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 7.0,
+    "heightM": 0.3,
+    "transform": "none",
+    "presentHeightM": 0.3,
+    "presentDiameterM": 7.0,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.3,
+     0.6
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": {
+     "heightM": 0.45,
+     "stoneM": null
+    },
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "derived"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.95
+  },
+  {
+   "id": "L1943:7756",
+   "lamningstyp": "Stensättning",
+   "archetype": "stone-setting",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 12.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 12.0,
+    "heightM": 0.8,
+    "transform": "none",
+    "presentHeightM": 0.8,
+    "presentDiameterM": 12.0,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.4
+    ],
+    "turfed": false,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": {
+     "heightM": 0.3,
+     "stoneM": null
+    },
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "derived"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.95
+  },
+  {
+   "id": "L1943:7827",
+   "lamningstyp": "Fornborg",
+   "archetype": "fort",
+   "period": {
+    "builtCE": 400,
+    "abandonedCE": 550
+   },
+   "plan": {
+    "form": "rectangular",
+    "diameterM": 89.86,
+    "lengthM": 95.0,
+    "widthM": 85.0,
+    "orientationDeg": 45.0,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 89.86,
+    "heightM": 2.5,
+    "transform": "rampart-apron-conservation",
+    "presentHeightM": 1.5,
+    "presentDiameterM": 89.86,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.3,
+     1.0
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": null,
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "derived",
+    "surface": "derived"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.9,
+   "fort": {
+    "ramparts": [
+     {
+      "lengthM": 300.0,
+      "spreadM": [
+       8.0,
+       15.0
+      ],
+      "presentHeightM": [
+       1.0,
+       2.0
+      ],
+      "stoneM": [
+       0.3,
+       1.0
+      ],
+      "drystone": true,
+      "earthBacked": true,
+      "vitrified": true,
+      "entrances": [
+       {
+        "bearing": "VNV",
+        "bearingDeg": 292.5,
+        "widthM": [
+         3.0,
+         5.0
+        ]
+       },
+       {
+        "bearing": "ÖSÖ",
+        "bearingDeg": 112.5,
+        "widthM": [
+         3.0,
+         5.0
+        ]
+       }
+      ],
+      "source": "measured",
+      "standingHeightM": 2.0,
+      "apronIncrementM": 0.5,
+      "heightM": 2.5,
+      "wallThicknessM": 5.0,
+      "transform": "rampart-apron-conservation",
+      "wallThicknessSource": "assumed",
+      "id": "inner"
+     },
+     {
+      "lengthM": 140.0,
+      "spreadM": [
+       7.0,
+       10.0
+      ],
+      "presentHeightM": [
+       0.5,
+       1.5
+      ],
+      "stoneM": [
+       0.3,
+       1.0
+      ],
+      "drystone": true,
+      "earthBacked": true,
+      "vitrified": true,
+      "entrances": [
+       {
+        "bearing": "ÖSÖ",
+        "bearingDeg": 112.5,
+        "widthM": [
+         3.0,
+         5.0
+        ]
+       },
+       {
+        "bearing": "NNÖ",
+        "bearingDeg": 22.5,
+        "widthM": [
+         3.0,
+         5.0
+        ]
+       }
+      ],
+      "source": "measured",
+      "standingHeightM": 1.5,
+      "apronIncrementM": 0.27,
+      "heightM": 1.77,
+      "wallThicknessM": 5.0,
+      "transform": "rampart-apron-conservation",
+      "wallThicknessSource": "assumed",
+      "id": "outer"
+     }
+    ],
+    "confidence": 1.0,
+    "criteria": {
+     "kallmurning": true,
+     "wallHeightM": 2.0,
+     "wallAtLeast1m": true,
+     "wallRoundOrAcross": true,
+     "extentSpanM": 95.0,
+     "compactEnclosure": true
+    }
+   }
+  },
+  {
+   "id": "L1943:7828",
+   "lamningstyp": "Hög",
+   "archetype": "mound",
+   "period": {
+    "builtCE": 400,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 20.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 17.14,
+    "heightM": 4.95,
+    "transform": "repose-reprofile+pit-fill",
+    "presentHeightM": 2.3,
+    "presentDiameterM": 20.0,
+    "heightGain": 2.15,
+    "source": "derived"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.3
+    ],
+    "turfed": false,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": null,
+    "pits": [
+     {
+      "lengthM": 6.0,
+      "widthM": 6.0,
+      "depthM": 0.7
+     }
+    ]
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "derived",
+    "surface": "assumed"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.95
+  },
+  {
+   "id": "L1943:7829",
+   "lamningstyp": "Stensättning",
+   "archetype": "stone-setting",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 5.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 5.0,
+    "heightM": 0.4,
+    "transform": "none",
+    "presentHeightM": 0.4,
+    "presentDiameterM": 5.0,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.3
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": null,
+    "pits": []
+   },
+   "damaged": true,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "derived"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.9
+  },
+  {
+   "id": "L1943:7830",
+   "lamningstyp": "Gravfält",
+   "archetype": "grave-field",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "rectangular",
+    "diameterM": 38.73,
+    "lengthM": 50.0,
+    "widthM": 30.0,
+    "orientationDeg": 112.5,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 38.73,
+    "heightM": 0.25,
+    "transform": "none",
+    "presentHeightM": 0.25,
+    "presentDiameterM": 38.73,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.5
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": {
+     "heightM": 0.15,
+     "stoneM": [
+      0.1,
+      0.2
+     ]
+    },
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "assumed",
+    "placement": "assumed"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.93,
+   "field": {
+    "count": 12,
+    "countSource": "measured",
+    "countStated": true,
+    "classes": [
+     {
+      "archetype": "stone-setting",
+      "form": "round",
+      "count": 10,
+      "moundLike": false,
+      "diameterM": [
+       3.0,
+       7.0
+      ],
+      "heightM": [
+       0.2,
+       0.3
+      ],
+      "stoneM": [
+       0.2,
+       0.4
+      ],
+      "source": "measured"
+     },
+     {
+      "archetype": "stone-setting",
+      "form": "square",
+      "count": 1,
+      "moundLike": false,
+      "diameterM": [
+       3.0,
+       7.0
+      ],
+      "heightM": [
+       0.2,
+       0.3
+      ],
+      "stoneM": [
+       0.2,
+       0.4
+      ],
+      "source": "measured"
+     },
+     {
+      "archetype": "stone-setting",
+      "form": "round",
+      "count": 1,
+      "diameterM": [
+       3.0,
+       7.0
+      ],
+      "heightM": [
+       0.2,
+       0.3
+      ],
+      "stoneM": [
+       0.2,
+       0.4
+      ],
+      "moundLike": false,
+      "source": "assumed",
+      "note": "counted in the record's total but not itemised"
+     }
+    ]
+   }
+  },
+  {
+   "id": "L1943:7851",
+   "lamningstyp": "Gravfält",
+   "archetype": "grave-field",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "rectangular",
+    "diameterM": 52.44,
+    "lengthM": 55.0,
+    "widthM": 50.0,
+    "orientationDeg": 22.5,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 52.44,
+    "heightM": 0.7,
+    "transform": "pit-omit",
+    "presentHeightM": 0.7,
+    "presentDiameterM": 52.44,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.4
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": {
+     "heightM": 0.3,
+     "stoneM": null
+    },
+    "pits": [
+     {
+      "lengthM": 2.0,
+      "widthM": 2.0,
+      "depthM": 0.5
+     }
+    ]
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "assumed",
+    "placement": "assumed"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.9,
+   "field": {
+    "count": 10,
+    "countSource": "measured",
+    "countStated": true,
+    "classes": [
+     {
+      "archetype": "stone-setting",
+      "form": "round",
+      "count": 9,
+      "moundLike": false,
+      "diameterM": [
+       5.0,
+       6.0
+      ],
+      "heightM": [
+       0.2,
+       0.5
+      ],
+      "stoneM": [
+       0.2,
+       0.4
+      ],
+      "source": "measured"
+     },
+     {
+      "archetype": "mound",
+      "form": null,
+      "count": 1,
+      "moundLike": false,
+      "diameterM": [
+       4.9,
+       9.1
+      ],
+      "heightM": [
+       0.42,
+       0.98
+      ],
+      "stoneM": [
+       0.2,
+       0.3
+      ],
+      "source": "assumed"
+     }
+    ]
+   }
+  },
+  {
+   "id": "L1943:7902",
+   "lamningstyp": "Hög",
+   "archetype": "mound",
+   "period": {
+    "builtCE": 400,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 18.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 16.3,
+    "heightM": 4.7,
+    "transform": "repose-reprofile+pit-fill",
+    "presentHeightM": 2.5,
+    "presentDiameterM": 18.0,
+    "heightGain": 1.88,
+    "source": "derived"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.4
+    ],
+    "turfed": false,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": null,
+    "pits": [
+     {
+      "lengthM": 3.0,
+      "widthM": 1.5,
+      "depthM": 0.4
+     }
+    ]
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "derived",
+    "surface": "assumed"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.95
+  },
+  {
+   "id": "L1943:7921",
+   "lamningstyp": "Gravfält",
+   "archetype": "grave-field",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "rectangular",
+    "diameterM": 50.99,
+    "lengthM": 130.0,
+    "widthM": 20.0,
+    "orientationDeg": 0.0,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 50.99,
+    "heightM": 0.6,
+    "transform": "none",
+    "presentHeightM": 0.6,
+    "presentDiameterM": 50.99,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.3
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": null,
+    "pits": []
+   },
+   "damaged": true,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "assumed",
+    "surface": "assumed",
+    "placement": "assumed"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.8,
+   "field": {
+    "count": 13,
+    "countSource": "measured",
+    "countStated": true,
+    "classes": [
+     {
+      "archetype": "stone-setting",
+      "form": "round",
+      "count": 5,
+      "moundLike": false,
+      "diameterM": [
+       4.2,
+       7.8
+      ],
+      "heightM": [
+       0.24,
+       0.56
+      ],
+      "stoneM": [
+       0.2,
+       0.4
+      ],
+      "source": "assumed"
+     },
+     {
+      "archetype": "mound",
+      "form": null,
+      "count": 1,
+      "moundLike": false,
+      "diameterM": [
+       4.9,
+       9.1
+      ],
+      "heightM": [
+       0.42,
+       0.98
+      ],
+      "stoneM": [
+       0.2,
+       0.3
+      ],
+      "source": "assumed"
+     },
+     {
+      "archetype": "stone-setting",
+      "form": "round",
+      "count": 7,
+      "diameterM": [
+       4.2,
+       7.8
+      ],
+      "heightM": [
+       0.24,
+       0.56
+      ],
+      "stoneM": [
+       0.2,
+       0.4
+      ],
+      "moundLike": false,
+      "source": "assumed",
+      "note": "counted in the record's total but not itemised"
+     }
+    ]
+   }
+  },
+  {
+   "id": "L1943:7993",
+   "lamningstyp": "Röse",
+   "archetype": "cairn",
+   "period": {
+    "builtCE": -1700,
+    "abandonedCE": -500
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 28.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 17.94,
+    "heightM": 6.28,
+    "transform": "repose-reprofile+pit-fill",
+    "presentHeightM": 1.1,
+    "presentDiameterM": 28.0,
+    "heightGain": 5.71,
+    "source": "derived"
+   },
+   "surface": {
+    "stoneM": [
+     0.8,
+     1.5
+    ],
+    "turfed": false,
+    "filled": null,
+    "centreStone": true,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": null,
+    "pits": [
+     {
+      "lengthM": 13.0,
+      "widthM": 13.0,
+      "depthM": 2.25
+     }
+    ]
+   },
+   "damaged": false,
+   "warnings": [
+    "§5.2 re-profiling multiplies the recorded height by 5.7 (28.0 × 1.1 m → 17.94 × 6.28 m); the record is unusually wide and flat for its type."
+   ],
+   "tiers": {
+    "plan": "measured",
+    "profile": "derived",
+    "surface": "derived"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.95
+  },
+  {
+   "id": "L1943:7996",
+   "lamningstyp": "Boplats",
+   "archetype": "farmstead",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "rectangular",
+    "diameterM": 52.92,
+    "lengthM": 70.0,
+    "widthM": 40.0,
+    "orientationDeg": 135.0,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 52.92,
+    "heightM": 1.0,
+    "transform": "none",
+    "presentHeightM": 1.0,
+    "presentDiameterM": 52.92,
+    "heightGain": 1.0,
+    "source": "assumed"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.5
+    ],
+    "turfed": false,
+    "filled": null,
+    "centreStone": false,
+    "source": "assumed"
+   },
+   "features": {
+    "kerb": null,
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "assumed",
+    "surface": "assumed"
+   },
+   "fallbacks": [
+    "profile.heightM",
+    "surface.stoneM"
+   ],
+   "parseConfidence": 0.5
+  },
+  {
+   "id": "L1943:8003",
+   "lamningstyp": "Skärvstenshög",
+   "archetype": "fire-cracked-mound",
+   "period": {
+    "builtCE": -1700,
+    "abandonedCE": -500
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 6.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 6.0,
+    "heightM": 0.4,
+    "transform": "pit-omit",
+    "presentHeightM": 0.4,
+    "presentDiameterM": 6.0,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.3
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": null,
+    "pits": [
+     {
+      "lengthM": 2.0,
+      "widthM": 2.0,
+      "depthM": 0.1
+     }
+    ]
+   },
+   "damaged": true,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "measured",
+    "surface": "derived"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.95
+  },
+  {
+   "id": "L1943:8004",
+   "lamningstyp": "Boplats",
+   "archetype": "farmstead",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "rectangular",
+    "diameterM": 79.37,
+    "lengthM": 90.0,
+    "widthM": 70.0,
+    "orientationDeg": 0.0,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 79.37,
+    "heightM": 1.0,
+    "transform": "none",
+    "presentHeightM": 1.0,
+    "presentDiameterM": 79.37,
+    "heightGain": 1.0,
+    "source": "assumed"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.5
+    ],
+    "turfed": false,
+    "filled": null,
+    "centreStone": false,
+    "source": "assumed"
+   },
+   "features": {
+    "kerb": null,
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "assumed",
+    "surface": "assumed"
+   },
+   "fallbacks": [
+    "profile.heightM",
+    "surface.stoneM"
+   ],
+   "parseConfidence": 0.5
+  },
+  {
+   "id": "L1943:8005",
+   "lamningstyp": "Hög",
+   "archetype": "mound",
+   "period": {
+    "builtCE": 400,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 9.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 7.28,
+    "heightM": 2.1,
+    "transform": "repose-reprofile+pit-fill",
+    "presentHeightM": 0.9,
+    "presentDiameterM": 9.0,
+    "heightGain": 2.33,
+    "source": "derived"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.3
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": null,
+    "pits": [
+     {
+      "lengthM": 2.0,
+      "widthM": 2.0,
+      "depthM": 0.1
+     }
+    ]
+   },
+   "damaged": true,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "derived",
+    "surface": "assumed"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.95
+  },
+  {
+   "id": "L1943:8006",
+   "lamningstyp": "Grav markerad av sten/block",
+   "archetype": "stone-setting",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "round",
+    "diameterM": 6.0,
+    "lengthM": null,
+    "widthM": null,
+    "orientationDeg": null,
+    "source": "assumed"
+   },
+   "profile": {
+    "diameterM": 6.0,
+    "heightM": 2.9,
+    "transform": "none",
+    "presentHeightM": 2.9,
+    "presentDiameterM": 6.0,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.4
+    ],
+    "turfed": false,
+    "filled": null,
+    "centreStone": false,
+    "source": "assumed"
+   },
+   "features": {
+    "kerb": null,
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "assumed",
+    "profile": "measured",
+    "surface": "assumed"
+   },
+   "fallbacks": [
+    "plan.diameterM",
+    "plan.form",
+    "surface.stoneM"
+   ],
+   "parseConfidence": 0.25
+  },
+  {
+   "id": "L2021:8789",
+   "lamningstyp": "Boplatslämning övrig",
+   "archetype": "farmstead",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "oval",
+    "diameterM": 0.35,
+    "lengthM": 0.4,
+    "widthM": 0.3,
+    "orientationDeg": 0.0,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 0.35,
+    "heightM": 1.0,
+    "transform": "none",
+    "presentHeightM": 1.0,
+    "presentDiameterM": 0.35,
+    "heightGain": 1.0,
+    "source": "assumed"
+   },
+   "surface": {
+    "stoneM": [
+     0.1,
+     0.15
+    ],
+    "turfed": false,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": null,
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "assumed",
+    "surface": "derived"
+   },
+   "fallbacks": [
+    "profile.heightM"
+   ],
+   "parseConfidence": 0.65
+  },
+  {
+   "id": "L2021:8795",
+   "lamningstyp": "Boplatslämning övrig",
+   "archetype": "farmstead",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "rectangular",
+    "diameterM": 1.55,
+    "lengthM": 2.4,
+    "widthM": 1.0,
+    "orientationDeg": 45.0,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 1.55,
+    "heightM": 1.0,
+    "transform": "none",
+    "presentHeightM": 1.0,
+    "presentDiameterM": 1.55,
+    "heightGain": 1.0,
+    "source": "assumed"
+   },
+   "surface": {
+    "stoneM": [
+     0.2,
+     0.5
+    ],
+    "turfed": false,
+    "filled": null,
+    "centreStone": false,
+    "source": "assumed"
+   },
+   "features": {
+    "kerb": null,
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "assumed",
+    "surface": "assumed"
+   },
+   "fallbacks": [
+    "profile.heightM",
+    "surface.stoneM"
+   ],
+   "parseConfidence": 0.5
+  },
+  {
+   "id": "L2026:1678",
+   "lamningstyp": "Gravfält",
+   "archetype": "grave-field",
+   "period": {
+    "builtCE": -500,
+    "abandonedCE": 1050
+   },
+   "plan": {
+    "form": "rectangular",
+    "diameterM": 31.62,
+    "lengthM": 40.0,
+    "widthM": 25.0,
+    "orientationDeg": 0.0,
+    "source": "measured"
+   },
+   "profile": {
+    "diameterM": 31.62,
+    "heightM": 0.5,
+    "transform": "none",
+    "presentHeightM": 0.5,
+    "presentDiameterM": 31.62,
+    "heightGain": 1.0,
+    "source": "measured"
+   },
+   "surface": {
+    "stoneM": [
+     8.0,
+     8.0
+    ],
+    "turfed": true,
+    "filled": null,
+    "centreStone": false,
+    "source": "derived"
+   },
+   "features": {
+    "kerb": {
+     "heightM": null,
+     "stoneM": [
+      0.5,
+      0.8
+     ]
+    },
+    "pits": []
+   },
+   "damaged": false,
+   "warnings": [],
+   "tiers": {
+    "plan": "measured",
+    "profile": "assumed",
+    "surface": "assumed",
+    "placement": "assumed"
+   },
+   "fallbacks": [],
+   "parseConfidence": 0.8,
+   "field": {
+    "count": 18,
+    "countSource": "measured",
+    "countStated": false,
+    "classes": [
+     {
+      "archetype": "stone-setting",
+      "form": null,
+      "count": 13,
+      "moundLike": false,
+      "diameterM": [
+       4.2,
+       7.8
+      ],
+      "heightM": [
+       0.24,
+       0.56
+      ],
+      "stoneM": [
+       0.2,
+       0.4
+      ],
+      "source": "assumed"
+     },
+     {
+      "archetype": "mound",
+      "form": null,
+      "count": 5,
+      "moundLike": false,
+      "diameterM": [
+       4.9,
+       9.1
+      ],
+      "heightM": [
+       0.42,
+       0.98
+      ],
+      "stoneM": [
+       0.2,
+       0.3
+      ],
+      "source": "assumed"
+     }
+    ]
+   }
+  }
+ ]
+}

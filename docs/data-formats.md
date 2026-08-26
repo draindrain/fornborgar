@@ -909,3 +909,218 @@ evidence inputs) and MUST state the billboard sampling fraction in plain terms
 exactly as before; a v1.6 bundle in a pre-v1.6 app renders its near field
 exactly as before (unknown keys ignored, §2 rules). A ring raster whose fetch
 fails tints nothing and suppresses nothing — per-ring graceful, like ring DEMs.
+
+---
+
+# v1.7 amendment (2026-08-26) — reconstruction mode (§14)
+
+Additive per the versioning policy above; `schemaVersion` stays 1. **One** new
+optional asset (`assets.reconstruction` → `reconstruction.json`) and one new layer
+entry (`reconstruction`, provenance `conjecture`). Nothing existing changes:
+`sites.json` (§3) stays exactly as defined — it is the register, and the register
+does not acquire interpretation. A bundle without the new asset keeps working in
+every later app build; an app that predates this amendment ignores the key
+entirely. Research, taxonomy and the per-archetype specifications:
+`docs/reconstruction-mode.md`; PLAN §Phase 12.
+
+**Why.** Marker mode (§3) answers *"what is registered here, and where?"*
+Reconstruction mode answers *"what would I have seen standing here in 500 CE?"* —
+so it needs the parameters the register only states in prose: plan form and size,
+height, kerb, stone calibre, robbing pits, and for a `Gravfält` the monument count
+and class composition it enumerates about itself. Those are parsed offline
+(`pipeline/fornborg_pipeline/reconstruct.py`) for the same reason every other
+derivation is: the browser does no geodesy, no parsing and no guessing.
+
+## 14. `reconstruction.json` — per-monument reconstruction parameters
+
+```jsonc
+{
+  "schemaVersion": 1,
+  "site": "broborg",
+  "generated": "<ISO date>",
+  "derivation": {
+    "method": "kmr-description-parse",
+    "description": "<verbatim prose, as rampart.json §8 does>",   // methods panel
+    "transforms": ["rampart-apron-conservation", "mound-reprofile", "pit-fill"],
+    "params": {                              // the §5 constants, all tunable
+      "packing": 0.85, "apronDepthM": 0.45, "wallThicknessM": 5.0,
+      "reposeEarthDeg": 30, "reposeStoneDeg": 35,
+      "pitFillFactor": 0.5, "fortConfidenceThreshold": 0.6
+    }
+  },
+  "defaults": {                              // per-archetype literature defaults
+    "mound": { "diameterM": 7.0, "heightM": 0.7, "stoneM": [0.2, 0.3],
+               "material": "earth", "reprofile": true, "form": "round" }
+  },
+  "coverage": {                              // what the parse actually found
+    "records": 127, "reconstructed": 127, "unmappedTypes": 0,
+    "byArchetype": { "stone-setting": 58, "grave-field": 31, "…": 0 },
+    "planParsed": 0.913, "heightParsed": 0.898, "stoneParsed": 0.874,
+    "formParsed": 0.913, "kerbParsed": 0.551, "pitsParsed": 0.307,
+    "turfNoted": 0.756, "damageNoted": 0.11,
+    "graveFields": 31, "graveFieldsWithStatedCount": 28,
+    "sampledMonuments": 1211, "withWarnings": 1
+  },
+  "monuments": [
+    {
+      "id": "L1940:6792",                    // joins to sites.json §3 by id
+      "lamningstyp": "Stensättning",         // KMR type, verbatim, for the popup
+      "archetype": "stone-setting",          // reconstruction-mode.md §4 key
+      "period": { "builtCE": -500, "abandonedCE": 1050 },   // §8 visibility gate
+
+      "plan":    { "form": "round",          // round|square|rectangular|oval|triangular
+                   "diameterM": 8.0,         // equal-area circle for non-round plans
+                   "lengthM": null, "widthM": null,
+                   "orientationDeg": null,   // long axis, 0–180, 0 = N–S
+                   "source": "measured" },   // measured|derived|assumed, per field
+
+      "profile": { "heightM": 1.2,           // RECONSTRUCTED height above ground
+                   "diameterM": 8.0,         // reconstructed base diameter
+                   "presentHeightM": 1.2,    // the ruin measurement it came from
+                   "presentDiameterM": 8.0,
+                   "heightGain": 1.0,
+                   "transform": "none",      // which §5 rule ran; see below
+                   "source": "measured" },
+
+      "surface": { "stoneM": [0.7, 1.4],     // constituent calibre range
+                   "turfed": true,           // what the register saw (a RUIN state)
+                   "filled": true,           // `fylld`; null = not stated
+                   "centreStone": false,
+                   "source": "derived" },
+
+      "features": {
+        "kerb": { "heightM": 1.2, "stoneM": [0.7, 1.4] },   // null = none recorded
+        "pits": [ { "lengthM": 2.0, "widthM": 1.5, "depthM": 0.5 } ]
+      },
+
+      "damaged": false,                      // plundrad/utgrävning/skadad/bortodlad
+      "warnings": [],                        // human-readable, shown in the popup
+      "tiers": { "plan": "measured", "profile": "measured", "surface": "assumed" },
+      "fallbacks": [],                       // field paths that used a default
+      "parseConfidence": 0.95                // 0–1, weighted field coverage
+    }
+  ]
+}
+```
+
+Two archetypes carry one extra block each.
+
+**`archetype: "grave-field"`** is not a shape but a **sampler specification**
+(reconstruction-mode.md §3.1): the record enumerates its own contents.
+
+```jsonc
+"field": {
+  "count": 65,                  // monuments to place inside the §3 extent polygon
+  "countSource": "measured",
+  "countStated": true,          // false = summed from the itemisation instead
+  "classes": [
+    { "archetype": "stone-setting", "form": "round", "count": 57,
+      "diameterM": [3.0, 8.0],  // RANGES, not midpoints — each monument is drawn
+      "heightM": [0.2, 0.6],    // from the stated band
+      "stoneM": [0.3, 0.6],
+      "moundLike": false,       // `högliknande`: profile hint, not a plan form
+      "figure": "treudd",       // optional: treudd|stone-circle|ship-setting
+      "source": "measured",
+      "note": "…" }             // optional, e.g. an unitemised remainder
+  ]
+}
+```
+
+**`archetype: "fort"`** carries the §3.2 construction description and the §6.A.1
+filter.
+
+```jsonc
+"fort": {
+  "confidence": 1.0,            // 0–1; below derivation.params.fortConfidenceThreshold
+                                // the app must NOT draw a standing rampart
+  "criteria": { "kallmurning": true, "wallHeightM": 2.0, "wallAtLeast1m": true,
+                "wallRoundOrAcross": true, "extentSpanM": 95.0,
+                "compactEnclosure": true },
+  "ramparts": [
+    { "id": "inner",            // joins to rampart.json §8 `paths[].id`
+      "lengthM": 300.0,
+      "spreadM": [8.0, 15.0],   // KMR's collapse spread, NOT the wall body
+      "presentHeightM": [1.0, 2.0],
+      "stoneM": [0.3, 1.0],
+      "standingHeightM": 2.0,   // §5.1 input: the top of the recorded band
+      "apronIncrementM": 0.5,   // §5.1 output: what the debris apron represents
+      "heightM": 2.5,           // = standing + apron; the wall the app builds
+      "wallThicknessM": 5.0, "wallThicknessSource": "assumed",
+      "drystone": true, "earthBacked": true, "vitrified": true,
+      "entrances": [ { "bearing": "VNV", "bearingDeg": 292.5, "widthM": [3.0, 5.0] } ],
+      "transform": "rampart-apron-conservation",
+      "source": "measured" }
+  ]
+}
+```
+
+Rules — the ones that keep the mode honest and the ones that keep it on the ground:
+
+- **No coordinates, at all.** Not local `[x, z]`, not EPSG:3006. A monument's
+  position and its extent polygon live in `sites.json` (§3) and the app joins the
+  two by `id`. `assets.reconstruction` therefore **requires** `assets.sites`, and
+  `validate_manifest` refuses the pair broken (§2). This is the §0 rule stated once
+  more where it is easiest to break: a second file with a second copy of a position
+  is a second thing that can drift.
+- **No ground heights.** `heightM` everywhere means *height above the ground at
+  that point*, which is the whole content of the file. Ground elevation is sampled
+  at runtime through the app's own sampler, exactly as §8 requires of the rampart
+  crest, so a monument can never drift from the terrain under it.
+- **Vertical exaggeration is a render-only Y scale on the terrain group** (§0).
+  Reconstructed monuments live in the scene **outside** that group and seat
+  themselves at `y = ground · exaggeration` while keeping true metric height — a
+  2.5 m wall is 2.5 m at ×1 and at ×2.5 — and refresh when it changes. Same
+  invariant `overlays/palisade.ts` documents.
+- **Every number is a ruin measurement until a transform says otherwise**
+  (reconstruction-mode.md §5). `profile.transform` names which rule ran and
+  `presentHeightM` / `presentDiameterM` keep the measurement it ran on, so the
+  derivation is reversible and the methods panel can show the arithmetic rather
+  than the conclusion. Values:
+
+  | `transform` | Meaning |
+  |---|---|
+  | `none` | Not inflated. A stone setting's flatness is the type (§6.C); a fire-cracked mound accumulated rather than being built (§6.E). |
+  | `pit-omit` | As `none`, and the recorded robbing pits are simply not modelled. |
+  | `kerb-fixed` | A `kantkedja` fixes the original footprint: diameter kept, surface restored to a smooth spherical cap through the kerb (§5.2). |
+  | `kerb-fixed+pit-fill` | The same, plus the §5.3 pit volume returned. |
+  | `repose-reprofile` | No kerb: volume-conserving rebuild at the material's angle of repose (§5.2). Narrower and taller. |
+  | `repose-reprofile+pit-fill` | The same, plus the pit volume. |
+  | `rampart-apron-conservation` | §5.1, standing wall plus its debris apron. |
+
+- **Provenance is per part, never averaged** (§9.1, PLAN §6.1). `tiers` carries
+  `plan`, `profile` and `surface` separately — a mound is Measured in plan, Model
+  in profile, Conjecture in surface — plus `placement` for a grave field, whose
+  composition is measured and whose individual positions are not. The badge
+  mapping is Measured→**Measured**, `derived`→**Model**, `assumed`→**Conjecture**.
+  The `reconstruction` **layer** entry is the floor of that range, so it is
+  `conjecture`; the per-part tiers reach the visitor through the popup.
+- **Nothing is invented silently.** A field the parser could not read takes the
+  archetype default from `defaults`, its `source` reads `assumed`, its path is
+  listed in `fallbacks` (`"plan.diameterM"`, `"profile.heightM"`,
+  `"surface.stoneM"`, `"plan.form"`), and `parseConfidence` drops. Roughly 8 % of
+  records have no parseable plan size at all; the app must be able to show *how
+  much* of a site is measured versus defaulted, which is what these three fields
+  are for.
+- **`fortConfidence` gates archetype A** (§6.A.1). Roughly four in five registered
+  `Fornborg` records are probably not Migration Period forts, so a site scoring
+  below `derivation.params.fortConfidenceThreshold` must render as a low stone
+  bank, not as a standing rampart, and must say why. This is the one error that
+  would be wrong a thousand times over rather than once.
+- **The archetypes are not contemporaneous** (§8). `period.builtCE` /
+  `abandonedCE` are signed astronomical years (`null` = not gated) and drive
+  visibility against the app clock: at 500 CE the fort stands and there are **no**
+  runestones; at 1050 CE the reverse.
+- `id` unique within the file; `archetype` one of the §4 keys; `parseConfidence`
+  in `[0, 1]`; `tiers.*` one of `measured` / `derived` / `assumed`. All
+  pipeline-validated (`reconstruct.validate_document`), so the app's own validator
+  is a second line rather than the only one.
+- **Ranges are `[min, max]`** with `min ≤ max`, and a single stated value becomes
+  `[v, v]`. Grave-field class ranges are ranges on purpose: the sampler draws each
+  monument from the band the register states, which is what makes a field of 230
+  monuments measured rather than invented.
+
+**Compatibility.** A pre-v1.7 bundle (no `assets.reconstruction`) simply has no
+reconstruction mode — the toggle is absent, exactly as the palisade is absent for
+a site with no `assets.rampart`. A v1.7 bundle in a pre-v1.7 app ignores the key
+(§2 rules) and renders marker mode as before. A monument whose archetype the app
+cannot draw yet keeps its §3 marker instead of disappearing.

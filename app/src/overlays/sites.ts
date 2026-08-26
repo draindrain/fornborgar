@@ -215,6 +215,17 @@ interface DrapedLine {
   groundY: Float32Array;
 }
 
+/**
+ * Which records the layer draws. `null` = all of them, which is marker mode.
+ *
+ * Phase 12 uses this: reconstruction mode *replaces* the markers (§11.1), but
+ * §8's ruin state "simply falls back to today's marker-mode geometry, which is
+ * the measured one" — so the marker for a monument that is a ruin in the year on
+ * the clock, or whose archetype this build cannot draw yet, stays on screen while
+ * the rest are hidden.
+ */
+export type SiteFilter = ((site: SiteRecord) => boolean) | null;
+
 // --------------------------------------------------------------------------- //
 // the layer
 // --------------------------------------------------------------------------- //
@@ -238,6 +249,10 @@ export class SitesLayer {
   private readonly markers: THREE.Mesh[] = [];
   private readonly pickTargets: THREE.Mesh[] = [];
   private readonly outlines: DrapedLine[] = [];
+  /** Every object belonging to one record, so a filter can hide them together. */
+  private readonly byRecord = new Map<string, THREE.Object3D[]>();
+  private filter: SiteFilter = null;
+  private extraPickables: (() => THREE.Object3D[]) | null = null;
   /**
    * One material per *style*, not per site. A national extract puts hundreds of
    * single-grave records in a single extent, and a material each would multiply
@@ -284,6 +299,54 @@ export class SitesLayer {
   setVisible(on: boolean): void {
     this.group.visible = on;
     if (!on) this.select(null);
+  }
+
+  /**
+   * Draw only the records the predicate accepts. `null` restores all of them.
+   *
+   * Applies to the marker, its draped outline *and* its pick volume together: a
+   * hidden marker that still swallows clicks would be worse than a visible one.
+   */
+  setFilter(filter: SiteFilter): void {
+    this.filter = filter;
+    for (const site of this.sites) {
+      const visible = filter === null || filter(site);
+      for (const object of this.byRecord.get(site.id) ?? []) object.visible = visible;
+      if (!visible && this.selectedId === site.id) this.select(null);
+    }
+  }
+
+  /**
+   * Extra objects the click handler should hit-test, alongside the markers.
+   *
+   * Phase 12 passes the reconstruction layer's own pick volumes through here, so
+   * one handler serves both modes: a 3D monument opens the same card its marker
+   * does. Every object must carry `userData.siteId`, which is what selection is
+   * keyed on either way.
+   */
+  setExtraPickables(provider: (() => THREE.Object3D[]) | null): void {
+    this.extraPickables = provider;
+  }
+
+  /** Is this record currently drawn? (Tests and the readout ask.) */
+  isShown(id: string): boolean {
+    const site = this.sites.find((entry) => entry.id === id);
+    if (!site) return false;
+    return this.filter === null || this.filter(site);
+  }
+
+  /** How many records the current filter draws. */
+  get shownCount(): number {
+    if (this.filter === null) return this.sites.length;
+    let total = 0;
+    for (const site of this.sites) if (this.filter(site)) total++;
+    return total;
+  }
+
+  private register(id: string, object: THREE.Object3D): void {
+    const list = this.byRecord.get(id);
+    if (list) list.push(object);
+    else this.byRecord.set(id, [object]);
   }
 
   get visible(): boolean {
@@ -404,6 +467,7 @@ export class SitesLayer {
     marker.renderOrder = 2;
     marker.userData = { siteId: site.id, x: site.position.x, z: site.position.z };
     this.markers.push(marker);
+    this.register(site.id, marker);
     this.group.add(marker);
 
     // Generous invisible pick volume — a flat disc is unclickable edge-on.
@@ -414,6 +478,7 @@ export class SitesLayer {
     pick.position.set(site.position.x, 0, site.position.z);
     pick.userData = { siteId: site.id, x: site.position.x, z: site.position.z };
     this.pickTargets.push(pick);
+    this.register(site.id, pick);
     this.group.add(pick);
   }
 
@@ -454,6 +519,7 @@ export class SitesLayer {
       const line = new THREE.Line(geometry, material);
       line.renderOrder = 2;
       this.outlines.push({ line, groundY });
+      this.register(site.id, line);
       this.group.add(line);
     }
   }
@@ -477,7 +543,8 @@ export class SitesLayer {
       -((event.clientY - rect.top) / rect.height) * 2 + 1,
     );
     this.raycaster.setFromCamera(this.pointerNdc, this.camera);
-    const hits = this.raycaster.intersectObjects(this.pickTargets, false);
+    const targets: THREE.Object3D[] = [...this.pickTargets, ...(this.extraPickables?.() ?? [])];
+    const hits = this.raycaster.intersectObjects(targets, false).filter((hit) => hit.object.visible);
     if (hits.length > 0) {
       this.select((hits[0].object.userData as { siteId: string }).siteId);
     } else if (this.selectedId !== null) {

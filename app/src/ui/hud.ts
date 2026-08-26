@@ -30,6 +30,8 @@ export class Hud {
   private readonly loadingBar: HTMLElement;
   private readonly caveatEl: HTMLElement;
   private readonly pickerButton: HTMLButtonElement;
+  /** Phase 12: the reconstruction-mode switch. Hidden unless the site ships §14. */
+  private readonly modeButton: HTMLButtonElement;
   private readonly caveatsShown = new Set<string>();
   private caveatTimer = 0;
 
@@ -43,7 +45,15 @@ export class Hud {
     this.pickerButton = el('button', 'hud-picker-button', 'Browse forts');
     this.pickerButton.type = 'button';
     this.pickerButton.hidden = true;
-    header.append(this.titleEl, this.pickerButton);
+    // Reconstruction mode *replaces* the markers rather than drawing on top of
+    // them (owner decision, docs/reconstruction-mode.md §11.1) — one monument
+    // rendered both as a 3D mound and as a flat coloured dot is worse than
+    // either. So it is a hard toggle, one click from the default screen, and it
+    // names the mode it switches *to*.
+    this.modeButton = el('button', 'hud-mode-button', 'Reconstruction');
+    this.modeButton.type = 'button';
+    this.modeButton.hidden = true;
+    header.append(this.titleEl, this.pickerButton, this.modeButton);
 
     this.loadingEl = el('div', 'hud-loading');
     this.loadingLabel = el('div', 'hud-loading-label', 'Starting…');
@@ -81,6 +91,28 @@ export class Hud {
   setSitePickerToggle(handler: () => void): void {
     this.pickerButton.hidden = false;
     this.pickerButton.addEventListener('click', handler);
+  }
+
+  /**
+   * Show the reconstruction-mode switch. Only called for a site that ships the
+   * §14 asset — a bundle without one has no mode to switch to, exactly as a
+   * bundle without `assets.rampart` has no palisade.
+   */
+  enableModeSwitch(handler: (on: boolean) => void): void {
+    this.modeButton.hidden = false;
+    this.modeButton.addEventListener('click', () => {
+      handler(this.modeButton.dataset['on'] !== 'true');
+    });
+  }
+
+  /** Reflect the mode the app is actually in; the label names the way *out*. */
+  setMode(on: boolean): void {
+    this.modeButton.dataset['on'] = on ? 'true' : 'false';
+    this.modeButton.textContent = on ? 'Registered sites' : 'Reconstruction';
+    this.modeButton.title = on
+      ? 'Back to the register: flat markers coloured by lämningstyp'
+      : 'Show the monuments as they may have looked when in use (interpretation)';
+    this.modeButton.classList.toggle('is-active', on);
   }
 
   /**

@@ -19,11 +19,12 @@ import { periodAt } from './lib/periods';
 import { siteLatLon } from './lib/sweref';
 import { FarLandcoverTint } from './landcover/farTint';
 import { FarVegetationLayer } from './landcover/farVegetation';
-import type { LandcoverGrid } from './landcover/landcoverGrid';
+import { classAtLocal, type LandcoverGrid } from './landcover/landcoverGrid';
 import { LandcoverTint } from './landcover/tint';
 import { bakeImpostorAtlas, type ImpostorAtlas } from './landcover/impostors';
 import { VegetationLayer } from './landcover/vegetation';
 import { PalisadeLayer } from './overlays/palisade';
+import { ReconstructionLayer } from './overlays/reconstruction/layer';
 import { Atmosphere } from './sky/atmosphere';
 import { moonPosition, phaseLabel, type LunarPosition } from './sky/lunar';
 import { NightSky } from './sky/nightSky';
@@ -42,6 +43,7 @@ import {
   debugEnabled,
   loadGrid,
   loadLandcoverAssets,
+  loadReconstruction,
   loadManifest,
   loadRampart,
   loadRingConnect,
@@ -61,6 +63,7 @@ import { SitesLayer } from './overlays/sites';
 import {
   addLandcoverControls,
   addPalisadeControls,
+  addReconstructionControls,
   addSitesControls,
   addWaterControls,
   createControls,
@@ -243,6 +246,49 @@ function applyPalisadeSettings(): void {
 }
 // -----------------------------------------------------------------------------
 
+// --- Phase 12: reconstruction mode (optional §14 asset; absent = mode off) ---
+/**
+ * The second overlay *mode*: standing monuments where marker mode draws registry
+ * dots. Built in start() only if the site ships `assets.reconstruction`.
+ *
+ * It **replaces** the markers rather than drawing over them (owner decision,
+ * docs/reconstruction-mode.md §11.1) — but not all of them: §8's ruin state
+ * "simply falls back to today's marker-mode geometry, which is the measured
+ * one", so a monument that is a ruin in the year on the clock, and any archetype
+ * this build cannot draw yet, keeps its flat marker. `applyReconstructionSettings`
+ * is the one place that decision is made.
+ */
+let reconstruction: ReconstructionLayer | null = null;
+let reconstructionReadout: { update(): void } | null = null;
+let reconstructionCaveat: { badge: string; text: string } | null = null;
+
+const RECONSTRUCTION_CAVEAT =
+  'Reconstruction mode shows INTERPRETATIONS, not the register. Plan sizes are measured; ' +
+  'profiles are derived by stated, reversible transforms from ruin measurements; surfaces ' +
+  'and grave-field positions are inference. Each monument states its own badge per part.';
+
+/** Single funnel for the mode switch, the debug folder and the dev hooks. */
+function applyReconstructionSettings(): void {
+  if (!reconstruction) return;
+  const on = controlState.reconstruction.show;
+  reconstruction.setEnabled(on);
+  hud.setMode(on);
+  // The markers are the other half of the mode. In reconstruction mode only the
+  // ruins and the not-yet-drawn archetypes keep theirs; leaving the mode
+  // restores every one of them.
+  if (on) {
+    const keep = reconstruction.markerIds();
+    sitesLayer?.setFilter((site) => keep.has(site.id));
+  } else {
+    sitesLayer?.setFilter(null);
+  }
+  reconstructionReadout?.update();
+  if (on && reconstructionCaveat) {
+    hud.showCaveatOnce('reconstruction', reconstructionCaveat.badge, reconstructionCaveat.text);
+  }
+}
+// -----------------------------------------------------------------------------
+
 // --- Phase 7: modeled landscape (optional §9/§10 pair; absent = feature off) --
 /**
  * Two halves, built at different points in start() for a shader-ordering reason
@@ -395,6 +441,14 @@ function applyTimeSettings(): void {
   controlState.water.yearCE = controlState.time.yearCE;
   applyWaterSettings();
   applySunSettings();
+  // §8: the archetypes are not contemporaneous, and pretending otherwise is the
+  // single most likely way reconstruction mode ends up lying. At 500 CE the fort
+  // stands and there are no runestones; at 1050 CE the reverse. Cheap — the gate
+  // is per-archetype `visible` flags, never a rebuild — so it rides the slider.
+  if (reconstruction) {
+    reconstruction.setYear(controlState.time.yearCE);
+    applyReconstructionSettings();
+  }
 }
 
 /**
@@ -483,6 +537,7 @@ if (debug) {
     viewshed?.marker.refreshHeight();
     sitesLayer?.refreshHeights();
     palisade?.refreshHeights(); // posts sit on the exaggerated ground, at true height
+    reconstruction?.refreshHeights(); // ...and so do the monuments (contract §0/§14)
     vegetation?.refreshHeights(); // ...and so do the plants (contract §0/§9)
     farVegetation?.refreshHeights(); // ...billboards included (v1.6 §13)
     refit();
@@ -761,8 +816,15 @@ async function start(): Promise<void> {
       () => terrain.getExaggeration(),
       {
         onSelect: (site) => {
-          if (site) panel.show(site);
-          else panel.hide();
+          // §9.1: in reconstruction mode the card also carries the monument's
+          // own badge per part — measured plan, model profile, conjectural
+          // surface — rather than one averaged label.
+          if (site) {
+            panel.show(
+              site,
+              reconstruction?.isEnabled ? reconstruction.summary(site.id) : null,
+            );
+          } else panel.hide();
         },
       },
     );
@@ -791,6 +853,59 @@ async function start(): Promise<void> {
       onChange: () => applyPalisadeSettings(),
     });
     applyPalisadeSettings();
+  }
+  // -------------------------------------------------------------------------
+
+  // --- Phase 12: reconstruction mode (optional §14 asset; absent = mode off) -
+  // Built after the sites overlay (§14 joins to it by id), after the rampart
+  // (archetype A sweeps its §7.2 section along the measured crest) and after the
+  // land-cover grid (the grave-field sampler excludes wet classes with it).
+  // Like the palisade it goes in the SCENE, not in `terrain.group`: monuments
+  // stand *on* the exaggerated ground while keeping true metric height
+  // (contract §0/§14).
+  const reconstructionFile = await loadReconstruction(siteId, manifest, sitesFile);
+  if (reconstructionFile && sitesFile) {
+    const legend = landcover?.legend ?? null;
+    reconstruction = new ReconstructionLayer(
+      reconstructionFile,
+      sitesFile,
+      {
+        groundAt,
+        getExaggeration: () => terrain.getExaggeration(),
+        // §6.G: "exclude wet classes using the existing land-cover raster" —
+        // the existing one, by legend id rather than by index, because the
+        // indices are per site and the ids are the contract's.
+        classAt: landcover ? (x, z) => classAtLocal(landcover.grid, x, z) : null,
+        classId: legend ? (index) => legend.classes[index]?.id ?? null : null,
+        rampart,
+        seed: Math.round(controlState.reconstruction.seed),
+        vitrified: controlState.reconstruction.vitrified,
+      },
+      controlState.time.yearCE,
+    );
+    scene.add(reconstruction.group);
+    // The reconstruction's own pick volumes join the marker layer's, so one
+    // click handler serves both modes and a monument opens the same card its
+    // marker does — with the §9.1 per-part provenance added.
+    sitesLayer?.setExtraPickables(() => reconstruction?.pickables ?? []);
+
+    const reconstructionName =
+      manifest.layers?.find((l) => l.id === 'reconstruction')?.name ??
+      'Reconstructed monuments (interpretation)';
+    reconstructionCaveat = { badge: 'conjecture', text: RECONSTRUCTION_CAVEAT };
+    hud.enableModeSwitch((on) => {
+      controlState.reconstruction.show = on;
+      applyReconstructionSettings();
+    });
+    reconstructionReadout = addReconstructionControls(gui, controlState, {
+      name: reconstructionName,
+      caveat: RECONSTRUCTION_CAVEAT,
+      standingCount: () => reconstruction?.standingCount ?? 0,
+      vertexCount: () => reconstruction?.vertexCount ?? 0,
+      markerCount: () => sitesLayer?.shownCount ?? 0,
+      onChange: () => applyReconstructionSettings(),
+    });
+    applyReconstructionSettings();
   }
   // -------------------------------------------------------------------------
 
@@ -856,7 +971,16 @@ async function start(): Promise<void> {
   // Built after every optional asset has resolved, so the panel describes only
   // the layers this site actually ships, in the data's own words.
   const methods = new MethodsPanel(document.body);
-  methods.setContent(buildMethodsModel(manifest, assets?.table ?? null, rampart, sitesFile, landcover?.legend ?? null));
+  methods.setContent(
+    buildMethodsModel(
+      manifest,
+      assets?.table ?? null,
+      rampart,
+      sitesFile,
+      landcover?.legend ?? null,
+      reconstructionFile,
+    ),
+  );
 
   const legend = new Legend(document.body);
   legend.setContent(manifest.layers ?? [], sitesFile?.sites ?? null, landcover?.legend ?? null);
@@ -875,6 +999,7 @@ async function start(): Promise<void> {
       // Read on open, not at construction: `?debug=1` can move it while the app runs.
       exaggeration: terrain.getExaggeration(),
       attribution: manifest.attribution ?? [],
+      hasReconstruction: reconstruction !== null,
     }),
   );
 
@@ -1177,6 +1302,28 @@ async function start(): Promise<void> {
         Object.assign(controlState.palisade, next);
         applyPalisadeSettings();
       },
+    },
+    // Phase 12. Present (with `layer: null`) even when the site ships no §14
+    // asset, so a headless check can tell "mode off" from "not wired up".
+    reconstruction: {
+      layer: reconstruction,
+      state: controlState.reconstruction,
+      file: reconstructionFile,
+      get standing() {
+        return reconstruction?.standingCount ?? 0;
+      },
+      get vertices() {
+        return reconstruction?.vertexCount ?? 0;
+      },
+      get markers() {
+        return sitesLayer?.shownCount ?? 0;
+      },
+      summary: (id: string) => reconstruction?.summary(id) ?? null,
+      setEnabled(on: boolean) {
+        controlState.reconstruction.show = on;
+        applyReconstructionSettings();
+      },
+      apply: applyReconstructionSettings,
     },
     // Phase 7. Present (with `layer: null`) even when the site ships no land-cover
     // pair, so a headless check can tell "feature off" from "not wired up".

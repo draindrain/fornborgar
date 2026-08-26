@@ -1,0 +1,817 @@
+/**
+ * Reconstruction mode — standing monuments where marker mode draws registry dots.
+ *
+ * `docs/reconstruction-mode.md` is the specification; `docs/data-formats.md` §14
+ * is the data contract. This module is the assembly: it joins `reconstruction.json`
+ * to `sites.json` by id, builds each monument from its own parsed parameters, fills
+ * grave fields with a terrain-aware sampler, sweeps the fort's cross-section along
+ * the measured crest, and batches the lot into a handful of draw calls.
+ *
+ * Four invariants, all of them easy to break later and none of them local:
+ *
+ *   • **Nothing is a fixed size.** Every dimension comes from the record, the DEM,
+ *     or a labelled literature default carried in the file's own `defaults` block.
+ *     The same code draws a grave field of 5 monuments and one of 230, a fort
+ *     spanning 76 m and one spanning 280 m.
+ *   • **Vertical exaggeration is a render-only Y scale on the terrain _group_**
+ *     (contract §0). This layer lives in the scene *outside* that group and seats
+ *     every vertex at `y = ground · exaggeration + trueMetricHeight` itself — a
+ *     2.5 m wall is 2.5 m at ×1 and at ×2.5 — refreshed whenever exaggeration
+ *     changes. Same pattern as `overlays/palisade.ts`.
+ *   • **Ground height is never in the data.** It is sampled at runtime through the
+ *     app's one sampler, so a monument cannot drift from the terrain under it.
+ *   • **Same seed ⇒ same scene.** Everything random draws from
+ *     `lib/random.mulberry32`, seeded from the site id and folded per monument by
+ *     `streamSeed`, so a reload is byte-identical and adding a monument cannot
+ *     re-roll its neighbours.
+ *
+ * §8's time behaviour is a **visibility gate** in v1 (owner decision, §11.4), and
+ * the gate has three outcomes rather than two, because "not yet built" and
+ * "ruined" are not the same thing and rendering them the same way would lie in
+ * one direction or the other:
+ *
+ *   | State | When | What is drawn |
+ *   |---|---|---|
+ *   | `unbuilt` | before `period.builtCE` | nothing — at 500 CE there are **no** runestones |
+ *   | `standing` | between the two | the reconstruction |
+ *   | `ruin` | at or after `period.abandonedCE` | the §3 marker, which is the *measured* geometry |
+ *
+ * An archetype this build cannot draw yet (farmstead — deliberately out of scope,
+ * §6.H — field boundary, cultivated ground, route, runestone) is `ruin` whenever
+ * it exists, so it keeps its marker rather than disappearing.
+ */
+
+import * as THREE from 'three';
+import type { GroundSampler } from '../../camera/firstPerson';
+import { mulberry32, streamSeed } from '../../lib/random';
+import type { SiteRecord, SitesFile } from '../sites';
+import {
+  buildLowBank,
+  buildRampart,
+  type SweepBuild,
+} from './fort';
+import {
+  sampleGraveField,
+  type LocalRings,
+  type PlacedMonument,
+  type SamplerTerrain,
+} from './graveField';
+import {
+  buildShape,
+  colour,
+  kerbPlacements,
+  mid,
+  profileHeight,
+  profileKind,
+  SURFACE_COLOURS,
+  type MaterialFamily,
+  type ShapeSpec,
+} from './shapes';
+import {
+  fortIsConfident,
+  standingAt,
+  type Monument,
+  type ReconstructionFile,
+} from './schema';
+import type { RampartFile } from '../palisade';
+
+/** Archetypes this build actually draws in 3D. Everything else keeps its marker. */
+export const RENDERED_ARCHETYPES: ReadonlySet<string> = new Set([
+  'fort',
+  'mound',
+  'stone-setting',
+  'cairn',
+  'fire-cracked-mound',
+  'grave-field',
+  'standing-stone',
+]);
+
+export type MonumentState = 'unbuilt' | 'standing' | 'ruin';
+
+/**
+ * What §8's gate says about one record in a given year.
+ *
+ * Exported and pure: `main.ts` uses it to decide which flat markers stay on
+ * screen in reconstruction mode, and the tests pin the runestone case.
+ */
+export function monumentState(monument: Monument, yearCE: number): MonumentState {
+  const { builtCE } = monument.period;
+  if (builtCE !== null && yearCE < builtCE) return 'unbuilt';
+  if (!standingAt(monument, yearCE)) return 'ruin';
+  return RENDERED_ARCHETYPES.has(monument.archetype) ? 'standing' : 'ruin';
+}
+
+// --------------------------------------------------------------- batching ---
+
+/**
+ * One merged mesh: every monument of one archetype in one material family.
+ *
+ * Batching by *archetype* rather than by material alone is what makes §8's gate
+ * free — the archetypes are not contemporaneous, `period` is per archetype, so a
+ * year change is a handful of `visible` flags rather than a rebuild.
+ */
+interface Batch {
+  key: string;
+  archetype: string;
+  family: MaterialFamily;
+  positions: number[];
+  colors: number[];
+  indices: number[];
+  /** Unexaggerated ground per vertex, index-parallel with `positions`. */
+  groundY: number[];
+  /** True metres above that ground, index-parallel. */
+  localY: number[];
+  mesh: THREE.Mesh | null;
+  groundArray: Float32Array | null;
+  localArray: Float32Array | null;
+}
+
+/** An instanced accent: a kerb stone, a centre block, a standing stone. */
+interface Accent {
+  archetype: string;
+  kind: 'boulder' | 'standing';
+  x: number;
+  z: number;
+  groundY: number;
+  localY: number;
+  sizeM: number;
+  heightM: number;
+  rotation: number;
+  tilt: number;
+  color: THREE.Color;
+}
+
+export interface ReconstructionOptions {
+  /** The app's one unexaggerated ground sampler. */
+  groundAt: GroundSampler;
+  /** Current vertical exaggeration (the terrain group's Y scale). */
+  getExaggeration(): number;
+  /** §9 land-cover class at a point, where the site ships the raster. */
+  classAt?: ((x: number, z: number) => number) | null;
+  /** Class index → id, so wet classes are named rather than numbered. */
+  classId?: ((index: number) => string | null) | null;
+  /** The §8 rampart crest, where the site ships one. Archetype A needs it. */
+  rampart?: RampartFile | null;
+  /** Seed for every placement and jitter. Same seed ⇒ same scene. */
+  seed?: number;
+  /** §7.1's contested question, as a state (§11.3). */
+  vitrified?: boolean;
+}
+
+/**
+ * §6.G: wet land-cover classes monuments are never placed in, by legend id
+ * rather than by index — the indices are per-site, the ids are the contract's.
+ */
+const WET_CLASS_IDS: ReadonlySet<string> = new Set(['water', 'peat_fen', 'shore_reeds']);
+/** Allowed, but a poor site: it costs a candidate score rather than excluding it. */
+const DAMP_CLASS_IDS: ReadonlySet<string> = new Set(['wet_meadow']);
+
+/** Per-monument provenance, for the popup (§9.1 — never one averaged badge). */
+export interface MonumentSummary {
+  monument: Monument;
+  state: MonumentState;
+  /** Monuments the grave-field sampler actually placed, where it ran. */
+  sampled: number;
+  /** What the record asked for, so a shortfall is visible rather than silent. */
+  requested: number;
+  /** True where §6.A.1's filter refused a standing rampart. */
+  fortDowngraded: boolean;
+}
+
+export class ReconstructionLayer {
+  /** Add this to the scene — **outside** the terrain group (contract §0). */
+  readonly group = new THREE.Group();
+  readonly file: ReconstructionFile;
+
+  private readonly options: Required<Pick<ReconstructionOptions, 'groundAt' | 'getExaggeration'>> &
+    ReconstructionOptions;
+  private readonly monuments = new Map<string, Monument>();
+  private readonly records = new Map<string, SiteRecord>();
+  private readonly summaries = new Map<string, MonumentSummary>();
+  private readonly batches = new Map<string, Batch>();
+  private readonly accents: Accent[] = [];
+  private readonly materials = new Map<MaterialFamily, THREE.Material>();
+  private readonly pickTargets: THREE.Mesh[] = [];
+  private accentMeshes: THREE.InstancedMesh[] = [];
+  private pickMaterial: THREE.MeshBasicMaterial | null = null;
+  private yearCE: number;
+  private enabled = false;
+  private vertexTotal = 0;
+
+  constructor(
+    file: ReconstructionFile,
+    sites: SitesFile,
+    options: ReconstructionOptions,
+    yearCE = 500,
+  ) {
+    this.file = file;
+    this.options = options as ReconstructionLayer['options'];
+    this.yearCE = yearCE;
+    this.group.name = 'reconstruction';
+    this.group.visible = false;
+
+    for (const record of sites.sites) this.records.set(record.id, record);
+    for (const monument of file.monuments) this.monuments.set(monument.id, monument);
+
+    this.build();
+    this.setYear(yearCE);
+  }
+
+  // ------------------------------------------------------------- lifecycle --
+
+  setEnabled(on: boolean): void {
+    this.enabled = on;
+    this.group.visible = on;
+  }
+
+  get isEnabled(): boolean {
+    return this.enabled;
+  }
+
+  /** Total vertices across every batch — the scene budget, for the readout. */
+  get vertexCount(): number {
+    return this.vertexTotal;
+  }
+
+  /** Monuments drawn in 3D right now (records plus everything sampled). */
+  get standingCount(): number {
+    let total = 0;
+    for (const summary of this.summaries.values()) {
+      if (summary.state !== 'standing') continue;
+      total += 1 + summary.sampled;
+    }
+    return total;
+  }
+
+  summary(id: string): MonumentSummary | null {
+    return this.summaries.get(id) ?? null;
+  }
+
+  /**
+   * Record ids whose flat §3 marker should stay on screen in reconstruction
+   * mode: the ruins, and the archetypes this build does not draw. §8's ruin
+   * state *is* marker mode — "today's marker-mode geometry, which is the
+   * measured one".
+   */
+  markerIds(): Set<string> {
+    const out = new Set<string>();
+    for (const [id, summary] of this.summaries) {
+      if (summary.state === 'ruin') out.add(id);
+    }
+    // A record with no reconstruction entry at all keeps its marker too.
+    for (const id of this.records.keys()) if (!this.monuments.has(id)) out.add(id);
+    return out;
+  }
+
+  /** §8's gate. Cheap: per-archetype `visible` flags, never a rebuild. */
+  setYear(yearCE: number): void {
+    this.yearCE = yearCE;
+    for (const [id, monument] of this.monuments) {
+      const summary = this.summaries.get(id);
+      if (summary) summary.state = monumentState(monument, yearCE);
+    }
+    // A grave field's constituents are drawn as their own archetypes, so they
+    // follow their own periods — a Bronze Age cairn inside a Late Iron Age field
+    // is a ruin at 500 CE even though the field is in use, which is exactly what
+    // §8's table says.
+    for (const batch of this.batches.values()) {
+      if (!batch.mesh) continue;
+      batch.mesh.visible = this.archetypeStandsFor(batch.archetype, yearCE);
+    }
+    for (const mesh of this.accentMeshes) {
+      mesh.visible = this.archetypeStandsFor(mesh.userData['archetype'] as string, yearCE);
+    }
+    for (const pick of this.pickTargets) {
+      const id = pick.userData['siteId'] as string;
+      pick.visible = this.summaries.get(id)?.state === 'standing';
+    }
+  }
+
+  /** Re-seat every vertex on the (possibly re-exaggerated) surface. */
+  refreshHeights(): void {
+    const exaggeration = this.options.getExaggeration();
+    for (const batch of this.batches.values()) {
+      const mesh = batch.mesh;
+      if (!mesh || !batch.groundArray || !batch.localArray) continue;
+      const position = mesh.geometry.getAttribute('position') as THREE.BufferAttribute;
+      const array = position.array as Float32Array;
+      for (let i = 0; i < batch.groundArray.length; i++) {
+        array[i * 3 + 1] = batch.groundArray[i] * exaggeration + batch.localArray[i];
+      }
+      position.needsUpdate = true;
+      mesh.geometry.computeBoundingSphere();
+    }
+    this.refreshAccents(exaggeration);
+    for (const pick of this.pickTargets) {
+      const data = pick.userData as { x: number; z: number };
+      pick.position.y = this.options.groundAt(data.x, data.z) * exaggeration;
+    }
+  }
+
+  dispose(): void {
+    this.group.traverse((object) => {
+      const mesh = object as THREE.Mesh;
+      if (mesh.isMesh) mesh.geometry?.dispose();
+    });
+    for (const material of this.materials.values()) material.dispose();
+    this.materials.clear();
+    this.pickMaterial?.dispose();
+    this.pickMaterial = null;
+    this.accentMeshes = [];
+    this.pickTargets.length = 0;
+    this.group.clear();
+  }
+
+  /** The invisible pick volumes, for the app's raycaster. */
+  get pickables(): THREE.Object3D[] {
+    return this.pickTargets;
+  }
+
+  // ------------------------------------------------------------ construction -
+
+  private archetypeStandsFor(archetype: string, yearCE: number): boolean {
+    // The constituents of a grave field have no record of their own, so their
+    // period comes from any monument of that archetype — the periods are
+    // per archetype (§8), so any representative answers for all of them.
+    for (const monument of this.monuments.values()) {
+      if (monument.archetype === archetype) return monumentState(monument, yearCE) === 'standing';
+    }
+    // Sampled-only archetypes (a cairn inside a field, with no cairn record of
+    // its own) fall back to the §8 table through a synthetic probe.
+    const probe = SAMPLED_PERIODS[archetype];
+    if (!probe) return true;
+    const [built, abandoned] = probe;
+    if (built !== null && yearCE < built) return false;
+    if (abandoned !== null && yearCE >= abandoned) return false;
+    return true;
+  }
+
+  private seedFor(id: string): number {
+    let hash = this.options.seed ?? 1;
+    for (let i = 0; i < id.length; i++) hash = streamSeed(hash, id.charCodeAt(i));
+    return hash >>> 0;
+  }
+
+  private terrain(): SamplerTerrain {
+    const classAt = this.options.classAt ?? null;
+    const classId = this.options.classId ?? null;
+    return {
+      groundAt: (x, z) => this.options.groundAt(x, z),
+      classAt,
+      isWet: (index) => {
+        const id = classId ? classId(index) : null;
+        return id !== null && WET_CLASS_IDS.has(id);
+      },
+      isDamp: (index) => {
+        const id = classId ? classId(index) : null;
+        return id !== null && DAMP_CLASS_IDS.has(id);
+      },
+    };
+  }
+
+  private build(): void {
+    // Deterministic order: the file's own, which the pipeline writes in
+    // `sites.json` order. Nothing here may depend on Map iteration.
+    for (const monument of this.file.monuments) {
+      const record = this.records.get(monument.id);
+      if (!record) continue;
+      const summary: MonumentSummary = {
+        monument,
+        state: monumentState(monument, this.yearCE),
+        sampled: 0,
+        requested: monument.field?.count ?? 0,
+        fortDowngraded: false,
+      };
+      this.summaries.set(monument.id, summary);
+
+      if (!RENDERED_ARCHETYPES.has(monument.archetype)) continue;
+
+      if (monument.archetype === 'fort') {
+        this.buildFort(monument, summary);
+      } else if (monument.archetype === 'grave-field') {
+        this.buildGraveField(monument, record, summary);
+      } else {
+        this.buildRecordMonument(monument, record);
+      }
+      this.addPickTarget(monument, record);
+    }
+
+    this.materialise();
+  }
+
+  /** One record's own headline monument — archetypes B, C, D, E. */
+  private buildRecordMonument(monument: Monument, record: SiteRecord): void {
+    const seed = this.seedFor(monument.id);
+    const spec: ShapeSpec = {
+      archetype: monument.archetype,
+      form: monument.plan.form,
+      // The **reconstructed** dimensions: §5.2 may have made this narrower and
+      // taller than the register records, and that is the whole point.
+      diameterM: monument.profile.diameterM,
+      heightM: monument.profile.heightM,
+      lengthM: scaleAxis(monument.plan.lengthM, monument.plan.diameterM, monument.profile.diameterM),
+      widthM: scaleAxis(monument.plan.widthM, monument.plan.diameterM, monument.profile.diameterM),
+      orientationDeg: monument.plan.orientationDeg,
+      stoneM: monument.surface.stoneM,
+      kind: profileKind(monument),
+      seed,
+    };
+    this.addShape(spec, record.position.x, record.position.z, monument.archetype);
+
+    // §5.2/§6.C: a kerb is drawn only where one is *recorded*. Inventing kerbs
+    // would erase the very distinction the mound transform is gated on.
+    if (monument.features.kerb) {
+      this.addKerb(spec, record.position.x, record.position.z, monument);
+    }
+    if (monument.surface.centreStone) {
+      this.addCentreStone(spec, record.position.x, record.position.z, monument);
+    }
+  }
+
+  /** Archetype G — fill the extent with what the record says is in it. */
+  private buildGraveField(monument: Monument, record: SiteRecord, summary: MonumentSummary): void {
+    const rings = localRings(record);
+    const placed = sampleGraveField(
+      monument,
+      record.position,
+      rings,
+      this.terrain(),
+      this.seedFor(monument.id),
+    );
+    summary.sampled = placed.length;
+
+    for (let i = 0; i < placed.length; i++) {
+      const item = placed[i];
+      if (item.archetype === 'standing-stone') {
+        this.addStandingStone(item, this.seedFor(`${monument.id}#${i}`));
+        continue;
+      }
+      const spec: ShapeSpec = {
+        archetype: item.archetype,
+        form: item.form,
+        diameterM: item.diameterM,
+        heightM: item.heightM,
+        lengthM: null,
+        widthM: null,
+        orientationDeg: item.orientationDeg,
+        stoneM: item.stoneM,
+        // A sampled monument has no kerb record of its own, so it takes the
+        // profile its archetype implies: mounds and cairns at repose, stone
+        // settings and fire-cracked mounds left low.
+        kind: item.archetype === 'mound' || item.archetype === 'cairn' ? 'cone' : 'platform',
+        seed: this.seedFor(`${monument.id}#${i}`),
+      };
+      this.addShape(spec, item.x, item.z, item.archetype);
+    }
+  }
+
+  /** Archetype A — the rampart, gated on §6.A.1's fortConfidence. */
+  private buildFort(monument: Monument, summary: MonumentSummary): void {
+    const crest = this.options.rampart;
+    if (!crest || !monument.fort) return;
+    const confident = fortIsConfident(monument, this.file.derivation.params);
+    summary.fortDowngraded = !confident;
+    const seed = this.seedFor(monument.id);
+
+    for (const path of crest.paths) {
+      const spec =
+        monument.fort.ramparts.find((rampart) => rampart.id === path.id) ?? monument.fort.ramparts[0];
+      if (!spec) continue;
+      const options = {
+        groundAt: (x: number, z: number) => this.options.groundAt(x, z),
+        vitrified: this.options.vitrified ?? true,
+        seed,
+      };
+      // §6.A.1: a record that does not meet the survey's operational definition
+      // gets the bank the register records, not a Migration Period wall.
+      const builds = confident
+        ? buildRampart(path.points, path.closed, spec, options)
+        : buildLowBank(path.points, path.closed, spec, options);
+      for (const build of builds) this.addSweep(build, monument.archetype);
+    }
+  }
+
+  // ------------------------------------------------------------- primitives --
+
+  private batch(archetype: string, family: MaterialFamily): Batch {
+    const key = `${archetype}:${family}`;
+    let batch = this.batches.get(key);
+    if (!batch) {
+      batch = {
+        key,
+        archetype,
+        family,
+        positions: [],
+        colors: [],
+        indices: [],
+        groundY: [],
+        localY: [],
+        mesh: null,
+        groundArray: null,
+        localArray: null,
+      };
+      this.batches.set(key, batch);
+    }
+    return batch;
+  }
+
+  private addShape(spec: ShapeSpec, cx: number, cz: number, archetype: string): void {
+    const build = buildShape(spec);
+    const batch = this.batch(archetype, build.material);
+    const base = batch.positions.length / 3;
+    // A monument sits on the ground under its own centre, and never *below* the
+    // ground under any part of it: on a slope the uphill side merges into the
+    // hill and the downhill side stands proud, which is what a built mound does.
+    const centreGround = this.options.groundAt(cx, cz);
+    const vertexCount = build.offsets.length / 3;
+
+    for (let i = 0; i < vertexCount; i++) {
+      const x = cx + build.offsets[i * 3];
+      const z = cz + build.offsets[i * 3 + 2];
+      const ground = Math.max(centreGround, this.options.groundAt(x, z));
+      batch.positions.push(x, 0, z);
+      batch.groundY.push(ground);
+      batch.localY.push(build.offsets[i * 3 + 1]);
+      batch.colors.push(build.colors[i * 3], build.colors[i * 3 + 1], build.colors[i * 3 + 2]);
+    }
+    for (let i = 0; i < build.indices.length; i++) batch.indices.push(base + build.indices[i]);
+  }
+
+  private addSweep(build: SweepBuild, archetype: string): void {
+    const batch = this.batch(archetype, build.family);
+    const base = batch.positions.length / 3;
+    const vertexCount = build.localY.length;
+    for (let i = 0; i < vertexCount; i++) {
+      batch.positions.push(build.positionsXZ[i * 2], 0, build.positionsXZ[i * 2 + 1]);
+      batch.groundY.push(this.options.groundAt(build.groundXZ[i * 2], build.groundXZ[i * 2 + 1]));
+      batch.localY.push(build.localY[i]);
+      batch.colors.push(build.colors[i * 3], build.colors[i * 3 + 1], build.colors[i * 3 + 2]);
+    }
+    for (let i = 0; i < build.indices.length; i++) batch.indices.push(base + build.indices[i]);
+  }
+
+  private addKerb(spec: ShapeSpec, cx: number, cz: number, monument: Monument): void {
+    const stones = kerbPlacements(spec, monument.features.kerb?.stoneM ?? null);
+    const random = mulberry32(spec.seed ^ 0x51ed);
+    for (const stone of stones) {
+      const x = cx + stone.x;
+      const z = cz + stone.z;
+      this.accents.push({
+        archetype: monument.archetype,
+        kind: 'boulder',
+        x,
+        z,
+        groundY: Math.max(this.options.groundAt(cx, cz), this.options.groundAt(x, z)),
+        localY: stone.y,
+        sizeM: stone.sizeM,
+        heightM: stone.sizeM,
+        rotation: stone.rotation,
+        tilt: stone.tilt,
+        color: colour(SURFACE_COLOURS.settingKerb).clone().lerp(colour(SURFACE_COLOURS.cairnStone), random()),
+      });
+    }
+  }
+
+  private addCentreStone(spec: ShapeSpec, cx: number, cz: number, monument: Monument): void {
+    // §6.C: "a single large centre stone or earthfast boulder as the focus".
+    const size = Math.max(0.5, mid(monument.surface.stoneM) * 2.2);
+    this.accents.push({
+      archetype: monument.archetype,
+      kind: 'boulder',
+      x: cx,
+      z: cz,
+      groundY: this.options.groundAt(cx, cz),
+      localY: profileHeight(spec.kind, 0, 1, Math.max(0.02, spec.heightM)) - size * 0.15,
+      sizeM: size,
+      heightM: size,
+      rotation: mulberry32(spec.seed ^ 0x2c1f)() * Math.PI * 2,
+      tilt: 0,
+      color: colour(SURFACE_COLOURS.cairnStoneDark),
+    });
+  }
+
+  private addStandingStone(item: PlacedMonument, seed: number): void {
+    // §6.F: "stand the fallen ones back up" — the smallest operation with the
+    // largest visual return in the feature. A row of upright stones reads
+    // instantly as human intent; a row of fallen ones reads as nothing.
+    const random = mulberry32(seed);
+    this.accents.push({
+      archetype: 'standing-stone',
+      kind: 'standing',
+      x: item.x,
+      z: item.z,
+      groundY: this.options.groundAt(item.x, item.z),
+      localY: 0,
+      sizeM: Math.max(0.35, item.diameterM * 0.6),
+      heightM: item.heightM,
+      rotation: (item.orientationDeg * Math.PI) / 180,
+      tilt: (random() * 2 - 1) * 0.03,
+      color: colour(SURFACE_COLOURS.cairnStone).clone().lerp(colour(SURFACE_COLOURS.settingStoneDark), random()),
+    });
+  }
+
+  private addPickTarget(monument: Monument, record: SiteRecord): void {
+    if (!this.pickMaterial) this.pickMaterial = new THREE.MeshBasicMaterial({ visible: false });
+    const radius = Math.max(4, monument.profile.diameterM * 0.6);
+    const pick = new THREE.Mesh(
+      new THREE.CylinderGeometry(radius, radius, Math.max(8, monument.profile.heightM * 3), 8),
+      this.pickMaterial,
+    );
+    pick.position.set(record.position.x, 0, record.position.z);
+    pick.userData = { siteId: monument.id, x: record.position.x, z: record.position.z };
+    this.pickTargets.push(pick);
+    this.group.add(pick);
+  }
+
+  // -------------------------------------------------------------- materials --
+
+  private materialFor(family: MaterialFamily): THREE.Material {
+    let material = this.materials.get(family);
+    if (material) return material;
+    const common = { vertexColors: true, metalness: 0.0 } as const;
+    switch (family) {
+      case 'turf':
+        // §6.B: laid turf. Smooth-shaded, because the courses are the tell and
+        // faceting would compete with them.
+        material = new THREE.MeshStandardMaterial({ ...common, roughness: 0.95 });
+        break;
+      case 'soil':
+        material = new THREE.MeshStandardMaterial({ ...common, roughness: 0.92 });
+        break;
+      case 'vitrified':
+        // §7.2: dark, glassy, slag-like — the one shiny surface in the scene.
+        material = new THREE.MeshStandardMaterial({
+          ...common,
+          roughness: 0.28,
+          metalness: 0.12,
+          flatShading: true,
+        });
+        break;
+      default:
+        // Flat shading computes face normals in the shader, so a cobbled surface
+        // costs one vertex per cobble instead of three (see `shapes.buildShape`).
+        material = new THREE.MeshStandardMaterial({ ...common, roughness: 0.82, flatShading: true });
+    }
+    this.materials.set(family, material);
+    return material;
+  }
+
+  private materialise(): void {
+    for (const batch of this.batches.values()) {
+      if (batch.positions.length === 0) continue;
+      const positions = new Float32Array(batch.positions);
+      batch.groundArray = new Float32Array(batch.groundY);
+      batch.localArray = new Float32Array(batch.localY);
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      geometry.setAttribute('color', new THREE.BufferAttribute(new Float32Array(batch.colors), 3));
+      geometry.setIndex(new THREE.BufferAttribute(new Uint32Array(batch.indices), 1));
+      geometry.computeVertexNormals();
+
+      const mesh = new THREE.Mesh(geometry, this.materialFor(batch.family));
+      mesh.name = `reconstruction-${batch.key}`;
+      mesh.userData['archetype'] = batch.archetype;
+      mesh.castShadow = false;
+      mesh.receiveShadow = false;
+      batch.mesh = mesh;
+      this.group.add(mesh);
+      this.vertexTotal += batch.groundArray.length;
+
+      // Free the build-time scratch: the typed arrays are the record now.
+      batch.positions.length = 0;
+      batch.colors.length = 0;
+      batch.indices.length = 0;
+      batch.groundY.length = 0;
+      batch.localY.length = 0;
+    }
+
+    this.materialiseAccents();
+    this.refreshHeights();
+  }
+
+  private materialiseAccents(): void {
+    const byKey = new Map<string, Accent[]>();
+    for (const accent of this.accents) {
+      const key = `${accent.archetype}:${accent.kind}`;
+      const list = byKey.get(key);
+      if (list) list.push(accent);
+      else byKey.set(key, [accent]);
+    }
+
+    for (const [key, group] of byKey) {
+      const [archetype, kind] = key.split(':');
+      const geometry =
+        kind === 'standing'
+          ? standingStoneGeometry()
+          : new THREE.IcosahedronGeometry(0.5, 0);
+      const mesh = new THREE.InstancedMesh(geometry, this.materialFor('stone'), group.length);
+      mesh.name = `reconstruction-accent-${key}`;
+      mesh.userData['archetype'] = archetype;
+      mesh.userData['accents'] = group;
+      mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+      const colors = new Float32Array(group.length * 3);
+      group.forEach((accent, i) => {
+        colors[i * 3] = accent.color.r;
+        colors[i * 3 + 1] = accent.color.g;
+        colors[i * 3 + 2] = accent.color.b;
+      });
+      mesh.instanceColor = new THREE.InstancedBufferAttribute(colors, 3);
+      this.accentMeshes.push(mesh);
+      this.group.add(mesh);
+      this.vertexTotal += group.length * geometry.attributes['position'].count;
+    }
+  }
+
+  private refreshAccents(exaggeration: number): void {
+    const matrix = new THREE.Matrix4();
+    const position = new THREE.Vector3();
+    const quaternion = new THREE.Quaternion();
+    const euler = new THREE.Euler();
+    const scale = new THREE.Vector3();
+    for (const mesh of this.accentMeshes) {
+      const group = mesh.userData['accents'] as Accent[];
+      for (let i = 0; i < group.length; i++) {
+        const accent = group[i];
+        position.set(accent.x, accent.groundY * exaggeration + accent.localY, accent.z);
+        euler.set(accent.tilt, accent.rotation, accent.tilt * 0.7, 'YXZ');
+        quaternion.setFromEuler(euler);
+        // True metric size, always: exaggeration touches the position only.
+        scale.set(accent.sizeM, accent.heightM, accent.sizeM);
+        mesh.setMatrixAt(i, matrix.compose(position, quaternion, scale));
+      }
+      mesh.instanceMatrix.needsUpdate = true;
+      mesh.computeBoundingSphere();
+    }
+  }
+}
+
+/**
+ * A standing stone: a unit-height tapered slab with its base at y = 0, so an
+ * instance's Y scale *is* its height — the same convention `palisade.ts` uses.
+ * §6.F: local granite, unworked, tapering upward.
+ */
+function standingStoneGeometry(): THREE.BufferGeometry {
+  const geometry = new THREE.CylinderGeometry(0.28, 0.5, 1, 5, 1, false);
+  geometry.scale(1, 1, 0.55); // a slab, not a post
+  geometry.translate(0, 0.5, 0);
+  return geometry;
+}
+
+/**
+ * Scale a recorded plan axis by whatever §5.2 did to the diameter.
+ *
+ * A re-profiled mound is narrower than the register records; a rectangular one
+ * has to shrink on both axes by the same factor, or the transform would silently
+ * change its proportions as well as its size.
+ */
+function scaleAxis(axis: number | null, recordedD: number, reconstructedD: number): number | null {
+  if (axis === null || !(recordedD > 0)) return null;
+  return axis * (reconstructedD / recordedD);
+}
+
+/** `sites.json` geometry → local rings, or null for a point record (§3). */
+export function localRings(record: SiteRecord): LocalRings | null {
+  const geometry = record.geometryLocal;
+  if (!geometry) return null;
+  const coordinates = geometry.coordinates as unknown;
+  switch (geometry.type) {
+    case 'Polygon':
+      return coordinates as LocalRings;
+    case 'MultiPolygon': {
+      const polygons = coordinates as LocalRings[];
+      // The largest ring wins: a multipolygon extent is one field with outliers.
+      let best: LocalRings | null = null;
+      let bestArea = -Infinity;
+      for (const polygon of polygons) {
+        const area = ringArea(polygon[0] ?? []);
+        if (area > bestArea) {
+          bestArea = area;
+          best = polygon;
+        }
+      }
+      return best;
+    }
+    default:
+      return null;
+  }
+}
+
+function ringArea(ring: Array<[number, number]>): number {
+  let total = 0;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    total += (ring[j][0] + ring[i][0]) * (ring[j][1] - ring[i][1]);
+  }
+  return Math.abs(total / 2);
+}
+
+/**
+ * §8's periods for archetypes that only ever appear as grave-field constituents,
+ * so a sampled cairn is gated even when the site has no cairn record of its own.
+ */
+const SAMPLED_PERIODS: Record<string, [number | null, number | null]> = {
+  mound: [400, 1050],
+  'stone-setting': [-500, 1050],
+  cairn: [-1700, -500],
+  'fire-cracked-mound': [-1700, -500],
+  'standing-stone': [-1000, 1050],
+};
