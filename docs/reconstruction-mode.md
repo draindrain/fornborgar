@@ -186,6 +186,157 @@ Two deliberate decisions:
 
 ---
 
+## Drawing guide — one card per type
+
+A condensed build sheet. Each card gives the footprint source, the profile rule, the surface
+treatment, the one detail that makes the thing read as itself, and how much of it is actually
+evidenced. Full reasoning and citations are in §6 and §7.
+
+**Basis ratings.** *Strong* = measured plan, measured or derived profile, and published
+construction detail. *Moderate* = measured plan, literature profile and surface.
+*Weak* = position is all we have; everything visible is inference.
+
+---
+
+### A. Fort / rampart work — **Strong at Broborg, weak elsewhere**
+
+- **Plan** — the DEM-derived crest polyline (`rampart.json`), already measured. Entrances cut
+  where the description places them, 3–5 m wide.
+- **Profile** — a dry-stone wall `t_wall` thick, standing `h_orig` high (§5.1). Broborg:
+  4–6 m thick, 2.1–3.4 m high, default 2.5 m. Outer face battered 5–10°.
+- **Surface** — outer face tightly packed small-to-medium glacial boulders (small dominate);
+  inner face coarse 40–60 cm equidimensional blocks; **soil and turf over the inner face and
+  top**, so the naked stone shows only on the outside.
+- **Tell** — the wall stops dead where the natural cliff takes over. A fort that rings its
+  whole hill reads as a stadium; a fort that walls only the climbable third reads as a fort.
+- **Watch out** — §6.A.1: roughly four in five registered `Fornborg` records are probably not
+  Migration Period forts. Without `kallmurning` and a ≥1 m wall in the description, draw a low
+  bank, not this.
+
+### B. Earth mound (`Hög`) — **Strong**
+
+- **Plan** — circle at the recorded diameter (corpus median 7 m).
+- **Profile** — kerb recorded (54 % of records) → keep the diameter, restore a smooth
+  spherical cap. No kerb → volume-conserving re-profile to ~30° repose, which makes the
+  corpus-median mound **narrower and taller**: 5.7 m across, 1.6 m high, against today's
+  7 m × 0.7 m. Fill any recorded robbing pit.
+- **Surface** — laid turf, showing the cut edges of stacked turves in concentric or spiral
+  courses; pale raw subsoil where it came out of the ground.
+- **Tell** — steepness. Today's mounds sit at ~11°; a built one stands near 30° and reads as
+  unmistakably artificial from a distance.
+
+### C. Stone setting (`Stensättning` and kin) — **Strong**
+
+- **Plan** — the recorded form, verbatim: round, square, rectangular, oval (41 % of records
+  name it). Corpus median 6 m across.
+- **Profile** — **do not inflate.** Flatness is the type. The recorded 0.4 m median is close
+  to original; the work here is cleaning, not raising.
+- **Surface** — close-laid, tight-packed stone like a paved floor, 0.2–0.4 m calibre. Kerb of
+  larger selected stones round the edge, standing slightly proud. Strip the turf and moss
+  that 77 % of records note.
+- **Tell** — deliberate selection. The graves are near-perfectly circular and the builders
+  sometimes used *contrasting* stone — a light kerb against dark fill, or one large centre
+  block as a focus. Random rubble looks wrong.
+
+### D. Cairn (`Röse`) — **Strong**
+
+- **Plan** — circle at recorded diameter (corpus median 7 m); sited on crowns and skylines.
+- **Profile** — volume-conserving re-profile toward ~35°, the angle dry stone holds.
+- **Surface** — bare, bright, unweathered stone. Calibre is the giveaway: corpus median
+  0.4–0.6 m for cairns against 0.2–0.4 m for stone settings and 0.2–0.3 m for mounds.
+  Retaining kerb or dry-stone wall holding the edge in.
+- **Tell** — **no vegetation at all.** A maintained cairn is a blazing light-grey dome against
+  dark rock or heath, visible for kilometres. The mossy lichen-black tumble is the ruin.
+
+### E. Fire-cracked stone mound (`Skärvstenshög`) — **Strong**
+
+- **Plan** — recorded diameter, corpus median 6 m. Place at a settlement edge or on a slope.
+- **Profile** — **leave it low.** It accumulated rather than being built, so the recorded 7.6°
+  is probably near-original.
+- **Surface** — angular shattered fragments a few cm to ~0.2 m, quite unlike rounded field
+  stone; heat-reddened oranges and greys shot through with soot-black.
+- **Tell** — the colour. It is the one monument that isn't grey.
+
+### F. Standing stone & set-stone figure — **Moderate**
+
+- **Plan** — from the grave-field text, which records individual height, width and thickness
+  (81 standing stones across the corpus), plus `treudd`, `domarring`, ship-setting outlines.
+- **Profile** — upright, plumb, tapering up; corpus examples cluster 0.85–2.0 m high.
+- **Surface** — local granite, unworked, bases packed with wedging stones, ground scuffed bare.
+- **Tell** — **stand the fallen ones back up.** The corpus says *"de två västra är
+  omkullfallna"*. A row of upright stones reads instantly as human intent; a row of fallen
+  ones reads as nothing. Small operation, largest visual return in the whole feature.
+
+### G. Grave field (`Gravfält`) — **Strong** (composition), **Moderate** (placement)
+
+- **Plan** — the KMR extent polygon, populated by the record's *own* enumeration: monument
+  count (28 of 31 records state it, 5–230), class composition, and per-class size ranges.
+- **Profile / surface** — whatever archetypes B–F the enumeration names.
+- **Placement** — the only real guesswork. Terrain-aware blue-noise: dry well-drained ground,
+  ridges and rock crowns, wet land-cover classes excluded, larger mounds biased to the highest
+  and most visible points, small settings filling between.
+- **Tell** — clustering and skyline. Grave fields sit above the settlement and were meant to
+  be seen against the sky from it. Even scatter looks wrong.
+
+### H. Farmstead (`Boplats` and kin) — **Weak — everything visible is inference**
+
+- **Plan** — nothing survives. A three-aisled longhouse 20–40 m × 6–8 m, entrance mid-long-wall,
+  yard in front, outdoor hearth, well, one or two ancillary buildings and a sunken `grophus`.
+- **Profile** — walls **≥1 m and load-bearing** (not a low footing), under a **hipped** roof
+  whose hip pitch equals or exceeds the long sides, never less. Central aisle
+  ***underbalanserad*** for a 5th-century Uppland house: ~40 % of breadth, 1.3–2.8 m.
+- **Surface** — turf over birch bark, green and shaggy in summer, grey-brown and flat in
+  winter; walls of wattle daubed pale ochre-grey, visibly patched, on a low stone footing.
+- **Tell** — the roof dwarfs the walls, and there is **no gable** — the ridge stops short and
+  falls away on all four sides, with a small dark smoke hole at the top of each hip. Not an
+  open louvre: a board with a hole in it.
+- **Watch out** — ship it **off by default**. Least evidenced, most persuasive, and the one
+  thing that makes the landscape feel inhabited.
+
+### I. Field boundary (`Hägnad`, `Hägnadssystem`) — **Moderate**
+
+- **Plan** — KMR line or polygon geometry, measured. Runs contours, turns sharp corners.
+- **Profile** — a single wall **80–90 cm high**, one course wide by default (recorded examples
+  reach ~5 m wide). Optional timber fence above, +0.8 m, off by default.
+- **Surface** — grey-white unworked stone, notably **larger** than grave stone: corpus median
+  calibre for `Hägnad` is 1.0–2.0 m against 0.2–0.4 m for stone settings.
+- **Tell** — length and knee-height. It should run for hundreds of metres and never be
+  impressive. Its job is to read as a boundary, not a defence.
+
+### J. Cultivated ground (`Fossil åker`, `Röjningsröse`, `Terrassering`) — **Moderate**
+
+- **Plan** — KMR polygon, filled with plots ~20–40 m across and clearance cairns 4–6 m across,
+  sampled to fill.
+- **Profile** — cairns 0.2–0.5 m, low and rounded; plot edges as low banks; ridged fields
+  where recorded at 20–60 × 10–16 m, 0.3 m high.
+- **Surface** — bare picked field stone on the cairns; reuse the existing land-cover farmland
+  class for the ground between.
+- **Tell** — irregularity, on a south-facing slope. Small stone-picked plots with the lifted
+  stone heaped in and around the crop, and boulders nobody moved left in place.
+- **Watch out** — dating is genuinely broad (Bronze Age to the 17th century). Keep the period
+  attribution loose and say so.
+
+### K. Route & monument stone — **Route: weak. Runestone: moderate**
+
+- **Route (`Färdväg`)** — measured line; draw a *used surface*, not a built road: bare,
+  compacted, braided earth 1.5–3 m wide, cut slightly into the slope. Everything but the line
+  is guessed.
+- **Runestone (`Runristning`)** — 1.5–2.3 m of local granite at a roadside, ford, bridge or
+  landing place. **Painted**, not bare grey: red best attested, black for contrast, traces of
+  white. Carved bands and beast ornament picked out in strong pigment.
+- **Tell** — a runestone is a brightly coloured public sign, and the weathered grey stone
+  visitors know today is the ruin state. Offer painted and unpainted.
+- **Watch out** — chronology. Uppland's runestones are late 900s to early 1100s; Broborg's
+  fort is 400s–500s. **At 500 CE there must be no runestones on screen.**
+
+---
+
+**Coverage summary.** Strong basis for A (at Broborg), B, C, D, E and G — measured plan,
+defensible profile, published construction. Moderate for F, I, J and the runestone. Weak for
+H and for `Färdväg`, where the position is real and the appearance is literature plus
+judgement. The one systematic risk is A away from Broborg, which §6.A.1's `fortConfidence`
+exists to manage.
+
 ## 5. The central problem: every number in the register is a ruin measurement
 
 This is the methodological core of reconstruction mode, and getting it wrong would make
