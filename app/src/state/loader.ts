@@ -23,6 +23,10 @@ import type { ConnectGrid } from '../water/connectGrid';
 import { validateShoreline, type ShorelineTable } from '../water/shoreline';
 import { validateSites, type SitesFile } from '../overlays/sites';
 import { validateRampart, type RampartFile } from '../overlays/palisade';
+import {
+  validateReconstruction,
+  type ReconstructionFile,
+} from '../overlays/reconstruction/schema';
 import { validateSiteIndex, type SiteIndex } from './siteIndex';
 import type { LandcoverGrid } from '../landcover/landcoverGrid';
 import { validateLandcoverLegend, type LandcoverLegend } from '../landcover/legend';
@@ -785,4 +789,57 @@ export async function loadRingLandcover(
     boundsLocal: ring.boundsLocal,
     classes,
   };
+}
+
+// ------------------------------------------ Phase 12: reconstruction (§14) --
+
+/**
+ * Fetch + validate the §14 reconstruction parameters, or `null` for "feature off".
+ *
+ * Same policy as every other optional asset: no `assets.reconstruction` means the
+ * site simply has no reconstruction mode (the toggle is absent, exactly as the
+ * palisade is for a site with no `assets.rampart`), while a *declared* asset that
+ * fails to load or violates §14 is a pipeline bug — reported loudly on the console
+ * once, leaving the rest of the scene intact.
+ *
+ * `sites` is required rather than optional: §14 carries no coordinates at all and
+ * joins to `sites.json` by `id`, so without its partner there is nothing to attach
+ * monuments to. Passing the ids in also turns a broken join into one clear message
+ * at load rather than into monuments that quietly never appear.
+ */
+export async function loadReconstruction(
+  siteId: string,
+  manifest: SiteManifest,
+  sites: SitesFile | null,
+): Promise<ReconstructionFile | null> {
+  const path = manifest.assets?.['reconstruction'];
+  if (!path) return null;
+  if (!sites) {
+    console.error(
+      `[fornborg] ${siteId}: reconstruction mode disabled — assets.reconstruction requires ` +
+        'assets.sites (docs/data-formats.md §14): the file joins to sites.json by id.',
+    );
+    return null;
+  }
+  try {
+    const url = `${siteDataUrl(siteId)}${path}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`${res.status} ${res.statusText} while fetching ${url}`);
+    const text = await res.text();
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      throw new Error(
+        `${url} did not return JSON (got ${res.headers.get('content-type') ?? 'unknown content type'}).`,
+      );
+    }
+    return validateReconstruction(parsed, path, new Set(sites.sites.map((site) => site.id)));
+  } catch (error) {
+    console.error(
+      `[fornborg] ${siteId}: reconstruction mode disabled — ` +
+        (error instanceof Error ? error.message : String(error)),
+    );
+    return null;
+  }
 }

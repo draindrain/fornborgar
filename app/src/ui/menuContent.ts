@@ -34,6 +34,19 @@ export function formatExaggeration(value: number): string {
   return `×${Number(value.toFixed(2))}`;
 }
 
+/**
+ * Reconstruction mode's own line in About & credits (docs/reconstruction-mode.md
+ * §9.2: "the mode itself is disclosed, not just the layers … and the mode is
+ * named in About & credits alongside `PROVENANCE_SUMMARY`"). Only shown for a
+ * site that ships the §14 asset, so it never advertises a mode that is not there.
+ */
+export const RECONSTRUCTION_SUMMARY =
+  'Reconstruction mode, when switched on, replaces those markers with standing monuments as ' +
+  'they may have looked when in use. It shows interpretations, not the register: plan sizes ' +
+  'are measured, profiles are derived from ruin measurements by stated and reversible rules, ' +
+  'and surfaces and grave-field positions are inference. Each monument carries its own badge ' +
+  'per part.';
+
 export interface AboutOptions {
   /** The fort, for the panel title. */
   siteName: string;
@@ -43,6 +56,8 @@ export interface AboutOptions {
   exaggeration: number;
   /** `manifest.attribution`, verbatim. */
   attribution: AttributionEntry[];
+  /** True where the site ships the §14 reconstruction asset. */
+  hasReconstruction?: boolean;
 }
 
 export interface AboutModel {
@@ -59,6 +74,7 @@ export interface AboutModel {
  */
 export function buildAboutModel(options: AboutOptions): AboutModel {
   const paragraphs = [options.siteDescription, PROVENANCE_SUMMARY];
+  if (options.hasReconstruction) paragraphs.push(RECONSTRUCTION_SUMMARY);
   if (Math.abs(options.exaggeration - 1) > 1e-6) {
     paragraphs.push(
       `Heights are drawn at ${formatExaggeration(options.exaggeration)} vertical exaggeration — ` +

@@ -1295,29 +1295,48 @@ or be skipped rather than guessed.
 
 ## 11. Open questions for the owner
 
-1. **Does reconstruction mode replace or overlay the markers?** Recommendation: replace, with
-   a hard toggle. A monument rendered both as a 3D mound and as a flat coloured dot is worse
-   than either.
+**Four answered 2026-08-26**, before the first geometry pass was written; they are marked
+**Answered** below with what was built. The rest still stand.
+
+1. ~~**Does reconstruction mode replace or overlay the markers?**~~ **Answered: replace, with
+   a hard toggle** — the switch sits next to the fort's name in the HUD header. A monument
+   rendered both as a 3D mound and as a flat coloured dot is worse than either. One
+   qualification the build added: §8's *ruin* state falls back to the flat marker, which is
+   the measured geometry, so in reconstruction mode the markers that remain are exactly the
+   ruins and the archetypes not yet drawn — 23 of Broborg's 127 at 500 CE.
 2. **Is the farmstead archetype (H) in scope at all for v1?** It is the biggest jump from
    evidence to model, and it is also what makes the landscape feel inhabited. Recommendation:
-   build it, ship it off by default, decide after seeing it.
-3. **Do we render the vitrified band at Broborg as an in-use feature?** Only meaningful under
-   the "deliberate" reading of a contested question. Recommendation: render it, tie it to the
-   §7.4 superstructure state selector, and state the debate in the popup.
-4. **How far does the time slider drive reconstruction?** Full three-state (building / in use /
-   ruin) per archetype is the honest version and the most work. A cheaper v1 is a single
-   "in use" state plus a visibility gate on the built/abandoned years.
+   build it, ship it off by default, decide after seeing it. *Deliberately left out of the
+   first pass; `reconstruct.py` still parses `Boplats` and kin into the `farmstead` archetype
+   so the contract is complete, and the app keeps their flat markers.*
+3. ~~**Do we render the vitrified band at Broborg as an in-use feature?**~~ **Answered: yes,
+   as a state.** It is drawn along the top of the inner face, 1.0–1.5 m wide, with the
+   Sjöblom-vs-Bornfalk-Back debate stated in the methods panel and a toggle that takes it
+   away. The §7.4 superstructure selector it was to be tied to is *not* in the first pass, so
+   the band currently stands on its own toggle; wiring the two together is a second-pass job.
+4. ~~**How far does the time slider drive reconstruction?**~~ **Answered: the cheaper v1** —
+   one "in use" state per archetype plus a gate on the built/abandoned years. The build split
+   the gate three ways rather than two, because "not yet built" and "ruined" are not the same
+   thing: before `builtCE` nothing is drawn at all (so at 500 CE there are no runestones),
+   and at or after `abandonedCE` the monument falls back to its §3 marker, which is what §8
+   already says the ruin state should be. Full three-state geometry remains open.
 5. **National scope.** Broborg has a uniquely rich record. A registry fort in Västra Götaland
    may have three lines of description. The parser must degrade to archetype defaults, and the
    app must show *how much* of a given site is measured versus defaulted — otherwise a
    thin-record fort silently renders as confidently as Broborg.
-6. **Do we implement `fortConfidence` (§6.A.1) before shipping national reconstruction?**
-   Roughly four in five registered `Fornborg` records are probably not Migration Period
-   forts. Recommendation: yes, and treat it as blocking — this is the one error that would
-   be wrong 1 000 times over rather than once.
+6. ~~**Do we implement `fortConfidence` (§6.A.1) before shipping national reconstruction?**~~
+   **Answered: yes, and it is implemented.** `reconstruct.py` scores all four of the
+   Mälardalen survey's criteria per fort — `kallmurning` preserved, a wall ≥ 1 m, a wall
+   right round or across the non-steep side, and an enclosure compact enough not to read as a
+   *hägnat berg* — and writes the score, the threshold and the individual criteria into
+   `reconstruction.json`. Below the threshold the app draws the low bank the register records
+   and the popup says which criteria failed. Broborg scores 1.00 on all four. What is still
+   owed before national scope is a look at the score *distribution* across the 1 304 registry
+   forts, which needs a batch run.
 7. **Which Broborg interior state is the default (§7.5)?** Recommendation: "cleared
    surfaces", as the more conservative geometry, with "settlement" one click away and
-   Olausson's sketch cited on it.
+   Olausson's sketch cited on it. *Still open, and not in the first pass: the interior is
+   currently untouched, so what a visitor sees inside the wall is the measured terrain.*
 8. ~~**Do we need a section measured through a rampart?**~~ **Answered — and better than
    hoped.** Two excavated cross-sections through Broborg's inner wall are published as
    drawings (Sjöblom et al. 2022, Figs. 5a/5b; the same sections as Englund 2018, Figs. 9–10),

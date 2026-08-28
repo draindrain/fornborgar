@@ -179,7 +179,8 @@
     "waterConnect": "water_connect.tif",
     "rampart": "rampart.json",
     "landcover": "landcover.tif",
-    "landcoverLegend": "landcover_legend.json"
+    "landcoverLegend": "landcover_legend.json",
+    "reconstruction": "reconstruction.json"
   },
   "layers": [
     {
@@ -205,6 +206,11 @@
     {
       "id": "palisade",
       "name": "Palisade (conjectural)",
+      "provenance": "conjecture"
+    },
+    {
+      "id": "reconstruction",
+      "name": "Reconstructed monuments (interpretation)",
       "provenance": "conjecture"
     }
   ],
@@ -272,7 +278,8 @@
       "rampart crest from DEM transect ridge (detrended per-transect maximum)",
       "SGU jordarter polygons rasterized to the context grid (nearest-fill for gaps)",
       "rule-based land-cover classification (uint8 class indices, contract §9)",
-      "far-field rings: decimated windowed reads (average) from source COG overviews"
+      "far-field rings: decimated windowed reads (average) from source COG overviews",
+      "reconstruction parameters parsed from KMR descriptions with the docs/reconstruction-mode.md §5 ruin→original transforms applied"
     ]
   },
   "horizon": {

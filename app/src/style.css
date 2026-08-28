@@ -406,6 +406,92 @@ body {
   color: #b8d8c2;
 }
 
+/* Phase 12: the reconstruction's account of itself (reconstruction-mode.md §9.1
+   — a reconstructed monument is not one badge, so the card states one per part). */
+.site-panel-recon {
+  margin-top: 12px;
+  padding: 10px 11px;
+  border: 1px solid rgba(121, 198, 221, 0.35);
+  border-radius: 8px;
+  background: rgba(121, 198, 221, 0.07);
+}
+
+.site-panel-recon-title {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #cdeef8;
+}
+
+.site-panel-recon-parts {
+  margin: 0;
+}
+
+.site-panel-recon-part {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  margin-top: 8px;
+}
+
+.site-panel-recon-part:first-child {
+  margin-top: 0;
+}
+
+.site-panel-recon-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.site-panel-recon-badge {
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 10px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  background: rgba(233, 230, 223, 0.1);
+  color: var(--ink-dim);
+}
+
+/* The three PLAN §6.1 classes, in the app's existing language for each. */
+.site-panel-recon-badge.is-measured {
+  background: rgba(96, 156, 116, 0.22);
+  color: #b8d8c2;
+}
+
+.site-panel-recon-badge.is-model {
+  background: rgba(198, 168, 92, 0.2);
+  color: #e2cf9c;
+}
+
+.site-panel-recon-badge.is-conjecture {
+  background: rgba(121, 198, 221, 0.2);
+  color: #bfe9f7;
+}
+
+.site-panel-recon-value {
+  margin: 2px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--ink-dim);
+}
+
+.site-panel-recon-note {
+  margin: 9px 0 0;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: #e2cf9c;
+}
+
+.site-panel-recon-confidence {
+  margin: 9px 0 0;
+  font-size: 11px;
+  color: var(--ink-dim);
+}
+
 .site-panel-description {
   margin: 10px 0 0;
   font-size: 12.5px;
@@ -697,6 +783,33 @@ body {
 
 .hud-picker-button:hover {
   background: rgba(233, 230, 223, 0.16);
+}
+
+/* Phase 12: the reconstruction-mode switch, next to the fort browser. */
+.hud-mode-button {
+  margin-top: 0.5rem;
+  margin-left: 0.4rem;
+  padding: 0.3rem 0.7rem;
+  font: inherit;
+  font-size: 0.8rem;
+  color: var(--ink);
+  background: rgba(233, 230, 223, 0.08);
+  border: 1px solid var(--edge);
+  border-radius: 4px;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.hud-mode-button:hover {
+  background: rgba(233, 230, 223, 0.16);
+}
+
+/* On, i.e. the scene is showing interpretations. Cool hue, like every other
+   conjectural surface in the app (PLAN §6.1). */
+.hud-mode-button.is-active {
+  color: #cdeef8;
+  border-color: rgba(121, 198, 221, 0.6);
+  background: rgba(121, 198, 221, 0.18);
 }
 
 .site-picker {

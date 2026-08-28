@@ -33,7 +33,7 @@ from pathlib import Path
 
 import click
 
-from . import far_landcover, landcover, rampart, rings, water
+from . import far_landcover, landcover, rampart, reconstruct, rings, water
 from .clip_dem import (
     LAYOUT_COG,
     VerticalDatumError,
@@ -52,6 +52,7 @@ from .landcover import LandcoverError
 from .manifest import build_manifest, write_data_licenses, write_manifest
 from .qa import QAReport, bundle_bytes, ring_context_offset, run_gates, water_mask_at
 from .rampart import RampartError
+from .reconstruct import ReconstructError
 from .registry import REGISTRY_PATH, RegistryError, get_entry
 from .rings import RingsError
 from .shoreline import SHORELINE_PATH, ShorelineError, interpolate_level
@@ -391,6 +392,7 @@ def run(
     skip_rings: bool = False,
     skip_water: bool = False,
     skip_rampart: bool = False,
+    skip_reconstruction: bool = False,
     with_landcover: bool = False,
     archive_cogs: bool = False,
     thumbnail_size: int = DEFAULT_SIZE,
@@ -481,6 +483,28 @@ def run(
         except (ValueError, OSError) as exc:
             result.steps.append(StepResult("rampart", "failed", f"{type(exc).__name__}: {exc}"))
 
+    if skip_reconstruction:
+        result.steps.append(StepResult("reconstruction", "skipped", "--skip-reconstruction"))
+    elif not (out_dir / "sites.json").exists():
+        # Contract §14: the file joins to sites.json by id and carries no
+        # coordinates of its own, so without its partner there is nothing to
+        # attach monuments to. "Missing asset = feature off", as everywhere.
+        result.steps.append(StepResult("reconstruction", "skipped", "no sites.json"))
+    else:
+        print("-- reconstruction parameters (contract §14, best effort)")
+        try:
+            reconstruct.run(cfg.id)
+            result.steps.append(StepResult("reconstruction", "ok"))
+        except ReconstructError as exc:
+            # Expected across 1,300 heterogeneous sites: a site whose records
+            # carry no usable prose has no reconstruction, and marker mode is
+            # still the whole app.
+            result.steps.append(StepResult("reconstruction", "skipped", str(exc)))
+        except (ValueError, OSError) as exc:
+            result.steps.append(
+                StepResult("reconstruction", "failed", f"{type(exc).__name__}: {exc}")
+            )
+
     if with_landcover:
         print("-- land cover (contract §9/§10)")
         near_field = False
@@ -565,6 +589,11 @@ def evict_scratch(out_dir: Path) -> None:
 @click.option("--skip-rings", is_flag=True, help="Leave the §11 ring ladder unbuilt.")
 @click.option("--skip-water", is_flag=True, help="Leave the §6/§7/§12 water assets unbuilt.")
 @click.option("--skip-rampart", is_flag=True, help="Leave the §8 crest derivation unrun.")
+@click.option(
+    "--skip-reconstruction",
+    is_flag=True,
+    help="Leave the §14 reconstruction parse unrun.",
+)
 @click.option("--with-landcover", is_flag=True, help="Also build the §9/§10 land-cover pair.")
 @click.option(
     "--archive-cogs",
@@ -580,6 +609,7 @@ def cli(
     skip_rings: bool,
     skip_water: bool,
     skip_rampart: bool,
+    skip_reconstruction: bool,
     with_landcover: bool,
     archive_cogs: bool,
     thumbnail_size: int,
@@ -601,6 +631,7 @@ def cli(
             skip_rings=skip_rings,
             skip_water=skip_water,
             skip_rampart=skip_rampart,
+            skip_reconstruction=skip_reconstruction,
             with_landcover=with_landcover,
             archive_cogs=archive_cogs,
             thumbnail_size=thumbnail_size,

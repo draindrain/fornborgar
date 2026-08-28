@@ -60,6 +60,19 @@ LANDCOVER_LAYER = {
 # value for this layer — see `_validate_palisade`.
 PALISADE_LAYER = {"id": "palisade", "name": "Palisade (conjectural)", "provenance": "conjecture"}
 
+# v1.7 §14: reconstruction mode draws standing monuments where marker mode draws
+# registry dots. Individual parameters carry their own tier per part (§9.1 — a
+# mound is measured in plan, model in profile, conjecture in surface), and the
+# app shows those per part in the popup. The *layer* badge is the floor of that
+# range rather than an average of it: the mode as a whole shows interpretations,
+# so it is labelled conjecture and `_validate_reconstruction` refuses anything
+# weaker, exactly as it does for the palisade.
+RECONSTRUCTION_LAYER = {
+    "id": "reconstruction",
+    "name": "Reconstructed monuments (interpretation)",
+    "provenance": "conjecture",
+}
+
 
 def _raa_attribution(fetched: str) -> dict:
     return {
@@ -370,6 +383,31 @@ def add_rampart_asset(
     return manifest
 
 
+def add_reconstruction_asset(
+    manifest: dict,
+    reconstruction_path: str,
+    processing: Iterable[str] = (),
+) -> dict:
+    """Patch the v1.7 §14 reconstruction asset into an existing manifest, in place.
+
+    Additive per the contract's versioning policy — `schemaVersion` stays 1. No new
+    attribution: the parameters are parsed from the RAÄ descriptions already credited
+    by `assets.sites`, which is also why the two are a pair (see `validate_manifest`).
+    """
+    manifest.setdefault("assets", {})["reconstruction"] = reconstruction_path
+
+    layers = manifest.setdefault("layers", [])
+    if not any(layer.get("id") == RECONSTRUCTION_LAYER["id"] for layer in layers):
+        # Contract order: terrain, sites, water, landcover, palisade, reconstruction.
+        layers.append(dict(RECONSTRUCTION_LAYER))
+
+    steps = manifest.setdefault("provenance", {}).setdefault("processing", [])
+    for entry in processing:
+        if entry not in steps:
+            steps.append(entry)
+    return manifest
+
+
 # --------------------------------------------------------------------------- #
 # validation — the invariants docs/data-formats.md §2 says the pipeline guarantees
 # --------------------------------------------------------------------------- #
@@ -433,6 +471,7 @@ def validate_manifest(manifest: dict) -> None:
     _validate_water(manifest, assets)
     _validate_landcover(manifest, assets)
     _validate_palisade(manifest, assets)
+    _validate_reconstruction(manifest, assets)
 
 
 #: Fallback height band for a manifest that does not carry its site's own
@@ -677,6 +716,45 @@ def _validate_palisade(manifest: dict, assets: dict) -> None:
         )
 
 
+def _validate_reconstruction(manifest: dict, assets: dict) -> None:
+    """v1.7 §14 + PLAN §6.1: reconstruction mode is an interpretation, and says so.
+
+    Two invariants, both of them honesty rather than plumbing:
+
+    * the layer badge must be `conjecture`. Per-part tiers live inside
+      `reconstruction.json` and reach the visitor through the popup (§9.1); the
+      layer entry is the floor, and a manifest claiming otherwise would have the
+      app label a reconstruction as evidence.
+    * `assets.reconstruction` requires `assets.sites`. The §14 file carries no
+      coordinates at all — it joins to `sites.json` by `id` for position and
+      extent geometry — so without its partner it describes monuments the app has
+      nowhere to put.
+    """
+    layer = next(
+        (entry for entry in manifest["layers"] if entry.get("id") == RECONSTRUCTION_LAYER["id"]),
+        None,
+    )
+    if layer is not None and layer.get("provenance") != RECONSTRUCTION_LAYER["provenance"]:
+        raise ValueError(
+            "the 'reconstruction' layer shows interpretations; provenance must be "
+            f"{RECONSTRUCTION_LAYER['provenance']!r}, got {layer.get('provenance')!r} "
+            "(PLAN.md §6.1, docs/reconstruction-mode.md §9)"
+        )
+    if "reconstruction" not in assets:
+        return
+    if layer is None:
+        raise ValueError(
+            "assets.reconstruction is present but there is no 'reconstruction' layer entry — "
+            "the app would draw an interpretation with no provenance label "
+            "(contract §14, PLAN.md §6.1)"
+        )
+    if "sites" not in assets:
+        raise ValueError(
+            "assets.reconstruction requires assets.sites (contract §14): reconstruction.json "
+            "carries no coordinates and joins to sites.json by id"
+        )
+
+
 def write_manifest(path: Path, manifest: dict) -> Path:
     validate_manifest(manifest)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -714,7 +792,7 @@ renders the short attribution strings from `manifest.json` → `attribution`.
 - **Voluntary attribution:** *"Fornlämningsinformation från Riksantikvarieämbetet,
   Kulturmiljöregistret (CC0), hämtad {kmr_fetched}"*.
 
-{water_section}{soils_section}## Later phases (added when the layers ship)
+{reconstruction_section}{water_section}{soils_section}## Later phases (added when the layers ship)
 
 - {later_sgu}
 
@@ -787,6 +865,25 @@ SOILS_SECTION_TEMPLATE = """## Modeled landscape — `landcover.tif`, `landcover
 """
 
 
+RECONSTRUCTION_SECTION_TEMPLATE = """## Reconstruction parameters — `reconstruction.json`
+
+- **Source:** derived from the `sites.json` records above — the KMR free-text
+  descriptions, parsed by `pipeline/fornborg_pipeline/reconstruct.py`, with the
+  ruin→original transforms of `docs/reconstruction-mode.md` §5 applied.
+- **License:** **CC0**, inherited from the KMR extract it is derived from. The
+  literature defaults it falls back to where a record says nothing usable are cited
+  in `docs/reconstruction-mode.md` §12; each one is labelled `assumed` in the data.
+- **What it is not:** not a record of anything. It is an *interpretation* of records,
+  and every value carries its own provenance tier — measured, derived or assumed.
+
+"""
+
+
+def reconstruction_section(present: bool) -> str:
+    """Only written where the site actually ships the §14 asset."""
+    return RECONSTRUCTION_SECTION_TEMPLATE if present else ""
+
+
 def water_section(water_meta: dict | None) -> str:
     if not water_meta:
         return ""
@@ -816,6 +913,7 @@ def write_data_licenses(
     source_meta: dict,
     water_meta: dict | None = None,
     soils_meta: dict | None = None,
+    has_reconstruction: bool | None = None,
 ) -> Path:
     """Regenerate DATA-LICENSES.md from whatever this site currently ships.
 
@@ -823,7 +921,20 @@ def write_data_licenses(
     soils must pass `water_meta` too or the shoreline section would silently
     vanish — `landcover.patch_manifest` reconstructs it from the manifest's own
     provenance sources, exactly as `water.patch_manifest` does for the DEM.
+
+    `has_reconstruction` (contract §14) is read off the bundle's own manifest when
+    it is not given, rather than threaded through every caller. The steps run in
+    an order that would otherwise lose it — land cover rewrites this file after
+    the reconstruction parse has already run — and a section that depends on step
+    order is a section that goes missing.
     """
+    if has_reconstruction is None:
+        manifest_path = path.parent / "manifest.json"
+        try:
+            declared = json.loads(manifest_path.read_text(encoding="utf-8")).get("assets", {})
+        except (OSError, ValueError):
+            declared = {}
+        has_reconstruction = "reconstruction" in declared
     tiles = ", ".join(f"`{t}`" for t in source_meta.get("stacItems", [])) or "n/a"
     if soils_meta:
         later_sgu = LATER_SGU_COMPLETE
@@ -838,6 +949,7 @@ def write_data_licenses(
         tiles=tiles,
         fetched=source_meta.get("fetched", "n/a"),
         kmr_fetched=cfg.kmr_fetched or "n/a",
+        reconstruction_section=reconstruction_section(has_reconstruction),
         water_section=water_section(water_meta),
         soils_section=soils_section(soils_meta),
         later_sgu=later_sgu,

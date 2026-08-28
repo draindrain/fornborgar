@@ -424,7 +424,7 @@ sheen that had no idea what the sky was doing.)*
   five headless configurations in `scripts/verify-night-sky.mjs` with no console error.
   Full detail in `docs/night-sky.md`.
 
-### Phase 12 — Reconstruction mode — research complete 2026-08-25, implementation not started
+### Phase 12 — Reconstruction mode — research complete 2026-08-25, first pass shipped 2026-08-26
 
 A second overlay mode: instead of drawing registered sites as flat cartographic markers
 coloured by `lamningstyp`, draw the monuments **as they may have looked when in use**.
@@ -466,6 +466,51 @@ Research, categorisation and the full per-type specification live in
 Open questions for the owner are listed in `docs/reconstruction-mode.md` §11 — chiefly
 whether the mode replaces or overlays the markers, and whether the farmstead archetype
 (the least evidenced and most persuasive) ships at all in v1.
+
+#### What the first pass built (2026-08-26)
+
+**Owner decisions taken before any code was written**, against §11: the mode **replaces**
+the markers behind a hard toggle (§11.1); the time slider drives it as a **visibility gate**
+rather than three states per archetype (§11.4); the **vitrified band renders as a state**
+with the debate stated in the popup (§11.3); and **`fortConfidence` is computed in the
+parser now** rather than deferred, so national scope is unblocked by a criterion instead of
+gated on a magic site id (§11.6). Archetype H (farmstead) is out of this pass entirely, and
+so — deliberately, and pending a second pass — are the fort's entrances, its `utskott` and
+its three superstructure states (§7.3/§7.4), and the interior treatment (§7.5).
+
+**Pipeline.** `pipeline/fornborg_pipeline/reconstruct.py` parses the KMR free text into
+`reconstruction.json` (contract §14, new in the v1.7 amendment) and applies the three §5
+transforms, recording per record which one ran and what it ran on. Coverage on the committed
+Broborg bundle lands on §3's own measured numbers — plan size 91 %, stone calibre 87 %,
+height 90 %, kerb 55 %, robbing pit 31 %, turf 76 %, damage 11 %, and 28 of 31 grave fields
+stating their own count — and `pipeline/tests/test_reconstruct.py` pins those percentages as
+the regression target alongside §5.1's published parameter box row for row and §5.2's worked
+corpus-median mound. Broborg's inner wall comes out at **2.0 m standing + 0.5 m apron =
+2.5 m**, which is the document's own default, and its `fortConfidence` is 1.0 on all four
+criteria.
+
+**App.** `app/src/overlays/reconstruction/` — a §14 validator, one procedural geometry recipe
+shared by archetypes B–E (plan outline × profile curve × surface treatment, all three read
+from the record), a terrain-aware blue-noise sampler for archetype G, and the §7.2
+cross-section swept along the measured `rampart.json` crest for archetype A. Batched one mesh
+per (archetype, material), which is what makes §8's gate free: the periods are per archetype,
+so a year change is a handful of `visible` flags rather than a rebuild. Broborg draws 127
+records plus ~1 200 sampled grave-field monuments.
+
+**What keeps it honest.** Nothing is a fixed size — every dimension traces to the record, the
+DEM, or a labelled default carried in the file's own `defaults` block, and a field the parser
+could not read is named in the monument's `fallbacks` with its `parseConfidence` dropped. The
+popup states a badge **per part** (§9.1), quotes the transform that produced the profile next
+to the ruin measurement it ran on (§9.3), and says how many of a grave field's monuments were
+actually placed. A `Fornborg` below the threshold gets the low bank the register records and
+a sentence saying why. At 500 CE the fort stands and there are no runestones; at 1050 CE the
+fort falls back to its flat marker, which is the measured geometry.
+
+Exit criteria (met): the pipeline suite (695 tests) and the app suite (715 tests, 71 of them
+new) green; `scripts/verify-reconstruction.mjs` asserting on the live scene graph that
+monuments neither drift laterally nor change metric height between ×1, ×2.5 and ×4, that a
+reload is byte-identical, that the §8 gate moves, and that frame time has not regressed
+against marker mode in the same page.
 
 ---
 

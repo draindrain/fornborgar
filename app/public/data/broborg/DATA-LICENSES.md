@@ -28,6 +28,17 @@ renders the short attribution strings from `manifest.json` → `attribution`.
 - **Voluntary attribution:** *"Fornlämningsinformation från Riksantikvarieämbetet,
   Kulturmiljöregistret (CC0), hämtad 2026-08-20"*.
 
+## Reconstruction parameters — `reconstruction.json`
+
+- **Source:** derived from the `sites.json` records above — the KMR free-text
+  descriptions, parsed by `pipeline/fornborg_pipeline/reconstruct.py`, with the
+  ruin→original transforms of `docs/reconstruction-mode.md` §5 applied.
+- **License:** **CC0**, inherited from the KMR extract it is derived from. The
+  literature defaults it falls back to where a record says nothing usable are cited
+  in `docs/reconstruction-mode.md` §12; each one is labelled `assumed` in the data.
+- **What it is not:** not a record of anything. It is an *interpretation* of records,
+  and every value carries its own provenance tier — measured, derived or assumed.
+
 ## Paleo-shoreline — `shoreline.json`, `water_connect.tif`
 
 - **Source:** Sveriges geologiska undersökning, *Strandförskjutningsmodell* (sea/land

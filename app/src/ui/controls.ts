@@ -95,6 +95,26 @@ export interface ControlState {
     spacingM: number;
     seed: number;
   };
+  /**
+   * Phase 12 — reconstruction mode (contract §14).
+   *
+   * `show` is the *mode*, not a layer: it replaces the flat markers rather than
+   * drawing on top of them (§11.1). That is why it starts off even outside
+   * debug, where PLAN §6.1's 2026-08-23 amendment turns model and conjecture
+   * *layers* on — marker mode is what the app is, and reconstruction is the
+   * interpretation you choose to see.
+   */
+  reconstruction: {
+    show: boolean;
+    /**
+     * §7.1's contested question, as a state. Under Sjöblom et al. (2022) the
+     * wall was vitrified while in use; under Bornfalk Back (2023) it was
+     * ordinary dry stone until the day it burned. Render both, claim neither.
+     */
+    vitrified: boolean;
+    /** Placement and jitter seed. Same seed ⇒ same monuments, byte for byte. */
+    seed: number;
+  };
   /** Phase 7 — appearance parameters of the modeled landscape (contract §9). */
   landcover: {
     show: boolean;
@@ -153,6 +173,11 @@ export function createControlState(options: ControlOptions): ControlState {
       heightM: DEFAULT_PALISADE_PARAMS.heightM,
       spacingM: DEFAULT_PALISADE_PARAMS.spacingM,
       seed: DEFAULT_PALISADE_PARAMS.seed,
+    },
+    reconstruction: {
+      show: false,
+      vitrified: true,
+      seed: 1,
     },
     landcover: {
       show: optIn,
@@ -388,6 +413,69 @@ export function addPalisadeControls(
   const update = (): void => {
     for (const control of [show, height, spacing, seed]) control.updateDisplay();
     readout.textContent = `${options.postCount()} posts · ${state.palisade.spacingM.toFixed(2)} m apart`;
+  };
+  update();
+  folder.close();
+
+  return { update };
+}
+
+export interface ReconstructionControlOptions {
+  /** Layer name from `manifest.layers` (falls back to a generic label). */
+  name: string;
+  /** The layer's one-line caveat, shown permanently under the controls. */
+  caveat: string;
+  /** Monuments standing at the year on the clock, read after every change. */
+  standingCount(): number;
+  /** Vertices across every batch — the scene budget. */
+  vertexCount(): number;
+  /** Records still drawn as flat markers (ruins, and archetypes not yet drawn). */
+  markerCount(): number;
+  onChange(): void;
+}
+
+/**
+ * Phase-12 reconstruction folder (contract §14, docs/reconstruction-mode.md).
+ *
+ * Only created for sites that ship the §14 asset. The visitor's own switch is the
+ * one in the HUD header — this folder is the debug surface, where the seed and
+ * the vitrification state live.
+ *
+ * The seed is an *appearance* parameter, not data: grave-field positions are the
+ * one genuinely inferential part of the archetype (§6.G), and being able to
+ * re-roll them is the honest way to show that they are a sampling, not a survey.
+ */
+export function addReconstructionControls(
+  gui: GUI | null,
+  state: ControlState,
+  options: ReconstructionControlOptions,
+): { update(): void } {
+  if (!gui) return NO_READOUT;
+  const folder = gui.addFolder('Reconstruction (INTERPRETATION)');
+  const changed = (): void => options.onChange();
+
+  const show = folder.add(state.reconstruction, 'show').name('reconstruction mode').onChange(changed);
+  const vitrified = folder
+    .add(state.reconstruction, 'vitrified')
+    .name('vitrified band (contested)')
+    .onChange(changed);
+  const seed = folder.add(state.reconstruction, 'seed', 1, 999, 1).name('placement seed').onChange(changed);
+
+  const readout = note(folder, 'control-readout', '');
+  note(folder, 'control-note', options.caveat);
+  note(
+    folder,
+    'control-note',
+    'Vitrification is contested: Sjöblom et al. (2022) read it as deliberate and ' +
+      'constructive, Bornfalk Back (2023) as the trace of a destruction. The band is a ' +
+      'state, not a verdict.',
+  );
+
+  const update = (): void => {
+    for (const control of [show, vitrified, seed]) control.updateDisplay();
+    readout.textContent =
+      `${options.standingCount()} monuments standing · ${options.markerCount()} still markers · ` +
+      `${Math.round(options.vertexCount() / 1000)} k vertices`;
   };
   update();
   folder.close();
