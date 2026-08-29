@@ -10,6 +10,8 @@
  * still holds for a layer switched on from the debug panel.
  */
 
+import { loadFailureHint } from '../state/loader';
+
 function el<K extends keyof HTMLElementTagNameMap>(
   tag: K,
   className?: string,
@@ -153,14 +155,10 @@ export class Hud {
     const box = el('div', 'hud-error');
     box.append(el('h2', undefined, 'Could not load this site'));
     box.append(el('pre', undefined, message));
-    box.append(
-      el(
-        'p',
-        'hud-error-hint',
-        'Site data lives in app/public/data/<siteId>/ and is described by ' +
-          'docs/data-formats.md. Try ?site=testsite for the built-in synthetic fixture.',
-      ),
-    );
+    // The remedy depends on where this build reads bundles from, and a
+    // network-level rejection ("Failed to fetch") carries no status to explain
+    // itself — so the hint is computed rather than fixed.
+    box.append(el('p', 'hud-error-hint', loadFailureHint(error)));
     this.root.append(box);
     console.error(error);
   }

@@ -1,0 +1,41 @@
+{
+  "comment": [
+    "The bucket's CORS policy (docs/national-scaleout.md §3), committed because it",
+    "is coupled to something that moves: the app's own origin.",
+    "",
+    "Every bundle the app reads is cross-origin — the app is served from",
+    "fornborgar.drnz.se and the bytes come from the object host — so a browser",
+    "only ever sees data from a host whose allowlist names the app's origin. When",
+    "it does not, fetch() rejects at the network layer and the app reports",
+    "'Failed to fetch' with no status to go on. That is what a domain move breaks,",
+    "and it breaks it silently, which is why the policy lives here rather than only",
+    "in the Cloudflare dashboard.",
+    "",
+    "Apply with:  python3 -m fornborg_pipeline.r2_cors --apply",
+    "(no flag shows the live policy and the diff against this file).",
+    "",
+    "The github.io origin is the pre-move Pages one, kept so a rollback to the",
+    "project-site URL still loads; the localhost/127.0.0.1 pairs are `npm run dev`",
+    "and `npm run preview` with VITE_DATA_BASE_URL set against the live bucket.",
+    "",
+    "`exposeHeaders` is not decoration: geotiff.js reads the grids with range",
+    "requests, and without content-range/accept-ranges exposed they fail to decode",
+    "with no obvious cause."
+  ],
+  "corsRules": [
+    {
+      "allowedOrigins": [
+        "https://fornborgar.drnz.se",
+        "https://draindrain.github.io",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:4173",
+        "http://127.0.0.1:4173"
+      ],
+      "allowedMethods": ["GET", "HEAD"],
+      "allowedHeaders": ["range", "if-match", "if-none-match"],
+      "exposeHeaders": ["content-length", "content-range", "etag", "accept-ranges"],
+      "maxAgeSeconds": 86400
+    }
+  ]
+}

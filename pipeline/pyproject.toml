@@ -24,6 +24,7 @@ fornborg-pipeline = "fornborg_pipeline.build:cli"
 fornborg-build-site = "fornborg_pipeline.build_site:cli"
 fornborg-registry = "fornborg_pipeline.registry:cli"
 fornborg-upload = "fornborg_pipeline.upload:cli"
+fornborg-r2-cors = "fornborg_pipeline.r2_cors:cli"
 fornborg-batch = "fornborg_pipeline.batch:cli"
 
 [build-system]

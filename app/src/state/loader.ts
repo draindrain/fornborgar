@@ -113,6 +113,56 @@ export function siteIndexUrl(
   return `${dataBaseUrl(base, configured)}index.json`;
 }
 
+/**
+ * Whether a failure happened *below* HTTP — no status, no body, nothing to read.
+ *
+ * `fetch` rejects with a TypeError for exactly three things a visitor can hit:
+ * the host is unreachable, the connection died, or the browser refused to hand
+ * over a cross-origin response the host did not authorise. Only the last one is
+ * likely on a working deploy, and it is invisible in the message ("Failed to
+ * fetch" in Chrome, "Load failed" in Safari, "NetworkError…" in Firefox), which
+ * is why it gets named rather than lumped in with a 404.
+ */
+export function isNetworkFailure(error: unknown): boolean {
+  if (error instanceof TypeError) return true;
+  const message = error instanceof Error ? error.message : String(error);
+  return /failed to fetch|load failed|networkerror|network request failed/i.test(message);
+}
+
+/**
+ * The one line of "what to do about it" under a fatal load error.
+ *
+ * It has to differ by where this build reads bundles from, because the remedies
+ * have nothing in common: a repo-relative build is missing files on disk, and an
+ * object-host build is almost always being refused by the host's CORS allowlist
+ * — the failure a hostname change causes, since the allowlist names the old
+ * origin and the app now asks from a new one.
+ */
+export function loadFailureHint(
+  error: unknown,
+  configured: string | undefined = import.meta.env.VITE_DATA_BASE_URL,
+  origin: string = window.location.origin,
+): string {
+  const host = (configured ?? '').trim();
+
+  if (isNetworkFailure(error)) {
+    return host
+      ? `The browser never got a response from ${host} — the request was refused before ` +
+          `any status came back. On a deploy served from its own hostname that is nearly ` +
+          `always the bundle host's CORS allowlist, which has to name ${origin}. ` +
+          `The policy is pipeline/r2-cors.json; ` +
+          `\`python3 -m fornborg_pipeline.r2_cors --apply\` pushes it.`
+      : `The browser never got a response for this site's data — the request failed before ` +
+          `any status came back, so it is the connection rather than the file.`;
+  }
+
+  return host
+    ? `Site bundles are published to ${host} (docs/national-scaleout.md §3 covers publishing ` +
+        `one). Try ?site=testsite for the synthetic fixture.`
+    : `Site data lives in app/public/data/<siteId>/ and is described by docs/data-formats.md. ` +
+        `Try ?site=testsite for the built-in synthetic fixture.`;
+}
+
 export type ProgressFn = (stage: string, fraction: number) => void;
 
 /**

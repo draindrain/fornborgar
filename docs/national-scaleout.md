@@ -384,14 +384,31 @@ pilot is **52.8 km**, inside ring 6's 32 km half-extent extended to ring 7's
 **Revised national projection:** 1,304 × 7.0 MB ≈ **~9 GB**, against §2b's ~12 GB
 estimate — still ≈ $0.03/month on R2 past the free tier.
 
-**CORS, as configured and verified 2026-08-22.** The bucket answers
-`Access-Control-Allow-Origin` for the Pages origin, allows `GET`/`HEAD` with a
-`range` request header, and — the one that is easy to miss — exposes
-`content-length, content-range, etag, accept-ranges`. geotiff.js issues range
-requests, so without that last header the grids fail to decode with no obvious
-cause. Confirmed live: `GET …/index.json` → 200 with `max-age=300`;
-`GET …/dem_core.tif` with `Range:` → **206** with `Content-Range` and
-`max-age=31536000, immutable`; `OPTIONS` preflight → 204.
+**CORS.** The bucket answers `Access-Control-Allow-Origin` for the app's
+origin, allows `GET`/`HEAD` with a `range` request header, and — the one that is
+easy to miss — exposes `content-length, content-range, etag, accept-ranges`.
+geotiff.js issues range requests, so without that last header the grids fail to
+decode with no obvious cause. Verified live 2026-08-22: `GET …/index.json` → 200
+with `max-age=300`; `GET …/dem_core.tif` with `Range:` → **206** with
+`Content-Range` and `max-age=31536000, immutable`; `OPTIONS` preflight → 204.
+
+The policy is **coupled to the app's hostname**, which is the one thing here
+that moves. It was first configured for the Pages origin; serving the app from
+`fornborgar.drnz.se` instead made every bundle fetch cross-origin *from an
+origin the allowlist did not name*, and a browser refuses such a response before
+there is any status code to report — the app can only say `Failed to fetch`. So
+the allowlist is committed as `pipeline/r2-cors.json` rather than living only in
+the dashboard, and
+
+```
+python3 -m fornborg_pipeline.r2_cors            # live policy, and what it is missing
+python3 -m fornborg_pipeline.r2_cors --apply    # push the committed policy
+```
+
+reads and writes it with the same R2_* credentials the upload step uses. A pipeline test
+asserts the file allows whatever `app/public/CNAME` says, so `pytest` catches
+the next domain move instead of a visitor's browser doing it. **Changing the app's
+hostname is therefore two edits: `app/public/CNAME` and this policy.**
 
 **Deploying the app against the object host.** The Pages workflow resolves the
 bundle host at build time: the `VITE_DATA_BASE_URL` *repository variable* if one
