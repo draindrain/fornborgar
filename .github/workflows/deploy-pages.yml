@@ -87,8 +87,9 @@ jobs:
         working-directory: app
         env:
           VITE_DATA_BASE_URL: ${{ steps.data.outputs.url }}
-        # Project site is served from /<repo>/ — set the Vite base accordingly.
-        run: npm run build -- --base=/${{ github.event.repository.name }}/
+        # Served from its own hostname (fornborgar.drnz.se, via app/public/CNAME),
+        # so the base is the root — not the /<repo>/ subpath a project site needs.
+        run: npm run build -- --base=/
 
       - name: Upload Pages artifact
         if: steps.guard.outputs.has_app == 'true'
