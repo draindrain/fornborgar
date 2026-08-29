@@ -963,3 +963,23 @@ body {
     bottom: 96px;
   }
 }
+
+/* --- The cookie notice from drnz.se/analytics.js ---------------------------
+   One script in index.html brings both the notice and the analytics tag, and
+   nothing reaches Google until a reader accepts (hub, docs/analytics.md §6).
+   The notice renders in a shadow root, so the only thing reachable from this
+   file is its colours — which here are simply the HUD's own tokens, so it
+   arrives as the same translucent blurred panel as everything else on screen.
+   It is lifted clear of the time bar, which owns the bottom centre, to the
+   210px this file already uses for the loading bar and the caveat toast —
+   the other two things that appear over the scene and then leave. */
+#drnz-consent {
+  --consent-margin: 0 auto 210px;
+  --consent-bg: var(--panel);
+  --consent-fg: var(--ink);
+  --consent-edge: var(--edge);
+  --consent-accent: #d8c48a;
+  --consent-radius: 10px;
+  --consent-backdrop: blur(8px);
+  --consent-font: inherit;
+}
