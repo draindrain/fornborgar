@@ -70,6 +70,7 @@ import {
   createControlState,
 } from './ui/controls';
 import { formatAltitude, formatSolarTime, TimeBar } from './ui/timeBar';
+import { FirstPersonOverlay } from './ui/fpOverlay';
 import { Hud } from './ui/hud';
 import { Legend } from './ui/legend';
 import { buildMethodsModel } from './ui/methodsModel';
@@ -164,6 +165,33 @@ function groundAt(x: number, z: number): number {
 }
 
 const modes = new CameraModes(rig, renderer.domElement);
+
+/**
+ * Which first-person control scheme this device gets. Sampled once at boot: a
+ * pointer type does not change under a running session, and re-reading it per
+ * entry would let the overlay and the pointer-lock decision disagree.
+ */
+const coarsePointer = window.matchMedia('(pointer: coarse)').matches;
+modes.firstPerson.allowPointerLock = !coarsePointer;
+
+const fpOverlay = new FirstPersonOverlay(document.body, {
+  touch: coarsePointer,
+  onExit: () => modes.exitToOrbit(false, groundAt, terrain.getExaggeration()),
+  onMove: (v) => {
+    modes.firstPerson.moveStick = v;
+  },
+  onLook: (v) => {
+    modes.firstPerson.lookStick = v;
+  },
+});
+
+// The chrome goes away for the whole entry transition, not just on arrival —
+// otherwise the panels sit over a 1.4 s flight down to the ground — but the
+// sticks only appear once the walker actually has control.
+modes.addModeChangeListener((mode) => {
+  document.body.classList.toggle('fp-active', mode !== 'orbit');
+  fpOverlay.setActive(mode === 'firstPerson');
+});
 
 /** Phase-3 viewshed rig; built in start() once the context grid is decoded. */
 interface ViewshedRig {
@@ -542,7 +570,7 @@ if (debug) {
     farVegetation?.refreshHeights(); // ...billboards included (v1.6 §13)
     refit();
   },
-  onToggleFirstPerson: () => modes.toggle(groundAt, terrain.getExaggeration()),
+  onToggleFirstPerson: () => modes.toggle(groundAt, terrain.getExaggeration(), { pointerLock: !coarsePointer }),
   onViewshedChange: () => applyViewshedSettings(),
   });
   gui = built.gui;
@@ -551,7 +579,9 @@ if (debug) {
 
 window.addEventListener('keydown', (event) => {
   const inField = event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement;
-  if (event.code === 'KeyF' && !event.repeat && !inField) modes.toggle(groundAt, terrain.getExaggeration());
+  if (event.code === 'KeyF' && !event.repeat && !inField) {
+    modes.toggle(groundAt, terrain.getExaggeration(), { pointerLock: !coarsePointer });
+  }
 });
 
 terrain.setExaggeration(controlState.exaggeration);
@@ -1012,12 +1042,16 @@ async function start(): Promise<void> {
 
   // The sites overlay is cartographic (flat map symbols): standing on the
   // ground it reads as floating sheets, so it hides in first person.
-  modes.onModeChange = (mode) => {
+  modes.addModeChangeListener((mode) => {
     sitesLayer?.setVisible(controlState.sites.show && mode !== 'firstPerson');
-  };
+  });
 
   hud.setProgress('Ready', 1);
   hud.finishLoading();
+  // Only offered once there is ground under the walker's feet.
+  hud.enableFirstPersonToggle(() =>
+    modes.toggle(groundAt, terrain.getExaggeration(), { pointerLock: !coarsePointer }),
+  );
 
   // --- Phase 9 §6: the national site picker ---------------------------------
   // Off unless the build has somewhere to fetch an index from, which is a
@@ -1169,6 +1203,23 @@ async function start(): Promise<void> {
     setLook(azimuthDeg: number, pitchDeg: number) {
       const fp = modes.firstPerson;
       fp.setPose(fp.x, fp.z, azimuthDeg, pitchDeg);
+    },
+    /**
+     * The touch sticks, drivable without a touch screen — a headless check (or
+     * a desktop browser) can hold a stick deflected and watch the walk, which
+     * is the only way to test the analog path without hardware.
+     */
+    fp: {
+      setMoveStick(x: number, y: number) {
+        modes.firstPerson.moveStick = { x, y };
+      },
+      setLookStick(x: number, y: number) {
+        modes.firstPerson.lookStick = { x, y };
+      },
+      clearSticks() {
+        modes.firstPerson.moveStick = null;
+        modes.firstPerson.lookStick = null;
+      },
     },
     viewshed: {
       controlState: controlState.viewshed,

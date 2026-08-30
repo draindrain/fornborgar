@@ -32,6 +32,8 @@ export class Hud {
   private readonly pickerButton: HTMLButtonElement;
   /** Phase 12: the reconstruction-mode switch. Hidden unless the site ships §14. */
   private readonly modeButton: HTMLButtonElement;
+  /** Entry to first person. Hidden until the scene can be walked on. */
+  private readonly fpButton: HTMLButtonElement;
   private readonly caveatsShown = new Set<string>();
   private caveatTimer = 0;
 
@@ -53,7 +55,15 @@ export class Hud {
     this.modeButton = el('button', 'hud-mode-button', 'Reconstruction');
     this.modeButton.type = 'button';
     this.modeButton.hidden = true;
-    header.append(this.titleEl, this.pickerButton, this.modeButton);
+    // First person had been reachable only by the F key, which is to say only
+    // by whoever already knew about it — and not at all on a touch screen.
+    // There is no on/off state to reflect here: the whole HUD is hidden while
+    // walking, so the button only ever means "enter".
+    this.fpButton = el('button', 'hud-fp-button', 'First person');
+    this.fpButton.type = 'button';
+    this.fpButton.hidden = true;
+    this.fpButton.title = 'Walk the site at eye level (or press F)';
+    header.append(this.titleEl, this.pickerButton, this.modeButton, this.fpButton);
 
     this.loadingEl = el('div', 'hud-loading');
     this.loadingLabel = el('div', 'hud-loading-label', 'Starting…');
@@ -103,6 +113,12 @@ export class Hud {
     this.modeButton.addEventListener('click', () => {
       handler(this.modeButton.dataset['on'] !== 'true');
     });
+  }
+
+  /** Reveal the walk-mode entry, wired to `handler`. Called once the grids exist. */
+  enableFirstPersonToggle(handler: () => void): void {
+    this.fpButton.hidden = false;
+    this.fpButton.addEventListener('click', handler);
   }
 
   /** Reflect the mode the app is actually in; the label names the way *out*. */

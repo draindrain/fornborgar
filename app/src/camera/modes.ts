@@ -50,13 +50,30 @@ export class CameraModes {
   private transition: Transition | null = null;
   private wantPointerLock = false;
 
-  /** Notified after every completed mode change (for HUD hints / GUI state). */
-  onModeChange: (mode: CameraMode) => void = () => {};
+  /**
+   * Notified after every completed mode change (for HUD hints / GUI state).
+   * A list rather than a slot: the scene layers and the first-person overlay
+   * both need to hear it, and a single property means whichever subscribes
+   * second silently wins.
+   */
+  private readonly modeChangeListeners = new Set<(mode: CameraMode) => void>();
 
   constructor(rig: OrbitRig, domElement: HTMLElement) {
     this.rig = rig;
     this.camera = rig.camera;
     this.firstPerson = new FirstPersonController(rig.camera, domElement);
+  }
+
+  /** Subscribe to mode changes; the returned function unsubscribes. */
+  addModeChangeListener(listener: (mode: CameraMode) => void): () => void {
+    this.modeChangeListeners.add(listener);
+    return () => {
+      this.modeChangeListeners.delete(listener);
+    };
+  }
+
+  private emitModeChange(): void {
+    for (const listener of this.modeChangeListeners) listener(this.mode);
   }
 
   enterFirstPerson(opts: EnterOptions = {}, ground: GroundSampler, exaggeration: number): void {
@@ -104,7 +121,7 @@ export class CameraModes {
       this.rig.controls.enabled = true;
       this.rig.controls.update();
       this.mode = 'orbit';
-      this.onModeChange(this.mode);
+      this.emitModeChange();
     };
 
     if (instant) {
@@ -116,9 +133,17 @@ export class CameraModes {
     this.beginTransition(toPos, toQuat, finish);
   }
 
-  toggle(ground: GroundSampler, exaggeration: number): void {
-    if (this.mode === 'orbit') this.enterFirstPerson({ pointerLock: true }, ground, exaggeration);
-    else if (this.mode === 'firstPerson') this.exitToOrbit(false, ground, exaggeration);
+  /**
+   * The one entry/exit callers bind to a key or a button. `pointerLock` is
+   * opt-out rather than opt-in because every caller here is a real gesture; a
+   * touch build passes false and looks with the sticks instead.
+   */
+  toggle(ground: GroundSampler, exaggeration: number, opts?: { pointerLock?: boolean }): void {
+    if (this.mode === 'orbit') {
+      this.enterFirstPerson({ pointerLock: opts?.pointerLock ?? true }, ground, exaggeration);
+    } else if (this.mode === 'firstPerson') {
+      this.exitToOrbit(false, ground, exaggeration);
+    }
   }
 
   /** Advance transitions / walking. Call once per frame with the frame delta. */
@@ -142,7 +167,7 @@ export class CameraModes {
 
   private beginTransition(toPos: THREE.Vector3, toQuat: THREE.Quaternion, onDone: () => void): void {
     this.mode = 'transition';
-    this.onModeChange(this.mode);
+    this.emitModeChange();
     this.transition = {
       fromPos: this.camera.position.clone(),
       fromQuat: this.camera.quaternion.clone(),
@@ -158,6 +183,6 @@ export class CameraModes {
     this.firstPerson.enable();
     if (this.wantPointerLock) this.firstPerson.requestPointerLock();
     this.mode = 'firstPerson';
-    this.onModeChange(this.mode);
+    this.emitModeChange();
   }
 }

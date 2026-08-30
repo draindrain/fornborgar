@@ -983,3 +983,120 @@ body {
   --consent-backdrop: blur(8px);
   --consent-font: inherit;
 }
+
+/* --- First person: walking the site ---------------------------------------
+   Standing on the ground, the map furniture reads as a helmet visor rather
+   than a page, so entering the mode takes all of it away — including an open
+   modal, which would otherwise sit over the walk with no way left to close it.
+   ui/fpOverlay.ts puts back the minimum: what to press, or what to tap. */
+body.fp-active .hud,
+body.fp-active .time-bar,
+body.fp-active .site-panel,
+body.fp-active .app-menu,
+body.fp-active .site-picker,
+body.fp-active .control-panel,
+body.fp-active .modal-backdrop {
+  display: none !important;
+}
+
+/* Entry to first person, alongside the fort browser and the mode switch. */
+.hud-fp-button {
+  margin-top: 0.5rem;
+  margin-left: 0.4rem;
+  padding: 0.3rem 0.7rem;
+  font: inherit;
+  font-size: 0.8rem;
+  color: var(--ink);
+  background: rgba(233, 230, 223, 0.08);
+  border: 1px solid var(--edge);
+  border-radius: 4px;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.hud-fp-button:hover {
+  background: rgba(233, 230, 223, 0.16);
+}
+
+/* Above everything the mode hides, below the modal layer (60) it hides too. */
+.fp-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  pointer-events: none;
+}
+
+.fp-hint {
+  position: absolute;
+  top: calc(18px + env(safe-area-inset-top));
+  left: calc(20px + env(safe-area-inset-left));
+  padding: 0.35rem 0.7rem;
+  font-size: 0.8rem;
+  color: var(--ink-dim);
+  background: var(--panel);
+  border: 1px solid var(--edge);
+  border-radius: 4px;
+  backdrop-filter: blur(8px);
+}
+
+/* The only way out on a touch screen: no F key, no pointer lock. 44 px is the
+   smallest target a thumb hits reliably. */
+.fp-exit-button {
+  position: absolute;
+  top: calc(14px + env(safe-area-inset-top));
+  right: calc(14px + env(safe-area-inset-right));
+  min-height: 44px;
+  padding: 0.5rem 0.9rem;
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--ink);
+  background: var(--panel);
+  border: 1px solid var(--edge);
+  border-radius: 6px;
+  backdrop-filter: blur(8px);
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+/* Console layout, because it is the one people already have their thumbs
+   trained for: left stick walks, right stick turns. `touch-action: none` is
+   what stops the browser reading a drag as a page scroll and stealing the
+   pointer mid-gesture. */
+.fp-stick {
+  position: absolute;
+  bottom: calc(28px + env(safe-area-inset-bottom));
+  width: 128px;
+  height: 128px;
+  display: grid;
+  place-items: center;
+  background: rgba(233, 230, 223, 0.06);
+  border: 1px solid var(--edge);
+  border-radius: 50%;
+  backdrop-filter: blur(4px);
+  touch-action: none;
+  pointer-events: auto;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.fp-stick.is-active {
+  background: rgba(233, 230, 223, 0.1);
+}
+
+.fp-stick-left {
+  left: calc(24px + env(safe-area-inset-left));
+}
+
+.fp-stick-right {
+  right: calc(24px + env(safe-area-inset-right));
+}
+
+.fp-stick-knob {
+  width: 52px;
+  height: 52px;
+  background: rgba(233, 230, 223, 0.22);
+  border: 1px solid rgba(233, 230, 223, 0.32);
+  border-radius: 50%;
+  pointer-events: none;
+  will-change: transform;
+}

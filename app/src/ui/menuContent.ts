@@ -16,8 +16,9 @@ import type { AttributionEntry } from '../state/manifest';
  */
 export const CAMERA_HELP: string[] = [
   'Orbit: drag to turn, scroll to zoom, right-drag to pan.',
-  'F — switch between orbit and first person.',
-  'First person: WASD to walk, Shift to run, click to lock the mouse and look, F back to orbit.',
+  'First person: the “First person” button, or the F key — you stand 2 m above the ground and walk the site at eye level.',
+  'With a mouse: WASD or the arrow keys to walk, Shift to run, click to lock the mouse and look around, F back to orbit.',
+  'On a touch screen: the left stick walks, the right stick turns, and Exit first person returns to orbit.',
 ];
 
 /**

@@ -1,12 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import {
   EYE_HEIGHT,
+  LOOK_RATE_PITCH,
+  LOOK_RATE_YAW,
   SPRINT_FACTOR,
   WALK_SPEED,
+  axesFromKeys,
   azimuthFromYaw,
   clampToBounds,
   eyeY,
+  lookRateDelta,
+  mergeMoveAxes,
   moveDelta,
+  moveDeltaAxes,
   yawFromAzimuth,
   type MoveKeys,
 } from '../src/camera/firstPerson';
@@ -66,9 +72,90 @@ describe('moveDelta', () => {
   });
 });
 
+describe('mergeMoveAxes', () => {
+  it('is exactly the keyboard axes with no stick', () => {
+    for (const k of [keys({}), keys({ forward: true }), keys({ back: true, left: true })]) {
+      expect(mergeMoveAxes(k, null)).toEqual(axesFromKeys(k));
+    }
+  });
+
+  it('reads stick +y as forward, i.e. -z', () => {
+    expect(mergeMoveAxes(keys({}), { x: 0, y: 1 })).toEqual({ x: 0, z: -1 });
+    expect(mergeMoveAxes(keys({}), { x: 1, y: 0 })).toEqual({ x: 1, z: 0 });
+  });
+
+  it('keeps partial deflection partial — a stick half over is a slower walk', () => {
+    const half = mergeMoveAxes(keys({}), { x: 0, y: 0.5 });
+    expect(Math.hypot(half.x, half.z)).toBeCloseTo(0.5);
+  });
+
+  it('clamps keys plus stick back to unit length', () => {
+    const both = mergeMoveAxes(keys({ forward: true }), { x: 0, y: 1 });
+    expect(Math.hypot(both.x, both.z)).toBeCloseTo(1);
+    expect(both.z).toBeCloseTo(-1); // still forward, not double speed
+    const diag = mergeMoveAxes(keys({ right: true }), { x: 0, y: 1 });
+    expect(Math.hypot(diag.x, diag.z)).toBeCloseTo(1);
+  });
+});
+
+describe('moveDeltaAxes', () => {
+  it('walks along the heading at the given speed', () => {
+    // Facing east, full forward axis (−z) for one second.
+    const { dx, dz } = moveDeltaAxes(yawFromAzimuth(90), 0, -1, 1);
+    expect(dx).toBeCloseTo(WALK_SPEED);
+    expect(dz).toBeCloseTo(0);
+  });
+
+  it('scales with the axis magnitude', () => {
+    const half = moveDeltaAxes(yawFromAzimuth(0), 0, -0.5, 1);
+    expect(Math.hypot(half.dx, half.dz)).toBeCloseTo(WALK_SPEED * 0.5);
+  });
+
+  it('is zero at rest', () => {
+    expect(moveDeltaAxes(1.23, 0, 0, 1)).toEqual({ dx: 0, dz: 0 });
+  });
+
+  it('still produces moveDelta’s Phase-2 numbers through the wrapper', () => {
+    // The keyboard path now goes through the analog one; these are the values
+    // the original hand-rolled implementation returned.
+    const yaw = 0.7;
+    const fwd = moveDelta(yaw, keys({ forward: true }), 0.25);
+    expect(fwd.dx).toBeCloseTo(-Math.sin(yaw) * WALK_SPEED * 0.25);
+    expect(fwd.dz).toBeCloseTo(-Math.cos(yaw) * WALK_SPEED * 0.25);
+    const strafe = moveDelta(yaw, keys({ right: true, sprint: true }), 0.25);
+    const s = WALK_SPEED * SPRINT_FACTOR * 0.25;
+    expect(strafe.dx).toBeCloseTo(Math.cos(yaw) * s);
+    expect(strafe.dz).toBeCloseTo(-Math.sin(yaw) * s);
+  });
+});
+
+describe('lookRateDelta', () => {
+  it('turns right for stick right, matching the mouse’s sign', () => {
+    const { dYaw } = lookRateDelta({ x: 1, y: 0 }, 0.5);
+    expect(dYaw).toBeCloseTo(-LOOK_RATE_YAW * 0.5);
+  });
+
+  it('raises the pitch for stick up', () => {
+    const { dPitch } = lookRateDelta({ x: 0, y: 1 }, 0.5);
+    expect(dPitch).toBeCloseTo(LOOK_RATE_PITCH * 0.5);
+  });
+
+  it('uses a sign-preserving square curve, so small nudges aim', () => {
+    const { dYaw, dPitch } = lookRateDelta({ x: -0.5, y: -0.5 }, 1);
+    expect(dYaw).toBeCloseTo(0.25 * LOOK_RATE_YAW);
+    expect(dPitch).toBeCloseTo(-0.25 * LOOK_RATE_PITCH);
+  });
+
+  it('is zero at rest', () => {
+    const { dYaw, dPitch } = lookRateDelta({ x: 0, y: 0 }, 1);
+    expect(dYaw).toBeCloseTo(0);
+    expect(dPitch).toBeCloseTo(0);
+  });
+});
+
 describe('eyeY', () => {
-  it('stands 1.7 m above ground, scaled by exaggeration (contract §0)', () => {
-    expect(eyeY(50, 1)).toBeCloseTo(51.7);
+  it('stands 2 m above ground, scaled by exaggeration (contract §0)', () => {
+    expect(eyeY(50, 1)).toBeCloseTo(52);
     // The whole terrain group is Y-scaled, so the eye scales with it.
     expect(eyeY(50, 1.5)).toBeCloseTo((50 + EYE_HEIGHT) * 1.5);
   });
