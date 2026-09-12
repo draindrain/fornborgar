@@ -1316,20 +1316,12 @@ def _cue_pattern(cues: tuple[str, ...]) -> re.Pattern[str]:
     return re.compile(rf"(?<![a-z])(?:{_folded_alternation(cues)})(?![a-z])")
 
 
-def _glued_cue_pattern(cues: tuple[str, ...]) -> re.Pattern[str]:
-    """A cue match that survives the register's lost line breaks.
-
-    1 034 of the 1 304 national descriptions lost their hard line breaks without
-    gaining a space, so the cue itself is routinely glued to the word before it —
-    *"två stenraderutanför vallen i SÖ"*. Dropping the left word boundary is the
-    **discarding** direction (more hits fail the gate, never fewer), which is why
-    it is done for the discard cues and not for the short negation and hedge
-    words, where a bare substring match would fire inside unrelated words.
-    """
-    return re.compile(rf"(?:{_folded_alternation(cues)})(?![a-z])")
-
-
 _NEGATION_RE = _cue_pattern(_INTERIOR_NEGATION)
+# The exterior and non-building cues drop their **left** word boundary, because
+# the register's lost line breaks glue the cue to the word before it — *"två
+# stenraderutanför vallen i SÖ"*. That is the discarding direction (more hits fail
+# the gate, never fewer), so it is safe here and not for the short negation and
+# hedge words, where a bare substring match would fire inside unrelated words.
 #: The compass points, folded, longest first, for the `N/S/Ö/V om` cue.
 _BEARINGS_FOLDED = "|".join(sorted((fold(b) for b in BEARINGS), key=len, reverse=True))
 _EXTERIOR_RE = re.compile(
