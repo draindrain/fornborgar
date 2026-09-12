@@ -733,11 +733,6 @@ def fort_record(description: str, record_id: str = "L0000:1", **extra) -> dict:
     }
 
 
-def counted(text: str) -> list[dict]:
-    return [hit for hit in R.scan_interior_terms(R.normalise(text)) for _ in (0,)
-            if hit["verdict"] == "counted"]
-
-
 def verdicts(text: str) -> list[str]:
     return [hit["verdict"] for hit in R.scan_interior_terms(R.normalise(text))]
 
