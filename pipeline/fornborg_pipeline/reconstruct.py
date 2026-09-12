@@ -2205,6 +2205,7 @@ def build_document(
     generated: str | None = None,
     county: str = "",
     kommun: str = "",
+    fort_id: str = "",
 ) -> dict:
     """The whole §14 file for one site's `sites.json`.
 
@@ -2212,6 +2213,11 @@ def build_document(
     §7.5.2's Öland/Gotland layout branch (`interior.tradition`). They never widen
     or narrow the evidence gate — no fort is offered `settlement` for being on
     limestone.
+
+    `fort_id` is the site's **own** fort (`SiteConfig.raa["lamningsnummer"]`). A
+    2 × 2 km bundle can hold a second registered fornborg, and attributing one
+    fort's husgrunder to the other would be the quietest possible way to draw a
+    building nobody recorded there.
     """
     records = sites.get("sites")
     if not isinstance(records, list):
@@ -2228,7 +2234,13 @@ def build_document(
     # record has no interior to state anything about, and the block is omitted —
     # which is not the same as a fort with no evidence, whose block says `fail`.
     fort_ids = {m["id"] for m in monuments if m["archetype"] == "fort"}
-    fort_record = next((r for r in records if r.get("id") in fort_ids), None)
+    fort_record = next(
+        (r for r in records if r.get("id") == fort_id and r.get("id") in fort_ids),
+        # A bundle with no declared fort id (or one whose fort is not in this
+        # extract) falls back to the first fort record, which is the site's own in
+        # every bundle built so far.
+        next((r for r in records if r.get("id") in fort_ids), None),
+    )
     interior = (
         build_interior(fort_record, records, county=county, kommun=kommun)
         if fort_record is not None
@@ -2592,6 +2604,7 @@ def run(site_id: str, params: TransformParams = DEFAULT_PARAMS) -> dict:
         params,
         county=getattr(cfg, "county", "") or "",
         kommun=getattr(cfg, "kommun", "") or "",
+        fort_id=(cfg.raa or {}).get("lamningsnummer", ""),
     )
     coverage = document["coverage"]
     print(

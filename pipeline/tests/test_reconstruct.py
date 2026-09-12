@@ -1311,3 +1311,25 @@ def test_a_fort_site_may_not_go_silent_about_its_interior(document: dict) -> Non
     broken.pop("interior")
     with pytest.raises(R.ReconstructError, match="does not go silent"):
         R.validate_document(broken)
+
+
+def test_the_interior_belongs_to_the_sites_own_fort(broborg_sites: dict) -> None:
+    """A 2 × 2 km bundle can hold a second registered fornborg. Attributing that
+    one's husgrunder to this site would be the quietest way to draw a building
+    nobody recorded here, so the site's own `lamningsnummer` picks the record."""
+    sites = json.loads(json.dumps(broborg_sites))
+    neighbour = json.loads(json.dumps(next(
+        s for s in sites["sites"] if s["lamningstyp"] == "Fornborg"
+    )))
+    neighbour["id"] = "L9999:1"
+    neighbour["description"] = "Fornborg. Innanför muren är 12 husgrunder."
+    sites["sites"].insert(0, neighbour)
+
+    theirs = R.build_document(sites, "broborg", generated="2026-01-01")
+    assert theirs["interior"]["buildings"]["count"] == 12      # first record wins by default
+
+    ours = R.build_document(
+        sites, "broborg", generated="2026-01-01", fort_id="L1943:7827"
+    )
+    assert ours["interior"]["evidence"]["channels"] == ["cited"]
+    assert ours["interior"]["buildings"] is None
