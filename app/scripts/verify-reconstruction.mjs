@@ -103,6 +103,24 @@ const MEASURE_FRAMES = `async (frames) => {
   return warm[Math.floor(warm.length / 2)];
 }`;
 
+/**
+ * Let the lazy far-field rings finish before navigating away.
+ *
+ * The ring chain starts the moment `__terrainReady` is set and fetches several
+ * megabytes of raster per ring. Reloading on top of it cancels those requests,
+ * and a cancelled fetch is a console error — one this check would then report as
+ * if the page had done something wrong. So the reloads wait for the chain to
+ * settle. If it never does, the reload happens anyway: the rings are optional
+ * and a stuck one is its own signal rather than a reason to stop checking.
+ */
+async function settleRings() {
+  try {
+    await page.waitForFunction(() => window.__app?.rings?.done === true, null, { timeout: 600000 });
+  } catch {
+    console.error('NOTE far-field rings had not settled; reloading over them');
+  }
+}
+
 const url = `${BASE}/?site=${encodeURIComponent(SITE)}`;
 let firstLoadSignature = null;
 let report = {};
@@ -276,6 +294,7 @@ try {
     return out.join('|');
   });
 
+  await settleRings();
   await page.reload({ waitUntil: 'domcontentloaded', timeout: TIMEOUT_MS });
   await page.waitForFunction(() => window.__terrainReady === true, null, { timeout: TIMEOUT_MS });
   await page.evaluate(() => {
@@ -388,6 +407,7 @@ try {
 
   /** Load the patched bundle and switch reconstruction mode on. */
   const loadPatched = async () => {
+    await settleRings();
     await page.reload({ waitUntil: 'domcontentloaded', timeout: TIMEOUT_MS });
     await page.waitForFunction(() => window.__terrainReady === true, null, { timeout: TIMEOUT_MS });
     return await page.evaluate(() => {
