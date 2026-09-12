@@ -1370,6 +1370,31 @@ a `settlement` interior while §6.A.1 refuses it a standing rampart. That is not
 — the register can record houses inside an enclosure whose wall it does not describe well
 enough to rebuild — but the two states have to be drawn together honestly, low bank and all.
 
+**Implemented 2026-09-12 in `reconstruct.py`, and it does not land on exactly 54.** The rule
+above is now code (`scan_interior_terms`, `settlement_records_inside`, `INTERIOR_CITED`), and
+replaying it over the survey's own 1 304 descriptions passes **53** forts rather than 54 — still
+4.1 %. Three forts differ from the measurement, all three because this section's cue list is
+slightly wider than the survey's own run, and each is named here rather than tolerated:
+
+- **`l2017-4807`** and **`l2010-1595`** are dropped. Both are counted by the survey and both are
+  placed outside their fort by the register's own words — *"50 m Ö om fornborgen finns
+  husgrunder och skyttevärn"* and *"Inom ett streckmarkerat område **S om fornborgen** … möjligen
+  husgrundsterrasser"*. The `N/S/Ö/V om` exterior cue in the table above is not in the survey's
+  cue set, which is why they survived it. Drawing houses in those two forts would contradict the
+  very sentence §7.5.3 requires the panel to show.
+- **`l2005-1450`** is added. The survey discards it on `intill`; the same sentence opens *"I
+  fornborgens SÖ del…"*, and this section says an interior cue outranks an exterior one.
+- Two cues in the table are implemented **narrower than written**, because taken literally they
+  are provably wrong on this corpus. `N/S/Ö/V om` fires only when the anchor is the fort itself
+  — unanchored it reads *"9 m SÖ om husgrunden finns en grop"* as placing the house outside
+  something, and costs five forts. "Any `19xx` date" fires only where the sentence is not
+  reporting fieldwork: all four dated strong-tier sentences in the country date an *excavation
+  or an inventory*, not a building, and a bare year rule discards Eketorp's 75 house
+  foundations.
+
+The divergences and the national rates are pinned in `pipeline/tests/test_reconstruct.py`, so
+the next edit to the rule has to move a named number rather than a screenshot.
+
 #### 7.5.3 What the visitor must be able to check, and what the app refuses
 
 **A fort in the `settlement` state must be able to show the sentence it is drawn from.** Not a

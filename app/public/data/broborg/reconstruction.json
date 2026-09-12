@@ -1,7 +1,7 @@
 {
  "schemaVersion": 1,
  "site": "broborg",
- "generated": "2026-08-26",
+ "generated": "2026-09-12",
  "derivation": {
   "method": "kmr-description-parse",
   "description": "Reconstruction parameters parsed from the KMR free-text descriptions in sites.json, with the ruin→original transforms of docs/reconstruction-mode.md §5 applied. Every number KMR records is a measurement of a ruin, so three stated transforms convert them: (§5.1) a rampart's original height is its still-standing height plus the height its own collapse apron represents, h_orig = h_standing + (W_spread − t_wall)·d_apron·p / t_wall; (§5.2) a mound or cairn whose kantkedja is recorded keeps its measured footprint and is restored to a smooth spherical cap through that kerb, while one with no kerb is rebuilt volume-conserving at its material's angle of repose, which makes the corpus-median mound narrower and taller (7.0 × 0.7 m → 5.7 × 1.6 m); (§5.3) recorded robbing pits are filled, which is a measured operation because the register gives their dimensions. Stone settings and fire-cracked mounds are never inflated — flatness is the type. Where a field cannot be parsed the archetype default is used, the field's source reads \"assumed\", its name appears in the monument's fallbacks list, and parseConfidence drops; nothing is invented silently. Positions and extent polygons are not repeated here — this file joins back to sites.json by id.",
@@ -63,7 +63,22 @@
    ],
    "material": "stone",
    "reprofile": false,
-   "form": "round"
+   "form": "round",
+   "lengthM": [
+    20.0,
+    40.0
+   ],
+   "widthM": [
+    6.0,
+    8.0
+   ],
+   "aisleFraction": 0.4,
+   "wallHeightM": 1.2,
+   "roofPitchDeg": 45.0,
+   "hipPitchDeg": 48.0,
+   "covering": "turf-over-birch-bark",
+   "ancillary": 2,
+   "grophus": 1
   },
   "field-boundary": {
    "diameterM": 1.0,
@@ -108,6 +123,10 @@
    "material": "stone",
    "reprofile": false,
    "form": "round"
+  },
+  "interior": {
+   "state": "cleared",
+   "clearedPatchDepthM": 0.1
   },
   "mound": {
    "diameterM": 7.0,
@@ -192,7 +211,9 @@
   "graveFields": 31,
   "graveFieldsWithStatedCount": 28,
   "sampledMonuments": 1215,
-  "withWarnings": 1
+  "withWarnings": 1,
+  "interiorGate": "pass",
+  "interiorBuildingsStated": false
  },
  "monuments": [
   {
@@ -9038,5 +9059,44 @@
     ]
    }
   }
- ]
+ ],
+ "interior": {
+  "state": "cleared",
+  "settlementOffered": true,
+  "tradition": "mainland",
+  "ground": {
+   "terrainWords": [
+    "grovblockig",
+    "berg i dagen"
+   ],
+   "soilClass": "sgu",
+   "clearedPatches": [],
+   "source": "derived"
+  },
+  "evidence": {
+   "rule": "interior-strong-tier-2026-08-30",
+   "gate": "pass",
+   "channels": [
+    "cited"
+   ],
+   "hedged": false,
+   "terms": [],
+   "citations": [
+    {
+     "channel": "cited",
+     "reference": "Englund 2018; Sjöblom et al. 2022",
+     "statement": "A settlement layer inside the fort, superimposed on the residue of the wall's own weathering and radiocarbon dated to AD 432–542; a glass bead of 400–575 CE from inside the fort. The occupation is dated; what the loose interior stone means is contested (Olausson 1997:110 reads it as building remains and published a settlement sketch, Bornfalk Back 2023 as cleared surfaces), which is why Broborg opens on `cleared`.",
+     "enteredBy": "pipeline"
+    }
+   ],
+   "discarded": {
+    "negated": 0,
+    "exterior": 0,
+    "nonbuildingTerrass": 0,
+    "modern": 0
+   },
+   "survey": "docs/interior-survey-2026-08-30.json"
+  },
+  "buildings": null
+ }
 }

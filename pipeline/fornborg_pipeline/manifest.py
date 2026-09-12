@@ -729,6 +729,14 @@ def _validate_reconstruction(manifest: dict, assets: dict) -> None:
       coordinates at all — it joins to `sites.json` by `id` for position and
       extent geometry — so without its partner it describes monuments the app has
       nowhere to put.
+
+    v1.8's fort interiors (§15) add **no asset and no layer entry**: the `interior`
+    block lives inside `reconstruction.json`, under the same `conjecture` badge,
+    because `interior.buildings` is archetype H and `interior.ground` reaches the
+    visitor through the popup's per-part tiers. Nothing about the pairing above
+    changes; the block's own invariants — "no citation, no state" foremost — are
+    checked in `reconstruct.validate_interior`, which `write_reconstruction` runs
+    before the file is written.
     """
     layer = next(
         (entry for entry in manifest["layers"] if entry.get("id") == RECONSTRUCTION_LAYER["id"]),
