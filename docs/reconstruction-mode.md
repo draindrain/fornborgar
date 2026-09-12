@@ -1392,6 +1392,12 @@ slightly wider than the survey's own run, and each is named here rather than tol
   or an inventory*, not a building, and a bare year rule discards Eketorp's 75 house
   foundations.
 
+The hedge count moves with them: **13** of the 42 channel-1 forts hedge in every hit they
+carry, against the 16 of 43 above. Three of the differences are sentences the survey read with
+a wider scope than a sentence — the fort's description had lost its line breaks, so a
+*förmodligen* two clauses away fell inside the window. The rule is unchanged: a fort is hedged
+only when every surviving hit hedges.
+
 The divergences and the national rates are pinned in `pipeline/tests/test_reconstruct.py`, so
 the next edit to the rule has to move a named number rather than a screenshot.
 
