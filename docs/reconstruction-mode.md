@@ -291,7 +291,9 @@ construction detail. *Moderate* = measured plan, literature profile and surface.
   falls away on all four sides, with a small dark smoke hole at the top of each hip. Not an
   open louvre: a board with a hole in it.
 - **Watch out** — ship it **off by default**. Least evidenced, most persuasive, and the one
-  thing that makes the landscape feel inhabited.
+  thing that makes the landscape feel inhabited. Inside a fort it may only be drawn where
+  §7.5.2's interior evidence gate passes, and the record's own counts and dimensions outrank
+  every default above (§6.H.1).
 
 ### I. Field boundary (`Hägnad`, `Hägnadssystem`) — **Moderate**
 
@@ -880,6 +882,32 @@ strongest caveat in the app, because it is the layer most likely to be mistaken 
 evidence — and it is the one thing that makes the landscape feel inhabited, so the
 temptation to leave it on will be real.
 
+#### H.1 Archetype H is in scope — under one gate and one sourcing rule
+
+**Amended 2026-09-12 (§11 decision 2).** H was deliberately left out of the first geometry
+pass: `reconstruct.py` mapped `Boplats` and kin onto the `farmstead` archetype so the contract
+was complete, and the app kept their flat markers. It is now **in scope**, for one job — the
+`settlement` interior state of §7.5 — and the constraint that makes it defensible is that H is
+never drawn on its own authority:
+
+1. **Gate.** Inside a fort, H may be drawn only where §7.5.2's interior evidence gate passes
+   (54 of 1 304 forts on the register, plus any fort given a cited channel-3 entry). A fort that
+   fails the gate is not offered the `settlement` state at all — §7.5.3 gives the reasoning and
+   the cost.
+2. **Sourcing.** Where the record states a house **count**, **dimensions**, **orientation** or
+   **layout**, those override the literature defaults in the table above; the defaults fill only
+   what the record is silent about, and every one of them lands in `fallbacks` and costs
+   `parseConfidence`. The table above is a floor, not a look.
+3. **Default.** Unchanged from §9: **off by default**, with the strongest caveat in the app.
+   Passing the gate makes the state offerable, not on.
+4. **Outside a fort**, a free-standing `Boplats` record is *not* covered by this amendment. The
+   §7.5 gate is a statement about fort interiors, and nothing in the interior survey measures
+   the landscape layer. Free-standing farmsteads keep their flat markers until somebody makes
+   the equivalent measurement for them.
+
+The per-monument data this needs is specified in `docs/data-formats.md` §15 (the `farm` block);
+the per-site interior evidence and state live in the same amendment's `interior` block.
+
 ### I. Field boundary (`Hägnad`, `Hägnadssystem`)
 
 **Literature.** `Stensträngar` are the collapsed remains of single walls originally
@@ -1154,6 +1182,228 @@ Neither is "the empty option": the dated cultural layer holds under both. Defaul
 "cleared surfaces" as the more conservative geometry. The possible stone setting on the
 crown renders as archetype C in both states.
 
+**Answered 2026-09-12 (§11 decision 7) — and the answer generalised on the way.** The
+question as posed asked only which state Broborg opens in.
+`docs/interior-survey-2026-08-30.md` measured it nationally before it was answered, and that
+turns a Broborg preference into a rule: **default every fort to `cleared`, and offer
+`settlement` per fort, only where that fort's own record supports it — never as a national
+default.** The grounds, one line each:
+
+- **4.1 %** of the 1 304 registered forts (54) carry defensible interior-building evidence;
+  **2.1 %** (27) state it without hedging; **88.4 %** (1 153) show neither building language
+  nor a settlement record inside their own extent.
+- The register is not *silent* about fort interiors, it disagrees: **32.2 %** of forts
+  describe the inside in terrain vocabulary — *berg i dagen*, *småkuperad*, *blockrik*,
+  *avplanad yta*, *våtmark* — against 4.1 % that describe a building in it. `cleared` is not
+  the absence of a statement. For about a third of the corpus it *is* the statement.
+- The measurement is **consistent with** the Mälardalen survey rather than contradicting it:
+  17–21 % of a ~17 % Middle Iron Age subset predicts ~3 % nationally, and 4.1 % was measured.
+  Nothing here overturns that survey; it shows what it implies at national scale.
+- Öland (23.8 %) and Gotland (9.4 %) are enriched ~3.6× over the mainland (3.4 %). That is a
+  real typological signal and it gets a branch — but only 13 of the 54 positives sit there, so
+  it is a branch for 106 forts, not a new default for the other 1 198.
+- Drawing longhouses in every fort would be **archetype H applied 1 304 times**: §6.H is the
+  one card in the catalogue whose own heading reads *"everything visible is inference"*, and
+  multiplying the weakest evidence in the taxonomy by a thousand is exactly the §6.A.1 error —
+  rendering every registered `Fornborg` as a standing Migration Period wall — committed one
+  level further in.
+
+#### 7.5.1 The two interior states, fixed
+
+**`cleared` — the default, for every fort, always available.**
+
+- The measured DEM surface, unmodified. No flattening, no platform terracing, no invented
+  building pads.
+- Surface treatment from the SGU soil class and the description's own terrain vocabulary:
+  exposed rock and coarse block where the record says `berg i dagen` / `blockig`, turf and thin
+  soil where it says `avplanad` / `plan yta`, wet ground where it says `sankmark`.
+- Stone-picked patches **only where KMR places them**, at the size and in the compass sector
+  the description states — `l1955-741`'s *"…avgränsar två röjda ytor 8x6 (VNV-ÖSÖ) och 6x4 m
+  (Ö-V) i den S delen av borgområdet"* is two patches, two sizes and one sector, and nothing
+  more may be read out of it.
+- **Nothing else.** No buildings, no hearths, no paths, no fences, no yard.
+
+Under PLAN §6.1 `cleared` is a **Model** surface over **Measured** ground, and it needs
+archetype H not at all. That is the point of it: the conservative state is not a blank, it is
+the register's own account of the interior, drawn.
+
+**`settlement` — per fort, offered only where §7.5.2's gate passes, and off by default.**
+
+- Everything `cleared` draws, plus archetype-H geometry (§6.H) *inside* the enclosure.
+- Building **count**, **dimensions** and, where stated, **layout** come from the source the
+  fort passed the gate on — the KMR sentence, or for a channel-3 fort the cited publication —
+  and override the archetype defaults wherever that source states them. Ismantorp's *"Innanför
+  muren är 88 husgrunder, fördelade på två grupper, en yttre med husen radiellt utgående från
+  murens insida…"* is a count, a grouping and a layout in one sentence; Träbyborg states *"ca
+  50 husgrunder"*; a `husgrundsterrass` is routinely given as *"rektangulär, 11x7 m (Ö-V)"*,
+  which is a plan and an orientation.
+- Everything the sentence does not state falls back to §6.H's literature defaults, and every
+  fallback is named in `fallbacks` and costs `parseConfidence`, exactly as §10 and
+  `docs/data-formats.md` §14 already require of every other archetype. A house whose length
+  came from the register and a house whose length came from the 20–40 m default must not read
+  as equally certain in the popup.
+- The state carries §6.H's caveat, which is the strongest in the app, and archetype H stays
+  **off by default** (§9). Passing the gate makes the state *offerable*, not *on*.
+
+Broborg itself keeps the selector this section already specified and opens on `cleared`, for
+the reason given above: the occupation is dated, the *stone* is contested, and Bornfalk Back's
+reading of that stone is the cleared one. The dated cultural layer holds under both states, and
+the popup says so in both.
+
+**The one thing `cleared` must never be allowed to say is "nobody was here."** It is a
+statement about *visible, recorded structure*, which is a strict subset of occupation — and the
+gap between the two is not hypothetical, it is Broborg: a settlement layer dated AD 432–542 by
+excavation, invisible from the surface, on a fort whose register description says nothing about
+it. Absence of a `husgrund` in a description is absence of a surveyor's note, not absence of a
+house. The `cleared` state's own one-line note must carry that sentence, because a visitor
+looking at an empty, competently rendered fort interior will otherwise read it as a finding.
+
+#### 7.5.2 The interior evidence gate — which forts may offer `settlement`
+
+This is what the implementing phase builds. It is the **strong tier** of
+`docs/interior-survey-2026-08-30.md` §6 and nothing looser; that document's §6.1–§6.3 carry the
+worked examples behind every rule below.
+
+**Channel 1 — strong-tier description terms.** A hit on any of these stems, case- and
+diacritic-folded, prefix-matched:
+
+`husgrund*` · `husterrass*` · `hustomtning*` · `grophus*` · `boplatsvall*` · `boplatsborg*`
+
+Three of the six returned no counted hit anywhere in the country (68 `husgrund`, 1
+`husterrass`, 1 `boplatsborg`, zero for the rest). They stay in the list because they cost
+nothing and the register is not finished being written.
+
+A hit is **discarded** when, *within the same sentence*:
+
+| Rule | Cues | Why |
+|---|---|---|
+| **Negation** | `inga`, `ingen`, `inte`, `ej`, `icke`, `saknas`, `saknar`, `avsaknad`, `utan`, `påträffades ej` | KMR writes the negation on either side of the noun — *"inga synliga anläggningar"* and *"husgrunder saknas"* — so the scope is the sentence, not a character window. 26 hits across 20 forts. |
+| **Exterior placement** | `utanför`, `nedanför`, `intill`, `invid`, `N/S/Ö/V om`, `i anslutning till`, `vid foten` | The feature is outside the enclosure and belongs to the landscape, not the interior. 56 hits across 46 forts. |
+| **Non-building terrace** | `odlingsterrass`, `naturlig terrass` | A cultivation terrace or a natural rock shelf is not a house. |
+| **Modern building** | `sentida`, `torp`, `villa`, `sommarstuga`, `uthus`, `tegelhus`, any `19xx` date | **The discard that matters most: KMR describes a croft foundation and an Iron Age one in identical vocabulary.** 3 forts. |
+
+An explicit **interior cue** in the same sentence — `innanför`, `inne i`, `i borgens`,
+`borgplatån`, `borggård`, `i det inre` — **outranks the exterior cue**, so *"terrassering i
+borgens inre, söder om vallen"* survives.
+
+A surviving hit is flagged **hedged** when its sentence hedges: `möjlig`, `trolig`, `sannolik`,
+`eventuell`, `-liknande`. Hedged hits **count** — a surveyor's *möjlig husgrund* is still the
+register saying it saw something building-shaped inside the wall — but the flag travels with
+the fort, into the data and into the panel, and a hedged fort must not draw a confident
+longhouse. 16 of the 43 clean strong-tier forts are hedged in every hit they carry.
+
+**Channel 2 — a settlement record inside the fort's own extent.** A KMR record of `Boplats`,
+`Boplatsområde`, `Boplatslämning övrig`, `Husgrund, förhistorisk/medeltida`, `Boplatsvall` or
+`Terrassering` whose representative point falls inside the fort's own extent polygon — or
+inside its bounding box where the fort has only line or point geometry (43 forts). The bbox
+fallback is flagged per fort and shown to the visitor, because a bounding box over a promontory
+fort reaches well outside the wall.
+
+The two channels are **independent** — one reads the fort's free text, the other queries
+neighbouring records geometrically — and the gate is their **union**, never their intersection.
+43 forts pass channel 1, 18 pass channel 2, 7 pass both, **54 pass the gate**. Channel 2 is a
+union member rather than a check because it under-detects exactly where the evidence is best:
+**Ismantorp's 88 house foundations return zero settlement records**, since KMR files them inside
+the fort's own record rather than as separate lämningar.
+
+**Channel 3 — a cited excavation, entered by hand.** See §7.5.3. Broborg is why it exists.
+
+**Explicitly not in the gate**, and the implementing phase must not wire them in:
+
+- `stensträng*` — 78 counted hits, and in a fornborg description it almost always describes
+  **the rampart itself** (*"Ställvis har vallen endast stensträngskaraktär"*) or a field
+  boundary hundreds of metres away.
+- `bebygg*` — 10 hits, and it is not merely noisy but **inverted**: *"nu är så gott som helt
+  bebyggd med villatomter"* means the interior is a lawn.
+- bare `terrass*` — 103 hits, covering house terraces, terraced *rampart sections*, footpaths,
+  natural rock shelves and 20th-century garden terraces indiscriminately. Only the compounds
+  `husterrass` / `husgrundsterrass` are reliable, and they are already strong tier.
+- `anläggning*` — too generic to carry a claim on its own.
+
+The decisive check on all four is Uppsala county: 5 broad-rule hits, **zero** strong-tier hits,
+and all 5 are `stensträng` or a terraced wall section on inspection. The one province with an
+independently published figure is the province where the loose rule is provably wrong in every
+instance.
+
+**The Öland / Gotland branch.** The limestone ringforts are a different building tradition
+(§2) — Ismantorp's 88 radial foundations, Eketorp II's 53 internal cells — and the survey finds
+them enriched 3.6× (12.3 % across 106 forts against 3.4 % mainland). The branch is a **layout
+and parameter** branch, not a lower gate: a fort on Öland or Gotland that passes the gate lays
+its houses out radially against the inner wall face, and takes its house count and sizes from
+the sentence, which on those two islands usually states both. The gate itself is identical
+everywhere, and no fort is offered `settlement` for being on limestone.
+
+**One filter this gate does not yet have: fort confidence.** Every rate above is over *all*
+registered fornborgar, including the four in five that §6.A.1 judges are probably not Migration
+Period forts at all. Re-running the survey over the `fortConfidence ≥ threshold` subset is a
+join, not a re-download (the companion JSON carries every fort's slug), and if interior evidence
+concentrates in high-confidence forts the way the Mälardalen figure implies, this gate could
+reasonably become confidence-dependent. Until somebody runs it, it is not, and the gate above is
+uniform.
+
+#### 7.5.3 What the visitor must be able to check, and what the app refuses
+
+**A fort in the `settlement` state must be able to show the sentence it is drawn from.** Not a
+citation of the register in general: the specific `beskrivning` sentence, verbatim, with the
+matched term marked, the hedge flag where it hedges, and the fort's `lamningsnummer`. For a
+channel-2 fort it is the neighbouring record's id, type and the geometry test that placed it
+inside (polygon or bbox) instead. This is the standard §9 already sets for the §5 transforms —
+publish the arithmetic, not the conclusion — and it is cheap here, because the sentence is
+already in the text the parser read.
+
+**A fort with no evidence is not offered the state at all.** Not offered-and-labelled: not
+offered. Three reasons, in order of weight:
+
+1. **A label does not travel with an image.** §9's Lojsta case is this exact failure — a
+   reconstruction built from thin evidence, corrected in print within about twenty years, and
+   still illustrating papers fifty years later. The caveat stayed with the publication; the
+   picture went everywhere. Offering a "pure interpretation" longhouse in 1 250 forts would put
+   the most persuasive geometry in the catalogue behind the weakest warning the app can write,
+   once per fort.
+2. **For a third of those forts it would contradict the register, not merely exceed it.** The
+   32.2 % that describe their interior as rock, block and bare rise are not silent. A
+   pure-interpretation state would draw houses on ground a surveyor wrote down as *berg i
+   dagen*. "Nothing is invented silently" is not satisfied by inventing loudly and admitting it
+   in small print.
+3. **Nobody would learn anything from it.** Archetype H with no site parameters draws the same
+   30 m default longhouse everywhere. 1 250 identical buildings is not a reconstruction of
+   anything.
+
+The cost of refusing is real, and it goes in the doc in the same breath, because it is the
+survey's sharpest finding: **a register-derived gate undercounts.** Not one of Uppsala county's
+79 forts carries a strong-tier term, yet the Mälardalen survey names 5–6 Uppland forts with
+house terraces — field observation that never reached the KMR text. **Broborg itself fails this
+gate**: it is `classification: "neither"`, `refinedInteriorEvidence: false` in the survey JSON,
+while having the best-dated interior occupation in the corpus (AD 432–542, by excavation). A
+gate that excludes the app's own reference fort is a gate with a known hole in it, and the doc
+should say so rather than let the rate stand as if it were a count of occupied forts.
+
+The honest repair is **channel 3, not a looser keyword rule**: a per-site interior evidence
+entry written by hand in the pipeline, carrying a literature citation where the others carry a
+KMR sentence, and shown to the visitor as that citation with its author and year. It is how
+Broborg gets its selector, and it is open to any fort for which somebody does the reading.
+Loosening the keyword rule would admit a hundred rampart descriptions to gain a handful of real
+houses; adding a cited channel admits exactly what has been read, and says who read it. The
+register measures what a surveyor wrote down, not what was there — and that sentence belongs in
+the `cleared` state's own note, not only in the methods panel, because it is the one thing a
+visitor standing in an empty fort interior is most likely to get wrong.
+
+**What the app refuses to draw inside a fort**, as a list, so a reader can check it without
+inferring it:
+
+- Buildings in a fort that fails the gate — at any opacity, under any label.
+- Buildings where the source does not place them: if the sentence puts houses in the S part of
+  the interior, the sampler places them there and nowhere else. For a channel-3 fort the cited
+  source is what licenses the placement — Broborg's comes from Olausson's published sketch, not
+  from the sampler's own judgement, and the sketch is named in the popup.
+- More buildings than a stated count. Fewer is allowed — the extent may not hold 88 — and the
+  shortfall is a warning on the record, not a silent truncation.
+- Hearths, wells, yards, fences, paths and field systems inside the wall. §6.H's yard layout is
+  a *farmstead* recipe for open ground; inside an enclosure it is furniture nobody recorded.
+  Only buildings the record attests, on ground the DEM measured.
+- Any regrading of the measured interior to seat a building. The terrain is measured; if a
+  longhouse will not sit on it, that is a finding, not a licence to flatten.
+
 ### 7.6 Scene budget
 
 The inner and outer ramparts total ~440 m of wall. At ~3 blocks per metre of face and
@@ -1237,7 +1487,9 @@ default ON) but with one exception:
 
 - Archetypes A–G, I–K: **on** in reconstruction mode.
 - Archetype H (farmstead): **off by default.** It is the least evidenced and the most
-  persuasive, which is the worst combination in the app.
+  persuasive, which is the worst combination in the app. Inside a fort it is additionally
+  *gated*, not merely defaulted off: §7.5.2 decides which forts may offer it at all, and
+  §7.5.3 says why a fort without evidence is not offered the state even behind a label.
 
 ---
 
@@ -1295,8 +1547,10 @@ or be skipped rather than guessed.
 
 ## 11. Open questions for the owner
 
-**Four answered 2026-08-26**, before the first geometry pass was written; they are marked
-**Answered** below with what was built. The rest still stand.
+**Four answered 2026-08-26**, before the first geometry pass was written, and **two more
+(2 and 7) answered 2026-09-12** on the evidence of `docs/interior-survey-2026-08-30.md`,
+before any interior geometry was written. All six are marked **Answered** below with what was
+decided and what the build — or, for 2 and 7, the specification — added. The rest still stand.
 
 1. ~~**Does reconstruction mode replace or overlay the markers?**~~ **Answered: replace, with
    a hard toggle** — the switch sits next to the fort's name in the HUD header. A monument
@@ -1304,11 +1558,18 @@ or be skipped rather than guessed.
    qualification the build added: §8's *ruin* state falls back to the flat marker, which is
    the measured geometry, so in reconstruction mode the markers that remain are exactly the
    ruins and the archetypes not yet drawn — 23 of Broborg's 127 at 500 CE.
-2. **Is the farmstead archetype (H) in scope at all for v1?** It is the biggest jump from
-   evidence to model, and it is also what makes the landscape feel inhabited. Recommendation:
-   build it, ship it off by default, decide after seeing it. *Deliberately left out of the
-   first pass; `reconstruct.py` still parses `Boplats` and kin into the `farmstead` archetype
-   so the contract is complete, and the app keeps their flat markers.*
+2. ~~**Is the farmstead archetype (H) in scope at all for v1?**~~ **Answered 2026-09-12: yes,
+   inside a fort, gated — and still off by default.** It was deliberately left out of the first
+   pass; `reconstruct.py` parsed `Boplats` and kin into the `farmstead` archetype so the
+   contract was complete, and the app kept their flat markers. Closing decision 7 needs H,
+   because the `settlement` interior state *is* archetype H, so it comes into scope with the
+   constraint written into §6.H.1: it may be drawn inside a fort **only** where §7.5.2's
+   interior evidence gate passes, the record's own house counts and dimensions **outrank** the
+   literature defaults wherever it states them, and every default that fills a gap is listed in
+   `fallbacks` and costs `parseConfidence`. Two qualifications the decision adds: it stays off
+   by default under §9 — passing the gate makes the state *offerable*, not on — and a
+   **free-standing** `Boplats` outside a fort is **not** in scope, because the interior survey
+   measured fort interiors and nothing else. Those keep their flat markers.
 3. ~~**Do we render the vitrified band at Broborg as an in-use feature?**~~ **Answered: yes,
    as a state.** It is drawn along the top of the inner face, 1.0–1.5 m wide, with the
    Sjöblom-vs-Bornfalk-Back debate stated in the methods panel and a toggle that takes it
@@ -1333,10 +1594,27 @@ or be skipped rather than guessed.
    and the popup says which criteria failed. Broborg scores 1.00 on all four. What is still
    owed before national scope is a look at the score *distribution* across the 1 304 registry
    forts, which needs a batch run.
-7. **Which Broborg interior state is the default (§7.5)?** Recommendation: "cleared
-   surfaces", as the more conservative geometry, with "settlement" one click away and
-   Olausson's sketch cited on it. *Still open, and not in the first pass: the interior is
-   currently untouched, so what a visitor sees inside the wall is the measured terrain.*
+7. ~~**Which Broborg interior state is the default (§7.5)?**~~ **Answered 2026-09-12:
+   `cleared`, and not only at Broborg — `cleared` is the default for all 1 304 forts, with
+   `settlement` a per-fort state and never a national one.** The question was asked about one
+   fort; `docs/interior-survey-2026-08-30.md` measured it across the register first, and the
+   measurement decided it: **4.1 %** of forts (54) carry defensible interior-building evidence,
+   **2.1 %** state it without hedging, **88.4 %** show none — and **32.2 %** describe their
+   interior in terrain vocabulary instead, so for a third of the corpus `cleared` is not a
+   blank but the register's own account, drawn. A `settlement` default would be archetype H
+   applied 1 304 times: the weakest evidence in the taxonomy, multiplied, and wrong for ~96 %
+   of forts on the register's own text. Three qualifications the build must carry: **(a)** the
+   gate is the survey's *strong* tier only (§7.5.2) — `stensträng*`, `bebygg*` and bare
+   `terrass*` are excluded, because in a fornborg description the first two mean "the rampart"
+   and "modern houses destroyed this"; **(b)** a fort in `settlement` must be able to show the
+   visitor the KMR sentence it is drawn from, and a fort with no evidence is **not offered the
+   state at all** rather than offered it labelled (§7.5.3 argues it, including the argument
+   against); **(c)** the gate is known to undercount — no Uppsala fort carries a strong-tier
+   term although the Mälardalen survey names 5–6 with house terraces, and **Broborg itself
+   fails the gate** despite an excavated, dated interior settlement layer. The repair is
+   §7.5.2's cited channel 3, a per-site entry carrying a literature citation, not a looser
+   keyword rule. Öland and Gotland get a layout branch (§7.5.2), not a lower gate. Contract:
+   `docs/data-formats.md` §15.
 8. ~~**Do we need a section measured through a rampart?**~~ **Answered — and better than
    hoped.** Two excavated cross-sections through Broborg's inner wall are published as
    drawings (Sjöblom et al. 2022, Figs. 5a/5b; the same sections as Englund 2018, Figs. 9–10),

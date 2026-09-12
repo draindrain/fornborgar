@@ -1,9 +1,13 @@
 # Interior-building evidence in the national fornborg register
 
 > **Research output, not a specification.** This file measures the KMR register in order to
-> inform an **open** decision — `docs/reconstruction-mode.md` **§11 decision 7**, *which interior
-> state is the default (§7.5)*. Nothing in the pipeline or the app reads it, no schema depends on
-> it, and it does not amend §7.5 or §11. Companion data: `docs/interior-survey-2026-08-30.json`
+> inform what was, when it was written, an open decision — `docs/reconstruction-mode.md`
+> **§11 decision 7**, *which interior state is the default (§7.5)*. Nothing in the pipeline or
+> the app reads it, no schema depends on it, and it does not itself amend §7.5 or §11.
+> **Decided 2026-09-12** on this evidence: §7 below was adopted, with the specification written
+> into `reconstruction-mode.md` §7.5.1–§7.5.3 and §6.H.1, the decisions closed at §11.2 and
+> §11.7, and the contract in `docs/data-formats.md` §15. Read those for what the app will do;
+> read this for why. Companion data: `docs/interior-survey-2026-08-30.json`
 > (one row per fort, full description text included, so this can be re-analysed without
 > re-downloading 2.3 GB).
 

@@ -5,7 +5,8 @@ v1.2 (2026-08-21, additive — §9–§10), v1.3 (2026-08-21, additive — dynam
 hydrology in §9–§10), v1.4 (2026-08-21, additive — far-field rings, §11),
 v1.5 (2026-08-22, additive — the §1a web grid layout and the §12 connectivity
 delta, the two Phase-9a encoding wins), v1.6 (2026-08-22, additive — far-field
-land cover, §13).** This
+land cover, §13), v1.7 (2026-08-26, additive — reconstruction mode, §14),
+v1.8 (2026-09-12, additive — fort interiors, §15).** This
 file and the `manifest.json` schema below are the single source of truth for what the
 Python pipeline writes under `app/public/data/<siteId>/` and what the TypeScript app
 reads. Derived from PLAN.md §1, §4.1–§4.6 (incl. the [phase-0 verified] corrections).
@@ -1124,3 +1125,212 @@ reconstruction mode — the toggle is absent, exactly as the palisade is absent 
 a site with no `assets.rampart`. A v1.7 bundle in a pre-v1.7 app ignores the key
 (§2 rules) and renders marker mode as before. A monument whose archetype the app
 cannot draw yet keeps its §3 marker instead of disappearing.
+
+---
+
+# v1.8 amendment (2026-09-12) — fort interiors (§15, additions to §14)
+
+Additive per the versioning policy above; `schemaVersion` stays **1**. **No new asset and
+no new layer entry**: two optional blocks are added *inside* `reconstruction.json` (§14) —
+a per-site `interior` block and a per-monument `farm` block for `archetype: "farmstead"` —
+plus two `defaults` and two `coverage` keys. A bundle written before this amendment has
+neither, which means exactly what a missing `assets.*` entry means everywhere else in this
+file: **feature off**. An app that predates the amendment ignores both blocks and renders
+the reconstruction it already knows how to render.
+
+Decision and evidence: `docs/reconstruction-mode.md` §7.5 (the two interior states, the
+evidence gate, the honesty requirement), §6.H.1 (archetype H in scope, gated), §11
+decisions 2 and 7, and the national measurement they rest on,
+`docs/interior-survey-2026-08-30.md`.
+
+**Why.** §14 answers *"what stood on this ground?"* monument by monument. It says nothing
+about the ground **inside** a fort, which is most of what a visitor looks at: today the
+interior is bare measured terrain. §7.5 fixes two states for it — `cleared` (the measured
+surface, the SGU soil class, stone-picked patches only where KMR places them) and
+`settlement` (the same plus archetype-H buildings) — with `cleared` the default for all
+1 304 forts and `settlement` offered per fort on the register's own evidence, for 54 of
+them. Both the state and the evidence it rests on have to reach the app as data, because
+**the browser does no parsing and no guessing** (§14): the gate is decided in
+`pipeline/fornborg_pipeline/reconstruct.py` and the app reads a boolean and a citation.
+
+## 15. `reconstruction.json` — the `interior` and `farm` blocks
+
+### 15.1 `interior` — one optional per-site block, sibling of `monuments`
+
+```jsonc
+"interior": {
+  "state": "cleared",              // the state the app opens in. Always "cleared" in v1.8.
+  "settlementOffered": true,       // false ⇒ the app MUST NOT offer the settlement state,
+                                   //         at any opacity, under any label (§7.5.3)
+  "tradition": "limestone-ringfort",  // "mainland" | "limestone-ringfort" — a LAYOUT branch
+                                      // (§7.5.2), never a different gate
+
+  "ground": {                      // what `cleared` draws. Present whenever the block is.
+    "terrainWords": ["berg i dagen", "blockig"],   // matched verbatim from the description
+    "soilClass": "sgu",            // the §9 land-cover/soil source the surface reads from
+    "clearedPatches": [            // ONLY where KMR places them; [] is the normal case
+      { "lengthM": 8.0, "widthM": 6.0,
+        "orientationDeg": 112.5,   // 0–180, 0 = N–S; null = not stated
+        "sector": "S",             // compass sector of the interior, KMR's own word.
+                                   // NOT a coordinate — see the rules below.
+        "source": "measured",
+        "sentence": "…avgränsar två röjda ytor 8x6 (VNV-ÖSÖ) och 6x4 m (Ö-V) i den S delen av borgområdet." }
+    ],
+    "source": "derived"
+  },
+
+  "evidence": {                    // §7.5.2. Present even when the gate fails.
+    "rule": "interior-strong-tier-2026-08-30",   // the named rule version, for the panel
+    "gate": "pass",                // "pass" | "fail"
+    "channels": ["description"],   // "description" | "settlement-record" | "cited"
+    "hedged": false,               // true ⇒ every surviving hit hedges (möjlig/trolig/-liknande)
+    "terms": ["husgrund"],         // strong-tier stems that survived, for the popup
+    "citations": [
+      { "channel": "description", "lamningsnummer": "L1957:426",
+        "term": "husgrund", "matched": "husgrunder", "hedged": false,
+        "sentence": "Innanför muren är 88 husgrunder, fördelade på två grupper, en yttre med husen radiellt utgående från murens insida…" },
+      { "channel": "settlement-record", "id": "L1935:9444",
+        "lamningstyp": "Husgrund, förhistorisk/medeltida",
+        "test": "polygon" },       // "polygon" | "bbox" — bbox is weaker and must be shown
+      { "channel": "cited", "reference": "Englund 2018; Sjöblom et al. 2022",
+        "statement": "Settlement layer inside the fort, 14C AD 432–542.",
+        "enteredBy": "pipeline" }  // hand-entered, literature-backed (§7.5.3 channel 3)
+    ],
+    "discarded": { "negated": 0, "exterior": 2, "nonbuildingTerrass": 0, "modern": 0 },
+    "survey": "docs/interior-survey-2026-08-30.json"   // provenance of the measurement
+  },
+
+  "buildings": {                   // sampler spec for the `settlement` state; null = the
+                                   // record attests buildings but states nothing about them
+    "count": 88,                   // how many to place inside the §3 extent polygon
+    "countSource": "measured",     // measured|derived|assumed
+    "countStated": true,           // false = inferred from the itemisation, as §14's field.count
+    "layout": "radial",            // "radial" (against the inner wall face) | "grouped" | "free"
+    "groups": 2,                   // null = not stated
+    "sector": null,                // restrict placement to this compass sector; null = whole interior
+    "template": { /* one building spec — see §15.2 */ },
+    "source": "measured"
+  }
+}
+```
+
+### 15.2 `farm` — one optional per-monument block, `archetype: "farmstead"` only
+
+§14 says "two archetypes carry one extra block each". It is now three: `grave-field`
+carries `field`, `fort` carries `fort`, and **`farmstead` carries `farm`**. Every number in
+it traces to `docs/reconstruction-mode.md` §6.H, which is the weakest-evidenced card in the
+catalogue — which is why each one is a labelled default that the record overrides wherever
+the record speaks.
+
+```jsonc
+"farm": {
+  "buildings": [
+    { "kind": "longhouse",         // "longhouse" | "ancillary" | "grophus"
+      "count": 1,
+      "lengthM": [20.0, 40.0],     // ranges per §14's range rule; a stated value ⇒ [v, v]
+      "widthM": [6.0, 8.0],
+      "orientationDeg": null,      // long axis 0–180, 0 = N–S; null ⇒ the sampler chooses
+      "aisleFraction": 0.4,        // *underbalanserad*: ~40 % of breadth (Göthberg 2000)
+      "aisleWidthM": [1.3, 2.8],
+      "wallHeightM": 1.2,          // ≥ 1.0 and load-bearing — NOT a footing (Näsman 1976)
+      "roofForm": "hipped",        // "hipped" — no gabled Iron Age longhouse in v1.8
+      "roofPitchDeg": 45.0,
+      "hipPitchDeg": 48.0,         // MUST be ≥ roofPitchDeg (§6.H; the Eketorp-II error)
+      "smokeVent": "board-with-hole",       // small, at the top of each hip; not a louvre
+      "covering": "turf-over-birch-bark",   // Gene analogue, ~350–600 CE
+      "walls": "wattle-and-daub-on-stone-footing",
+      "trestleSpacingM": [2.0, 3.0],
+      "source": "assumed",
+      "tiers": { "plan": "assumed", "profile": "derived", "surface": "assumed" } }
+  ],
+  "layout": "yard",                // "yard" | "radial" | "grouped" | "row"
+  "features": { "hearth": true, "well": true, "enclosure": false },
+  "insideFortId": null,            // the fort whose extent contains this record, or null.
+                                   // Non-null ⇒ this record is a channel-2 citation for
+                                   // that fort's `interior.evidence` (§7.5.2).
+  "source": "assumed"
+}
+```
+
+`defaults` gains the matching literature defaults so the app can expose them as tunables,
+exactly as `defaults.mound` already is:
+
+```jsonc
+"defaults": {
+  "farmstead": { "lengthM": [20.0, 40.0], "widthM": [6.0, 8.0], "aisleFraction": 0.4,
+                 "wallHeightM": 1.2, "roofPitchDeg": 45.0, "hipPitchDeg": 48.0,
+                 "covering": "turf-over-birch-bark", "ancillary": 2, "grophus": 1 },
+  "interior": { "state": "cleared", "clearedPatchDepthM": 0.1 }
+}
+```
+
+and `coverage` gains two keys, in the spirit of the rest of that block — *what the parse
+actually found*:
+
+```jsonc
+"coverage": {
+  "interiorGate": "pass",          // "pass" | "fail" | null (not a fort site)
+  "interiorBuildingsStated": true  // a house COUNT was read from the record, not defaulted
+}
+```
+
+### 15.3 Rules
+
+- **Still no coordinates** (§14's first rule, and the one easiest to break here). A cleared
+  patch and a building are given a **size, an orientation and a compass sector**, never a
+  position: `sector` is KMR's own word (`S`, `SÖ`, `NV`, …) for a part of the interior, and
+  the app resolves it against the fort's §3 extent polygon at runtime, the same way the
+  grave-field sampler resolves `field.count` against that polygon. A second file carrying a
+  second copy of a position is a second thing that can drift.
+- **Still no ground heights.** `wallHeightM` and `clearedPatchDepthM` are heights and depths
+  *relative to the ground at that point*; the ground is sampled at runtime, and the interior
+  geometry lives in the scene outside `terrain.group` and re-seats itself on
+  `refreshHeights()` like every other reconstructed monument. Check it at ×1 and ×2.5.
+- **The gate is decided in the pipeline, never in the app.** `settlementOffered` is a
+  boolean the app obeys. It must not re-derive it, soften it, or offer the state because a
+  description "looks like" it mentions a house: the browser does no parsing and no guessing
+  (§14). An app that finds `"settlementOffered": false` and an inhabited-looking description
+  draws the `cleared` state and nothing else.
+- **No citation, no state.** `settlementOffered: true` **requires** a non-empty
+  `evidence.citations`, and `validate_document` rejects the pair broken. A fort in the
+  `settlement` state must be able to show the visitor the KMR sentence (or the neighbouring
+  record, or the literature reference) it is drawn from — that is §7.5.3's honesty
+  requirement expressed as a schema constraint rather than as a hope about the UI.
+- **A fort that fails the gate keeps its `evidence` block.** `gate: "fail"` with empty
+  citations and the `discarded` counters filled is a *statement*, and a useful one: it lets
+  the panel say "the register records no buildings inside this fort, and two mentions of
+  houses that it places outside it" instead of saying nothing.
+- **Hedging travels.** `evidence.hedged` is true when every surviving hit hedges
+  (`möjlig`, `trolig`, `sannolik`, `eventuell`, `-liknande`); the app must mark the state
+  accordingly. 16 of 43 strong-tier forts are in this position.
+- **The record outranks the defaults.** Where the description states a house count,
+  dimensions, orientation or grouping, they are written with `source: "measured"` and the
+  matching `defaults.farmstead` value is *not* used; where it is silent, the default is used,
+  the path is listed in the monument's `fallbacks`, and `parseConfidence` drops. This is
+  §14's "nothing is invented silently" applied to the archetype that needs it most.
+- **Inside a fort, `farm.features` is all false.** Hearths, wells, yards, fences and field
+  systems are a farmstead recipe for open ground; inside an enclosure nobody recorded them
+  (§7.5.3). The block still carries the keys, so the refusal is visible rather than implied.
+- **`count` is an upper bound.** The sampler may place fewer buildings than a stated count if
+  the extent will not hold them; the shortfall is a monument `warnings` entry, never a silent
+  truncation.
+- **Validation** (`reconstruct.validate_document`, with the app's `schema.ts` as a second
+  line): `interior.state` ∈ {`cleared`, `settlement`} and is `cleared` in v1.8;
+  `tradition` ∈ {`mainland`, `limestone-ringfort`}; `evidence.gate` ∈ {`pass`, `fail`} and
+  `pass` ⇔ `settlementOffered`; every citation carries a `channel` and the field its channel
+  requires (`sentence`, `id`, or `reference`); `hipPitchDeg ≥ roofPitchDeg`;
+  `wallHeightM ≥ 1.0`; `aisleFraction` ∈ [0.3, 0.6]; every range `[min, max]` with
+  `min ≤ max`; `farm` present only on `archetype: "farmstead"`, `interior` only on a site
+  whose `monuments` contain a `fort`.
+- **Provenance.** Nothing here changes the `reconstruction` layer's `conjecture` provenance
+  (§14, PLAN §6.1): it is already the floor of the range. `interior.ground` is Model over
+  Measured (a soil-class surface on the measured DEM) and reaches the visitor through the
+  popup's per-part tiers; `interior.buildings` and `farm` are archetype H — **Conjecture**,
+  off by default (`docs/reconstruction-mode.md` §9), with the strongest caveat in the app.
+
+**Compatibility.** A pre-v1.8 `reconstruction.json` has no `interior` and no `farm`: the
+app opens every fort on `cleared`, offers no `settlement` state anywhere, and keeps the flat
+marker for every `farmstead` record, which is precisely the pre-amendment behaviour. A v1.8
+file in a pre-v1.8 app ignores both blocks (§2's rules) and renders as before. A
+`settlement` state the app cannot draw yet falls back to `cleared`, never to an empty
+interior with the control still showing.
