@@ -292,18 +292,26 @@ property of the source data), but both are real and both cost real forts real sc
 1. **`_DRYSTONE` misses `kallmurade`.** The pattern
    (`reconstruct.py:380`) lists `kallmurning`, `kallmurad`, `kallmur`, `kallmurar`, `kallmurat`
    — and `word_pattern` matches whole words only, so the common definite/plural adjective
-   **`kallmurade`** does not match. It occurs in 41 fort descriptions, plus `kallmursteknik` and
-   `kallmurningen` in a handful more. **63 forts contain `kallmur*` in their text but fail the
-   criterion**, and **52 of them would cross the 0.60 threshold if they passed it** — the
-   high-confidence subset would go from 433 to 485 (+12 %). Since the criterion is worth 0.40 of
-   1.00, this is the single largest correctable error in the score.
+   **`kallmurade`** does not match. It appears in **53 of the 1 304 descriptions** (plain
+   case-insensitive substring, so `kallmuradestenvallar` and `denkallmurade` are included);
+   `kallmursteknik` and `kallmurningen` account for a handful more.
+
+   **63 forts contain `kallmur*` in their text but fail the criterion.** Of those, 27 already sit
+   at or above 0.60 on the other three criteria — which between them sum to exactly 0.60 — so
+   gaining the drystone 0.40 would raise their score without changing what the app draws.
+   **25 forts actually cross the threshold**, taking the high-confidence subset from **433 to 458
+   (+5.8 %)**; the remaining 11 stay below it. The 25/458 figures are the same ones the
+   substring sensitivity run reports in §3, computed the same way.
+
+   Since the criterion is worth 0.40 of 1.00 and no other single fix moves 25 forts across the
+   threshold, this is still the largest correctable error in the score.
 2. **Some KMR descriptions have lost their hard line breaks without gaining a space**, gluing
    words together: `…intill 2 m h ikallmur`, `belägenpå`, `denkallmurade`, `kallmuradestenvallar`.
    1 034 of the 1 304 descriptions carry no `\n` at all while plainly having been hard-wrapped.
-   A minority of the 63 `kallmur*` misses above are this rather than inflection, and the same
-   failure mode will silently cost `ringvall`/`ringmur` (57 word matches against 63 substring
-   matches) and every other `word_pattern` rule in the parser, including the interior survey's own
-   keyword tiers. A normalisation step that re-inserts a space at a lower-case/lower-case boundary
+   39 of the 63 `kallmur*` misses above carry `kallmurade`, so the remaining 24 are other forms,
+   glued tokens among them. The same failure mode silently costs `ringvall`/`ringmur` — 57 forts
+   match the parser's `word_pattern` against 63 by substring — and every other `word_pattern` rule
+   in the parser, including the interior survey's own keyword tiers. A normalisation step that re-inserts a space at a lower-case/lower-case boundary
    inside an unknown token would be delicate to get right and should be measured before being
    trusted — but the current behaviour is an undercount, not a neutral one.
 
@@ -319,5 +327,17 @@ python3 confidence_join.py            # reads ../../docs/interior-survey-2026-08
 
 Standard library plus `fornborg_pipeline` only; no network, no GDAL, ~1 s. The JSON carries one
 row per fort — slug, region, description length, shipped `confidence` and its four criteria, both
-sensitivity variants of the score, and the survey's evidence flags — so any cross-tabulation here
-can be re-cut without re-running the parser.
+sensitivity variants of the score, whether the wide drystone rule and `kallmurade` fire, and the
+survey's evidence flags — so any cross-tabulation here can be re-cut without re-running the
+parser.
+
+Every figure in §7.1 is in the JSON under `sensitivityDrystoneWordList` (`gap` and `kallmurade`)
+and is printed by the script; note that the **25** crossing forts are those with
+`confidence < 0.60 and confidenceWideDrystone >= 0.60`, which is not the same as the 52 forts
+whose score plus 0.40 would clear 0.60 — 27 of those already sit at 0.60 on the other three
+criteria, whose weights sum to exactly the threshold. An earlier revision of this document quoted
+that 52 and is corrected here.
+
+The two §7.2 figures are one-liners over the survey JSON rather than script output: 1 034 of
+1 304 descriptions contain no `\n`, and `ringvall|ringmur` matches 57 forts under the parser's
+`word_pattern` against 63 by bare substring.

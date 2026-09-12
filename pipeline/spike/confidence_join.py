@@ -64,6 +64,12 @@ from fornborg_pipeline.reconstruct import (  # noqa: E402
 #: not a proposed fix and nothing here writes it back into the pipeline.
 _DRYSTONE_WIDE = re.compile(r"kallmur", re.IGNORECASE)
 
+#: The single inflection that accounts for most of the gap. Counted as a plain
+#: case-insensitive substring over the normalised description, so it also picks
+#: up `kallmuradestenvallar` and `denkallmurade` — see the line-break note in
+#: the report §7.2.
+_KALLMURADE = re.compile(r"kallmurade", re.IGNORECASE)
+
 REPO_ROOT = PIPELINE_ROOT.parent
 DEFAULT_SURVEY = REPO_ROOT / "docs" / "interior-survey-2026-08-30.json"
 DEFAULT_OUT = REPO_ROOT / "docs" / "confidence-join-2026-09-12.json"
@@ -246,6 +252,7 @@ def score_fort(fort: dict) -> dict:
         "confidence": shipped["confidence"],
         "criteria": shipped["criteria"],
         "drystoneWide": wide_dry,
+        "kallmurade": bool(_KALLMURADE.search(normalised)),
         "confidenceWideDrystone": round(wide, 2),
         "planSource": monument["plan"]["source"],
         "planSpanM": monument["plan"].get("lengthM") or monument["plan"]["diameterM"],
@@ -513,11 +520,28 @@ def main() -> int:
     # --- sensitivity: the strictness of the kallmur* word list --------------- #
     high_w = lambda r: r["confidenceWideDrystone"] >= THRESHOLD  # noqa: E731
     n_high_wide = sum(1 for r in rows if high_w(r))
+    # The gap between the two rules, broken down so no figure quoted from this
+    # block can double-count. A fort can already be high-confidence with the
+    # drystone criterion failing — the other three criteria sum to exactly 0.60 —
+    # so "score + 0.40 would clear the threshold" is NOT the crossing count and
+    # must not be used as one.
+    gap = [r for r in rows if r["drystoneWide"] and not r["criteria"]["kallmurning"]]
+    crossing = [r for r in rows if r["confidence"] < THRESHOLD and high_w(r)]
     sensitivity_dry = {
         "drystoneWordList": sum(1 for r in rows if r["criteria"]["kallmurning"]),
         "drystoneSubstring": sum(1 for r in rows if r["drystoneWide"]),
         "nHighWordList": n_high,
         "nHighSubstring": n_high_wide,
+        "gap": {
+            "forts": len(gap),
+            "alreadyAtOrAboveThreshold": sum(1 for r in gap if high(r)),
+            "crossTheThreshold": len(crossing),
+            "stayBelowThreshold": len(gap) - sum(1 for r in gap if high(r)) - len(crossing),
+        },
+        "kallmurade": {
+            "forts": sum(1 for r in rows if r["kallmurade"]),
+            "inGap": sum(1 for r in gap if r["kallmurade"]),
+        },
     }
     for measure, _ in MEASURES:
         a2, b2, c2, d2 = two_by_two(rows, measure, high_w)
@@ -587,6 +611,8 @@ def main() -> int:
                 "confidence": r["confidence"],
                 "confidenceOnExtentSpan": r["confidenceOnExtentSpan"],
                 "confidenceWideDrystone": r["confidenceWideDrystone"],
+                "drystoneWide": r["drystoneWide"],
+                "kallmurade": r["kallmurade"],
                 "criteria": r["criteria"],
                 "planSource": r["planSource"],
                 "classification": r["classification"],
@@ -705,6 +731,14 @@ def main() -> int:
         f"  drystone criterion passes {sensitivity_dry['drystoneWordList']} → "
         f"{sensitivity_dry['drystoneSubstring']} forts; high-confidence "
         f"{sensitivity_dry['nHighWordList']} → {sensitivity_dry['nHighSubstring']}"
+    )
+    g = sensitivity_dry["gap"]
+    print(
+        f"  gap: {g['forts']} forts contain kallmur* but fail the criterion — "
+        f"{g['alreadyAtOrAboveThreshold']} are already >= {THRESHOLD}, "
+        f"{g['crossTheThreshold']} would cross it, {g['stayBelowThreshold']} stay below; "
+        f"kallmurade in {sensitivity_dry['kallmurade']['forts']} descriptions "
+        f"({sensitivity_dry['kallmurade']['inGap']} of them in the gap)"
     )
     for measure, _ in MEASURES:
         s = sensitivity_dry[measure]
