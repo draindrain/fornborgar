@@ -21,7 +21,16 @@
  *     buildings, carries its caveat in the DOM when it is switched on, and —
  *     against a fort whose record *does* state its houses, patched into the
  *     response at the door — draws them off by default, inside the extent, at
- *     true metric height on the exaggerated ground, identically across a reload.
+ *     true metric height on the exaggerated ground, identically across loads.
+ *
+ * **One live page at a time.** The archetype-H fixture opens its own context and
+ * the first one is closed before it does. Under a software rasterizer each live
+ * page holds a 4 M-vertex terrain and its far-field rings, and a fourth load
+ * stacked on the same page gets the renderer killed — which reads as a failure
+ * of the feature and is a failure of the harness. For the same reason the
+ * teardown is bounded and ends in an explicit exit: a route handler left pending
+ * against a page that has gone blocks `context.close()` forever, and a checker
+ * that never returns is worse than one that fails.
  *
  * Exit code 0 only if every check passed. The report is JSON on stdout.
  */
@@ -103,27 +112,13 @@ const MEASURE_FRAMES = `async (frames) => {
   return warm[Math.floor(warm.length / 2)];
 }`;
 
-/**
- * Let the lazy far-field rings finish before navigating away.
- *
- * The ring chain starts the moment `__terrainReady` is set and fetches several
- * megabytes of raster per ring. Reloading on top of it cancels those requests,
- * and a cancelled fetch is a console error — one this check would then report as
- * if the page had done something wrong. So the reloads wait for the chain to
- * settle. If it never does, the reload happens anyway: the rings are optional
- * and a stuck one is its own signal rather than a reason to stop checking.
- */
-async function settleRings() {
-  try {
-    await page.waitForFunction(() => window.__app?.rings?.done === true, null, { timeout: 600000 });
-  } catch {
-    console.error('NOTE far-field rings had not settled; reloading over them');
-  }
-}
-
 const url = `${BASE}/?site=${encodeURIComponent(SITE)}`;
 let firstLoadSignature = null;
 let report = {};
+/** The archetype-H fixture's own context, while one is open. */
+let patched = null;
+/** True once the first page is closed, so the teardown does not close it twice. */
+let firstContextClosed = false;
 
 try {
   await page.goto(url, { waitUntil: 'domcontentloaded', timeout: TIMEOUT_MS });
@@ -294,7 +289,6 @@ try {
     return out.join('|');
   });
 
-  await settleRings();
   await page.reload({ waitUntil: 'domcontentloaded', timeout: TIMEOUT_MS });
   await page.waitForFunction(() => window.__terrainReady === true, null, { timeout: TIMEOUT_MS });
   await page.evaluate(() => {
@@ -394,23 +388,49 @@ try {
       tiers: { plan: 'measured', profile: 'derived', surface: 'assumed' },
     },
   };
-  await page.route('**/reconstruction.json*', async (route) => {
-    const response = await route.fetch();
-    const body = await response.json();
-    if (body && body.interior) body.interior.buildings = ISMANTORP_BUILDINGS;
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify(body),
+  /**
+   * Open the site in a **fresh context**, with the fixture patched into the
+   * response at the door, and hand back the page plus what it built.
+   *
+   * A fresh context rather than another `page.reload`, for a reason that is
+   * specific to this sandbox: the software rasterizer holds a 4 M-vertex terrain
+   * and its far-field rings per live page, and stacking a third and fourth load
+   * onto the page that has already been reloaded once and frame-timed twice gets
+   * the renderer killed — "Target page, context or browser has been closed",
+   * three quarters of the way through a fifty-minute run. One live page at a
+   * time costs nothing and does not depend on how much memory the box has.
+   */
+  const openPatched = async () => {
+    const patchedContext = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    const patchedPage = await patchedContext.newPage();
+    // The same listeners the first page has: a patched load's console errors are
+    // this run's errors too.
+    patchedPage.on('console', (msg) => {
+      if (msg.type() === 'error') consoleErrors.push(msg.text());
     });
-  });
+    patchedPage.on('pageerror', (error) => pageErrors.push(String(error)));
+    await patchedPage.route('**/reconstruction.json*', async (route) => {
+      try {
+        const response = await route.fetch();
+        const body = await response.json();
+        if (body && body.interior) body.interior.buildings = ISMANTORP_BUILDINGS;
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(body),
+        });
+      } catch {
+        // The page went away under the handler. Let the request take its own
+        // chances rather than leaving it pending, which would hang the close.
+        await route.continue().catch(() => {});
+      }
+    });
 
-  /** Load the patched bundle and switch reconstruction mode on. */
-  const loadPatched = async () => {
-    await settleRings();
-    await page.reload({ waitUntil: 'domcontentloaded', timeout: TIMEOUT_MS });
-    await page.waitForFunction(() => window.__terrainReady === true, null, { timeout: TIMEOUT_MS });
-    return await page.evaluate(() => {
+    await patchedPage.goto(url, { waitUntil: 'domcontentloaded', timeout: TIMEOUT_MS });
+    await patchedPage.waitForFunction(() => window.__terrainReady === true, null, {
+      timeout: TIMEOUT_MS,
+    });
+    const built = await patchedPage.evaluate(() => {
       window.__app.time.setYear(500);
       window.__app.reconstruction.setEnabled(true);
       const meshes = window.__app.reconstruction.layer.group.children.filter((child) =>
@@ -423,23 +443,55 @@ try {
         vertices: window.__app.reconstruction.vertices,
       };
     });
+    return { patchedContext, patchedPage, built };
   };
 
-  const patchedOff = await loadPatched();
+  /** Close a patched context, and its route handler with it. */
+  const closePatched = async (open) => {
+    if (!open) return;
+    await open.patchedContext.unrouteAll({ behavior: 'ignoreErrors' }).catch(() => {});
+    await open.patchedContext.close().catch(() => {});
+  };
+
+  /** The digest of everything archetype H drew, for the determinism check. */
+  const SETTLEMENT_SIGNATURE = () => {
+    const out = [];
+    for (const child of window.__app.reconstruction.layer.group.children) {
+      if (!child.name.includes('#settlement')) continue;
+      const attribute = child.geometry?.getAttribute?.('position');
+      if (!attribute) continue;
+      let hash = 2166136261;
+      const array = attribute.array;
+      for (let i = 0; i < array.length; i++) {
+        hash ^= Math.round(array[i] * 1000) | 0;
+        hash = Math.imul(hash, 16777619);
+      }
+      out.push(`${child.name}:${array.length}:${hash >>> 0}`);
+    }
+    return out.join('|');
+  };
+
+  // The first page has nothing left to check, and holding it open while another
+  // renders the same terrain is what kills the renderer.
+  await context.close().catch(() => {});
+  firstContextClosed = true;
+
+  patched = await openPatched();
+  const patchedOff = patched.built;
   check(
     'houses-built-but-off-by-default',
     patchedOff.built > 0 && patchedOff.visible === 0 && patchedOff.state === 'cleared',
     `${patchedOff.built} building meshes, ${patchedOff.visible} drawn — §9 ships archetype H off`,
   );
 
-  const patchedOn = await page.evaluate(() => {
+  const patchedOn = await patched.patchedPage.evaluate(() => {
     const app = window.__app;
     app.reconstruction.setInteriorState('settlement');
     const meshes = app.reconstruction.layer.group.children.filter((child) =>
       child.name.includes('#settlement'),
     );
-    const posts = app.reconstruction.layer.group.children.filter((child) =>
-      child.name.includes('accent') && child.name.includes('post'),
+    const posts = app.reconstruction.layer.group.children.filter(
+      (child) => child.name.includes('accent') && child.name.includes('post'),
     );
     return {
       visible: meshes.filter((mesh) => mesh.visible).length,
@@ -475,7 +527,7 @@ try {
   };
 
   // --- §0 again, with the houses on --------------------------------------
-  const houseExaggeration = await page.evaluate(() => {
+  const houseExaggeration = await patched.patchedPage.evaluate(() => {
     const app = window.__app;
     const arrays = () =>
       app.reconstruction.layer.group.children
@@ -531,32 +583,18 @@ try {
   report.houseExaggeration = houseExaggeration;
 
   // --- and the patched scene is reproducible too --------------------------
-  const settlementSignature = () =>
-    page.evaluate(() => {
-      const out = [];
-      for (const child of window.__app.reconstruction.layer.group.children) {
-        if (!child.name.includes('#settlement')) continue;
-        const attribute = child.geometry?.getAttribute?.('position');
-        if (!attribute) continue;
-        let hash = 2166136261;
-        const array = attribute.array;
-        for (let i = 0; i < array.length; i++) {
-          hash ^= Math.round(array[i] * 1000) | 0;
-          hash = Math.imul(hash, 16777619);
-        }
-        out.push(`${child.name}:${array.length}:${hash >>> 0}`);
-      }
-      return out.join('|');
-    });
-  const firstHouses = await settlementSignature();
-  await loadPatched();
-  await page.evaluate(() => window.__app.reconstruction.setInteriorState('settlement'));
-  const secondHouses = await settlementSignature();
+  const firstHouses = await patched.patchedPage.evaluate(SETTLEMENT_SIGNATURE);
+  await closePatched(patched);
+  patched = await openPatched();
+  await patched.patchedPage.evaluate(() => window.__app.reconstruction.setInteriorState('settlement'));
+  const secondHouses = await patched.patchedPage.evaluate(SETTLEMENT_SIGNATURE);
   check(
     'houses-reload-identical',
     firstHouses.length > 0 && firstHouses === secondHouses,
-    `${firstHouses.split('|').length} building batches, byte-identical across a reload`,
+    `${firstHouses.split('|').length} building batches, byte-identical across a fresh load`,
   );
+  await closePatched(patched);
+  patched = null;
 
 } catch (error) {
   check('run', false, error instanceof Error ? error.message : String(error));
@@ -565,9 +603,25 @@ try {
 check('no-page-errors', pageErrors.length === 0, pageErrors.join(' | '));
 check('no-console-errors', consoleErrors.length === 0, consoleErrors.join(' | '));
 
-await context.close();
-await browser.close();
+// Teardown that cannot hang, because a checker that never exits is worse than
+// one that fails: a route handler left pending against a page that has gone away
+// blocks `context.close()` indefinitely, and a crashed renderer makes every one
+// of these throw. So each step swallows its own error and the lot is raced
+// against a deadline, after which the report is printed and the process ends.
+await Promise.race([
+  (async () => {
+    if (patched) {
+      await patched.patchedContext.unrouteAll({ behavior: 'ignoreErrors' }).catch(() => {});
+      await patched.patchedContext.close().catch(() => {});
+    }
+    if (!firstContextClosed) await context.close().catch(() => {});
+    await browser.close().catch(() => {});
+  })(),
+  new Promise((resolve) => setTimeout(resolve, 60000)),
+]);
 
 report = { base: BASE, site: SITE, checks, ...report };
 console.log(JSON.stringify(report, null, 2));
+// Explicit, and the last thing that happens: a stray browser handle must not
+// keep the run alive after its verdict is written.
 process.exit(checks.every((c) => c.ok) ? 0 : 1);
