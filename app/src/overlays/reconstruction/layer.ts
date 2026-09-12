@@ -131,8 +131,10 @@ export function monumentState(monument: Monument, yearCE: number): MonumentState
 }
 
 /**
- * The one-line caveat archetype H carries — §9's "strongest caveat in the app",
- * for the control §13.4 builds and for the dev hook here.
+ * The one-line caveat archetype H carries — §9's "strongest caveat in the app".
+ *
+ * Exported for whatever switches the state: the dev hook in `main.ts` today, and
+ * the interior selector that replaces it.
  */
 export const SETTLEMENT_CAVEAT =
   'Buildings inside this fort are ARCHETYPE H: the register records that houses were here, ' +
@@ -240,7 +242,7 @@ export interface MonumentSummary {
 /**
  * What the app can say about this fort's interior (§7.5, §15.1).
  *
- * Everything the §13.4 control and the popup need in order to state the case
+ * Everything an interior selector and the popup need in order to state the case
  * rather than assert the picture: whether the state is offered at all, what the
  * gate rested on, how many buildings the record asked for against how many the
  * measured ground actually held, and which of the numbers drawn were defaults.
