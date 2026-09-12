@@ -181,6 +181,30 @@ export const SURFACE_COLOURS = {
   /** §7.2: dark, glassy, slag-like — individual stones welded into a fused mass. */
   vitrified: '#2f2a2e',
   vitrifiedSheen: '#4b4450',
+  /**
+   * §6.H, the farmstead. Every one of these is a sentence in the card's "what it
+   * looked like": "woven hazel or willow daubed and smoothed with clay, pale
+   * ochre-grey, patched in different shades where it has been repaired, standing
+   * on a low footing of set stone"; "turf over birch bark: green and shaggy in
+   * summer"; "a small dark opening — not an open louvre, a board with a hole".
+   */
+  daub: '#c2b294',
+  daubPatch: '#a8977c',
+  daubFoot: '#8e8471',
+  footingStone: '#9a9c94',
+  roofTurfDark: '#4e5b32',
+  roofTurfLight: '#72814a',
+  roofTurfDamp: '#3f4a2b',
+  roofSoot: '#241f1c',
+  ventBoard: '#4a3f31',
+  ventHole: '#15120f',
+  /** The timber of a roof-bearing post, and the worn ground of a yard. */
+  timberPost: '#5a4634',
+  yardWorn: '#9b8f78',
+  hearthAsh: '#6d6459',
+  hearthEmber: '#7d4a33',
+  wellStone: '#8f918a',
+  wellWater: '#26302f',
 } as const;
 
 const colourCache = new Map<string, THREE.Color>();

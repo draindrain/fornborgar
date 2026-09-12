@@ -36,9 +36,18 @@
  *   | `standing` | between the two | the reconstruction |
  *   | `ruin` | at or after `period.abandonedCE` | the §3 marker, which is the *measured* geometry |
  *
- * An archetype this build cannot draw yet (farmstead — deliberately out of scope,
- * §6.H — field boundary, cultivated ground, route, runestone) is `ruin` whenever
- * it exists, so it keeps its marker rather than disappearing.
+ * An archetype this build cannot draw yet (field boundary, cultivated ground,
+ * route, runestone) is `ruin` whenever it exists, so it keeps its marker rather
+ * than disappearing.
+ *
+ * **Archetype H, the farmstead, is the one layer that is off when the mode is
+ * on.** §9 ships it off by default with the strongest caveat in the app, because
+ * it is the layer most likely to be mistaken for evidence and the one thing that
+ * makes the landscape feel inhabited. So the houses of §6.H — inside a fort
+ * whose §7.5.2 gate passed, and only there in any bundle written today — hang
+ * off one switch, `setInteriorState`, which refuses `settlement` outright unless
+ * the data says the state is offered. The gate is decided in the pipeline and
+ * obeyed here; this layer does no parsing and no guessing.
  */
 
 import * as THREE from 'three';
@@ -70,9 +79,13 @@ import {
 import {
   fortIsConfident,
   standingAt,
+  type InteriorState,
   type Monument,
   type ReconstructionFile,
+  type Tier,
 } from './schema';
+import { buildHouse, type BuildingBuild, type HouseSpec } from './longhouse';
+import { buildYardFeature, planFarmstead, planInteriorBuildings, type FarmPlan } from './farmstead';
 import type { RampartFile } from '../palisade';
 
 /** Archetypes this build actually draws in 3D. Everything else keeps its marker. */
@@ -89,6 +102,22 @@ export const RENDERED_ARCHETYPES: ReadonlySet<string> = new Set([
 export type MonumentState = 'unbuilt' | 'standing' | 'ruin';
 
 /**
+ * Does this build have geometry for this record?
+ *
+ * Archetype H is the one conditional answer, and the condition is the data:
+ * §6.H.1 puts the farmstead in scope for the `settlement` interior state only,
+ * and §6.H.1.4 leaves a free-standing `Boplats` out of that amendment
+ * altogether — "free-standing farmsteads keep their flat markers until somebody
+ * makes the equivalent measurement for them". A `farm` block (§15.2) *is* that
+ * measurement arriving, so a farmstead record is drawable exactly when it
+ * carries one, and keeps its marker when it does not.
+ */
+export function isDrawable(monument: Monument): boolean {
+  if (monument.archetype === 'farmstead') return Boolean(monument.farm);
+  return RENDERED_ARCHETYPES.has(monument.archetype);
+}
+
+/**
  * What §8's gate says about one record in a given year.
  *
  * Exported and pure: `main.ts` uses it to decide which flat markers stay on
@@ -98,8 +127,19 @@ export function monumentState(monument: Monument, yearCE: number): MonumentState
   const { builtCE } = monument.period;
   if (builtCE !== null && yearCE < builtCE) return 'unbuilt';
   if (!standingAt(monument, yearCE)) return 'ruin';
-  return RENDERED_ARCHETYPES.has(monument.archetype) ? 'standing' : 'ruin';
+  return isDrawable(monument) ? 'standing' : 'ruin';
 }
+
+/**
+ * The one-line caveat archetype H carries — §9's "strongest caveat in the app",
+ * for the control §13.4 builds and for the dev hook here.
+ */
+export const SETTLEMENT_CAVEAT =
+  'Buildings inside this fort are ARCHETYPE H: the register records that houses were here, ' +
+  'and everything you can see — where each one stands, which way it faces, its roof, its ' +
+  'walls — is the archaeological literature, not this record. Count, grouping and size come ' +
+  'from the record where it states them; the rest is a 5th-century default after Gene and ' +
+  'Göthberg. Off by default for that reason.';
 
 // --------------------------------------------------------------- batching ---
 
@@ -113,6 +153,14 @@ export function monumentState(monument: Monument, yearCE: number): MonumentState
 interface Batch {
   key: string;
   archetype: string;
+  /**
+   * Whose §8 period governs this batch's visibility. Usually its own archetype;
+   * for a fort's interior buildings it is the **fort**, because they are that
+   * fort's interior and stand exactly as long as it does.
+   */
+  gateArchetype: string;
+  /** Archetype H, off unless the interior is in the `settlement` state (§9). */
+  settlementOnly: boolean;
   family: MaterialFamily;
   /**
    * True where the family shades smoothly and therefore needs real vertex
@@ -133,10 +181,12 @@ interface Batch {
   localArray: Float32Array | null;
 }
 
-/** An instanced accent: a kerb stone, a centre block, a standing stone. */
+/** An instanced accent: a kerb stone, a centre block, a standing stone, a post. */
 interface Accent {
   archetype: string;
-  kind: 'boulder' | 'standing';
+  gateArchetype: string;
+  settlementOnly: boolean;
+  kind: 'boulder' | 'standing' | 'post';
   x: number;
   z: number;
   groundY: number;
@@ -183,6 +233,42 @@ export interface MonumentSummary {
   requested: number;
   /** True where §6.A.1's filter refused a standing rampart. */
   fortDowngraded: boolean;
+  /** Sampler warnings — a shortfall is never a silent truncation (§15.3). */
+  warnings: string[];
+}
+
+/**
+ * What the app can say about this fort's interior (§7.5, §15.1).
+ *
+ * Everything the §13.4 control and the popup need in order to state the case
+ * rather than assert the picture: whether the state is offered at all, what the
+ * gate rested on, how many buildings the record asked for against how many the
+ * measured ground actually held, and which of the numbers drawn were defaults.
+ */
+export interface InteriorSummary {
+  /** The pipeline's boolean. The app obeys it and never re-derives it (§15.3). */
+  offered: boolean;
+  state: InteriorState;
+  /** The fort the block describes, where its extent was resolvable. */
+  fortId: string | null;
+  /** `pass` or `fail` — a fail is a statement, and a useful one (§15.3). */
+  gate: string;
+  /** True where every surviving hit hedges (möjlig, trolig, -liknande). */
+  hedged: boolean;
+  /** How the fort passed: description, settlement-record or cited. */
+  channels: string[];
+  /** Non-empty whenever the state is offered — no citation, no state (§7.5.3). */
+  citations: number;
+  /** The count the record stated, or the archetype default of one. */
+  requested: number;
+  placed: number;
+  countStated: boolean;
+  countSource: Tier;
+  layout: string;
+  sector: string | null;
+  /** Field paths that took a §6.H default rather than the record (§15.3). */
+  fallbacks: string[];
+  warnings: string[];
 }
 
 export class ReconstructionLayer {
@@ -215,6 +301,14 @@ export class ReconstructionLayer {
   private yearCE: number;
   private enabled = false;
   private vertexTotal = 0;
+  /**
+   * §7.5.1: `cleared` is the default for every fort, always. Passing the gate
+   * makes `settlement` *offerable*, not on — so the state the file carries (and
+   * the contract pins to `cleared` in v1.8) is where the layer opens.
+   */
+  private interior: InteriorState;
+  private interiorPlan: FarmPlan | null = null;
+  private interiorFortId: string | null = null;
 
   constructor(
     file: ReconstructionFile,
@@ -225,6 +319,7 @@ export class ReconstructionLayer {
     this.file = file;
     this.options = options as ReconstructionLayer['options'];
     this.yearCE = yearCE;
+    this.interior = file.interior?.state ?? 'cleared';
     this.group.name = 'reconstruction';
     this.group.visible = false;
 
@@ -258,7 +353,73 @@ export class ReconstructionLayer {
       if (summary.state !== 'standing') continue;
       total += 1 + summary.sampled;
     }
+    if (this.interior === 'settlement') total += this.interiorPlan?.buildings.length ?? 0;
     return total;
+  }
+
+  /** §7.5's two interior states. `cleared` until something switches it. */
+  get interiorState(): InteriorState {
+    return this.interior;
+  }
+
+  /**
+   * May this site offer the `settlement` state at all?
+   *
+   * Two sources, and neither is the app's own judgement. The first is the
+   * pipeline's boolean: `settlementOffered` decides which forts may draw
+   * archetype H inside them, and "an app that finds `settlementOffered: false`
+   * and an inhabited-looking description draws the `cleared` state and nothing
+   * else" (§15.3). The second is a `farm` block on a record **outside** any
+   * fort, which the fort-interior gate says nothing about either way (§6.H.1.4)
+   * — where the pipeline has written one, the record is what licenses it.
+   */
+  get settlementOffered(): boolean {
+    if (this.file.interior?.settlementOffered) return true;
+    for (const monument of this.monuments.values()) {
+      if (monument.farm && !monument.farm.insideFortId) return true;
+    }
+    return false;
+  }
+
+  /**
+   * Switch the interior between §7.5's two states. Returns the state in force.
+   *
+   * `settlement` is refused outright where the data does not offer it — "not
+   * offered-and-labelled: not offered" (§7.5.3) — so a caller cannot turn houses
+   * on in a fort whose record does not carry them, however it asks.
+   */
+  setInteriorState(state: InteriorState): InteriorState {
+    const next = state === 'settlement' && !this.settlementOffered ? 'cleared' : state;
+    if (next === this.interior) return next;
+    this.interior = next;
+    // Archetype H going on or off changes which records are drawn, so the §8
+    // states — and with them the flat markers — have to be recomputed.
+    this.setYear(this.yearCE);
+    return next;
+  }
+
+  /** What the app may say about this fort's interior (§7.5.3), or null. */
+  interiorSummary(): InteriorSummary | null {
+    const block = this.file.interior;
+    if (!block) return null;
+    const buildings = block.buildings;
+    return {
+      offered: block.settlementOffered,
+      state: this.interior,
+      fortId: this.interiorFortId,
+      gate: block.evidence?.gate ?? 'fail',
+      hedged: Boolean(block.evidence?.hedged),
+      channels: block.evidence?.channels ?? [],
+      citations: block.evidence?.citations?.length ?? 0,
+      requested: this.interiorPlan?.requested ?? 0,
+      placed: this.interiorPlan?.buildings.length ?? 0,
+      countStated: Boolean(buildings?.countStated),
+      countSource: buildings?.countSource ?? 'assumed',
+      layout: buildings?.layout ?? 'free',
+      sector: buildings?.sector ?? null,
+      fallbacks: buildings?.fallbacks ?? [],
+      warnings: this.interiorPlan?.warnings ?? [],
+    };
   }
 
   summary(id: string): MonumentSummary | null {
@@ -286,7 +447,14 @@ export class ReconstructionLayer {
     this.yearCE = yearCE;
     for (const [id, monument] of this.monuments) {
       const summary = this.summaries.get(id);
-      if (summary) summary.state = monumentState(monument, yearCE);
+      if (!summary) continue;
+      summary.state = monumentState(monument, yearCE);
+      // Archetype H is off unless the interior is in the `settlement` state, and
+      // a record whose geometry is off keeps its flat §3 marker rather than
+      // vanishing — the same rule as an archetype this build cannot draw.
+      if (monument.archetype === 'farmstead' && this.interior !== 'settlement') {
+        summary.state = summary.state === 'unbuilt' ? 'unbuilt' : 'ruin';
+      }
     }
     // A grave field's constituents are drawn as their own archetypes, so they
     // follow their own periods — a Bronze Age cairn inside a Late Iron Age field
@@ -294,10 +462,14 @@ export class ReconstructionLayer {
     // §8's table says.
     for (const batch of this.batches.values()) {
       if (!batch.mesh) continue;
-      batch.mesh.visible = this.archetypeStandsFor(batch.archetype, yearCE);
+      batch.mesh.visible = this.drawnNow(batch.gateArchetype, batch.settlementOnly, yearCE);
     }
     for (const mesh of this.accentMeshes) {
-      mesh.visible = this.archetypeStandsFor(mesh.userData['archetype'] as string, yearCE);
+      mesh.visible = this.drawnNow(
+        mesh.userData['gateArchetype'] as string,
+        Boolean(mesh.userData['settlementOnly']),
+        yearCE,
+      );
     }
     for (const pick of this.pickTargets) {
       const id = pick.userData['siteId'] as string;
@@ -364,6 +536,12 @@ export class ReconstructionLayer {
 
   // ------------------------------------------------------------ construction -
 
+  /** §8's period gate and §9's off-by-default, in one answer. */
+  private drawnNow(gateArchetype: string, settlementOnly: boolean, yearCE: number): boolean {
+    if (settlementOnly && this.interior !== 'settlement') return false;
+    return this.archetypeStandsFor(gateArchetype, yearCE);
+  }
+
   private archetypeStandsFor(archetype: string, yearCE: number): boolean {
     // The constituents of a grave field have no record of their own, so their
     // period comes from any monument of that archetype — the periods are
@@ -416,22 +594,116 @@ export class ReconstructionLayer {
         sampled: 0,
         requested: monument.field?.count ?? 0,
         fortDowngraded: false,
+        warnings: [],
       };
       this.summaries.set(monument.id, summary);
 
-      if (!RENDERED_ARCHETYPES.has(monument.archetype)) continue;
+      if (!isDrawable(monument)) continue;
 
       if (monument.archetype === 'fort') {
         this.buildFort(monument, summary);
       } else if (monument.archetype === 'grave-field') {
         this.buildGraveField(monument, record, summary);
+      } else if (monument.archetype === 'farmstead') {
+        this.buildFarmstead(monument, record, summary);
       } else {
         this.buildRecordMonument(monument, record);
       }
       this.addPickTarget(monument, record);
     }
 
+    this.buildInterior();
     this.materialise();
+    // The layer opens in whatever state the file carries, which §15 pins to
+    // `cleared`: the meshes exist, and they are off until something asks.
+    this.setYear(this.yearCE);
+  }
+
+  /**
+   * Archetype H inside a fort — §7.5.1's `settlement` state.
+   *
+   * Three refusals live here, and each is §7.5.3 written as control flow: no
+   * buildings without the gate, no buildings without a fort extent to put them
+   * in, and no buildings at all where the record attests houses but states
+   * nothing about them (`buildings: null` — which is Broborg's own case, and the
+   * reason Broborg draws none).
+   */
+  private buildInterior(): void {
+    const block = this.file.interior;
+    if (!block || !block.settlementOffered || !block.buildings) return;
+    const fort = this.file.monuments.find((monument) => monument.archetype === 'fort');
+    const record = fort ? this.records.get(fort.id) : undefined;
+    if (!fort || !record) return;
+    const rings = localRings(record);
+    // §15.3: a building is a size, an orientation and a compass sector, resolved
+    // "against the fort's §3 extent polygon at runtime". A fort known only as a
+    // point has no interior to resolve them against, and inventing one would be
+    // the app doing the guessing the contract forbids it.
+    if (!rings) return;
+
+    this.interiorFortId = fort.id;
+    const plan = planInteriorBuildings(
+      block.buildings,
+      rings,
+      this.terrain(),
+      this.seedFor(`${fort.id}#interior`),
+    );
+    this.interiorPlan = plan;
+    for (const house of plan.buildings) {
+      // The §8 gate follows the fort: these are that fort's interior, and they
+      // stand exactly as long as it does.
+      this.addHouse(house, 'farmstead', 'fort');
+    }
+  }
+
+  /** Archetype H on its own record — §15.2's `farm` block, outside a fort. */
+  private buildFarmstead(monument: Monument, record: SiteRecord, summary: MonumentSummary): void {
+    const farm = monument.farm;
+    if (!farm) return;
+    const plan = planFarmstead(
+      farm,
+      record.position,
+      monument.plan.orientationDeg,
+      localRings(record),
+      this.terrain(),
+      this.seedFor(monument.id),
+    );
+    summary.sampled = Math.max(0, plan.buildings.length - 1);
+    summary.requested = plan.requested;
+    summary.warnings = plan.warnings;
+    for (const house of plan.buildings) this.addHouse(house, monument.archetype, monument.archetype);
+    // §15.3: inside a fort `farm.features` is all false, so this loop draws
+    // nothing there — a yard, a hearth and a well are a recipe for open ground.
+    for (const feature of plan.features) {
+      this.addBuilding(
+        buildYardFeature(feature, (x, z) => this.options.groundAt(x, z), this.seedFor(monument.id)),
+        monument.archetype,
+        monument.archetype,
+      );
+    }
+  }
+
+  /** One building: its merged surfaces, and its trestle posts as instances. */
+  private addHouse(spec: HouseSpec, archetype: string, gateArchetype: string): void {
+    const build = buildHouse(spec, { groundAt: (x, z) => this.options.groundAt(x, z) });
+    for (const part of build.parts) this.addBuilding(part, archetype, gateArchetype);
+    for (const post of build.posts) {
+      this.accents.push({
+        archetype,
+        gateArchetype,
+        settlementOnly: true,
+        kind: 'post',
+        x: post.x,
+        z: post.z,
+        groundY: post.groundY,
+        localY: 0,
+        sizeM: post.diameterM,
+        heightM: post.heightM,
+        rotation: spec.rotationRad,
+        tilt: 0,
+        color: colour(SURFACE_COLOURS.timberPost),
+      });
+    }
   }
 
   /** One record's own headline monument — archetypes B, C, D, E. */
@@ -528,13 +800,25 @@ export class ReconstructionLayer {
 
   // ------------------------------------------------------------- primitives --
 
-  private batch(archetype: string, family: MaterialFamily): Batch {
-    const key = `${archetype}:${family}`;
+  private batch(
+    archetype: string,
+    family: MaterialFamily,
+    settlementOnly = false,
+    gateArchetype = archetype,
+  ): Batch {
+    // The key carries whatever makes two batches behave differently, so two
+    // things that switch on and off together are one draw call and two things
+    // that do not are never merged into one.
+    const key =
+      `${archetype}${settlementOnly ? '#settlement' : ''}` +
+      `${gateArchetype === archetype ? '' : `@${gateArchetype}`}:${family}`;
     let batch = this.batches.get(key);
     if (!batch) {
       batch = {
         key,
         archetype,
+        gateArchetype,
+        settlementOnly,
         family,
         smooth: family === 'turf' || family === 'soil',
         positions: [],
@@ -586,6 +870,27 @@ export class ReconstructionLayer {
     for (let i = 0; i < build.indices.length; i++) batch.indices.push(base + build.indices[i]);
   }
 
+  /**
+   * One archetype-H surface: walls, roof, footing or a yard feature.
+   *
+   * Unlike `addShape` and `addSweep`, the ground is **already sampled** — a
+   * building is rigid and takes one ground height for all its vertices, while a
+   * yard drapes and takes one per vertex (see `longhouse.ts`). Both arrive here
+   * as metres of unexaggerated ground, which is all this layer needs to keep
+   * contract §0: `y = ground · exaggeration + trueMetricHeight`.
+   */
+  private addBuilding(build: BuildingBuild, archetype: string, gateArchetype: string): void {
+    const batch = this.batch(archetype, build.family, true, gateArchetype);
+    const base = batch.positions.length / 3;
+    for (let i = 0; i < build.localY.length; i++) {
+      batch.positions.push(build.positionsXZ[i * 2], 0, build.positionsXZ[i * 2 + 1]);
+      batch.groundY.push(build.groundY[i]);
+      batch.localY.push(build.localY[i]);
+      batch.colors.push(build.colors[i * 3], build.colors[i * 3 + 1], build.colors[i * 3 + 2]);
+    }
+    for (let i = 0; i < build.indices.length; i++) batch.indices.push(base + build.indices[i]);
+  }
+
   private addKerb(spec: ShapeSpec, cx: number, cz: number, monument: Monument): void {
     const stones = kerbPlacements(spec, monument.features.kerb?.stoneM ?? null);
     const random = mulberry32(spec.seed ^ 0x51ed);
@@ -594,6 +899,8 @@ export class ReconstructionLayer {
       const z = cz + stone.z;
       this.accents.push({
         archetype: monument.archetype,
+        gateArchetype: monument.archetype,
+        settlementOnly: false,
         kind: 'boulder',
         x,
         z,
@@ -613,6 +920,8 @@ export class ReconstructionLayer {
     const size = Math.max(0.5, mid(monument.surface.stoneM) * 2.2);
     this.accents.push({
       archetype: monument.archetype,
+      gateArchetype: monument.archetype,
+      settlementOnly: false,
       kind: 'boulder',
       x: cx,
       z: cz,
@@ -633,6 +942,8 @@ export class ReconstructionLayer {
     const random = mulberry32(seed);
     this.accents.push({
       archetype: 'standing-stone',
+      gateArchetype: 'standing-stone',
+      settlementOnly: false,
       kind: 'standing',
       x: item.x,
       z: item.z,
@@ -741,21 +1052,25 @@ export class ReconstructionLayer {
   private materialiseAccents(): void {
     const byKey = new Map<string, Accent[]>();
     for (const accent of this.accents) {
-      const key = `${accent.archetype}:${accent.kind}`;
+      const key = `${accent.archetype}:${accent.kind}:${accent.gateArchetype}:${accent.settlementOnly}`;
       const list = byKey.get(key);
       if (list) list.push(accent);
       else byKey.set(key, [accent]);
     }
 
     for (const [key, group] of byKey) {
-      const [archetype, kind] = key.split(':');
+      const [archetype, kind, gateArchetype, settlementOnly] = key.split(':');
       const geometry =
         kind === 'standing'
           ? standingStoneGeometry()
-          : new THREE.IcosahedronGeometry(0.5, 0);
+          : kind === 'post'
+            ? postGeometry()
+            : new THREE.IcosahedronGeometry(0.5, 0);
       const mesh = new THREE.InstancedMesh(geometry, this.materialFor('stone'), group.length);
       mesh.name = `reconstruction-accent-${key}`;
       mesh.userData['archetype'] = archetype;
+      mesh.userData['gateArchetype'] = gateArchetype;
+      mesh.userData['settlementOnly'] = settlementOnly === 'true';
       mesh.userData['accents'] = group;
       mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
       const colors = new Float32Array(group.length * 3);
@@ -802,6 +1117,20 @@ export class ReconstructionLayer {
 function standingStoneGeometry(): THREE.BufferGeometry {
   const geometry = new THREE.CylinderGeometry(0.28, 0.5, 1, 5, 1, false);
   geometry.scale(1, 1, 0.55); // a slab, not a post
+  geometry.translate(0, 0.5, 0);
+  return geometry;
+}
+
+/**
+ * A roof-bearing post of a trestle pair (§6.H), on the same convention: unit
+ * height, base at y = 0, so the instance's Y scale is the post's own height.
+ *
+ * Six sides, because it is a split and dressed timber standing in a dark
+ * interior seen through a doorway, and every side of it costs 88 houses' worth
+ * of vertices at Ismantorp.
+ */
+function postGeometry(): THREE.BufferGeometry {
+  const geometry = new THREE.CylinderGeometry(0.45, 0.5, 1, 6, 1, false);
   geometry.translate(0, 0.5, 0);
   return geometry;
 }

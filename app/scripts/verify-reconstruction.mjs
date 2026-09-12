@@ -15,7 +15,13 @@
  *   • **frame time has not regressed** — the mode is compared against marker
  *     mode in the same page, so the software rasterizer's own speed cancels;
  *   • §8's gate actually moves: at 500 CE the fort stands and no runestone is
- *     drawn; at 1050 CE the fort is a ruin and its marker is back.
+ *     drawn; at 1050 CE the fort is a ruin and its marker is back;
+ *   • **archetype H obeys its gate** (§7.5): the settlement state is offered on
+ *     the record's own evidence and draws nothing where the record states no
+ *     buildings, carries its caveat in the DOM when it is switched on, and —
+ *     against a fort whose record *does* state its houses, patched into the
+ *     response at the door — draws them off by default, inside the extent, at
+ *     true metric height on the exaggerated ground, identically across a reload.
  *
  * Exit code 0 only if every check passed. The report is JSON on stdout.
  */
@@ -296,6 +302,242 @@ try {
     firstLoadSignature === secondLoadSignature && firstLoadSignature.length > 0,
     `${firstLoadSignature.split('|').length} batches`,
   );
+
+  // --- §7.5: the interior's two states, and archetype H ------------------
+  // Broborg passes the §7.5.2 gate on a literature citation (channel 3) and its
+  // record states nothing at all about buildings, so `interior.buildings` is
+  // null and the settlement state draws **no houses**. That is the honest case
+  // and it is checked first, because it is the one a future change is most
+  // likely to break by "fixing".
+  const broborgInterior = await page.evaluate(() => {
+    const app = window.__app;
+    const settlementMeshes = () =>
+      app.reconstruction.layer.group.children.filter((child) => child.name.includes('#settlement'));
+    const before = settlementMeshes().length;
+    const state = app.reconstruction.setInteriorState('settlement');
+    const summary = app.reconstruction.interior;
+    return { before, after: settlementMeshes().length, state, summary };
+  });
+  check(
+    'gate-obeyed-and-nothing-invented',
+    broborgInterior.summary?.offered === true &&
+      broborgInterior.summary?.placed === 0 &&
+      broborgInterior.before === 0 &&
+      broborgInterior.after === 0,
+    `${SITE}: gate ${broborgInterior.summary?.gate}, ${broborgInterior.summary?.citations} citation(s), ` +
+      `${broborgInterior.after} building meshes — the record states no buildings (§15.1)`,
+  );
+
+  // §9: the strongest caveat in the app, in the DOM, the first time archetype H
+  // is switched on. Asserted on the element a visitor actually reads.
+  const caveat = await page.evaluate(() => {
+    const node = document.querySelector('.hud-caveat');
+    return { present: Boolean(node), hidden: node?.hidden ?? true, text: node?.textContent ?? '' };
+  });
+  check(
+    'settlement-caveat-in-the-dom',
+    caveat.present && !caveat.hidden && /ARCHETYPE H/.test(caveat.text),
+    caveat.text.slice(0, 80),
+  );
+
+  // --- the drawn longhouse, on a record that states its houses ------------
+  // Broborg's own record does not, so the geometry is checked against a fort
+  // whose record does: Ismantorp's sentence — "Innanför muren är 88 husgrunder,
+  // fördelade på två grupper, en yttre med husen radiellt utgående från murens
+  // insida" — as the pipeline writes it, patched into the response at the door
+  // exactly as an Ismantorp bundle would deliver it. No committed data changes.
+  const ISMANTORP_BUILDINGS = {
+    count: 88,
+    countSource: 'measured',
+    countStated: true,
+    layout: 'radial',
+    groups: 2,
+    sector: null,
+    fallbacks: [],
+    source: 'measured',
+    template: {
+      kind: 'longhouse',
+      count: 1,
+      lengthM: [12, 14],
+      widthM: [4, 6],
+      orientationDeg: null,
+      aisleFraction: 0.4,
+      aisleWidthM: [1.3, 2.8],
+      wallHeightM: 1.2,
+      roofForm: 'hipped',
+      roofPitchDeg: 45,
+      hipPitchDeg: 48,
+      smokeVent: 'board-with-hole',
+      covering: 'turf-over-birch-bark',
+      walls: 'wattle-and-daub-on-stone-footing',
+      trestleSpacingM: [2, 3],
+      source: 'measured',
+      tiers: { plan: 'measured', profile: 'derived', surface: 'assumed' },
+    },
+  };
+  await page.route('**/reconstruction.json*', async (route) => {
+    const response = await route.fetch();
+    const body = await response.json();
+    if (body && body.interior) body.interior.buildings = ISMANTORP_BUILDINGS;
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(body),
+    });
+  });
+
+  /** Load the patched bundle and switch reconstruction mode on. */
+  const loadPatched = async () => {
+    await page.reload({ waitUntil: 'domcontentloaded', timeout: TIMEOUT_MS });
+    await page.waitForFunction(() => window.__terrainReady === true, null, { timeout: TIMEOUT_MS });
+    return await page.evaluate(() => {
+      window.__app.time.setYear(500);
+      window.__app.reconstruction.setEnabled(true);
+      const meshes = window.__app.reconstruction.layer.group.children.filter((child) =>
+        child.name.includes('#settlement'),
+      );
+      return {
+        built: meshes.length,
+        visible: meshes.filter((mesh) => mesh.visible).length,
+        state: window.__app.reconstruction.layer.interiorState,
+        vertices: window.__app.reconstruction.vertices,
+      };
+    });
+  };
+
+  const patchedOff = await loadPatched();
+  check(
+    'houses-built-but-off-by-default',
+    patchedOff.built > 0 && patchedOff.visible === 0 && patchedOff.state === 'cleared',
+    `${patchedOff.built} building meshes, ${patchedOff.visible} drawn — §9 ships archetype H off`,
+  );
+
+  const patchedOn = await page.evaluate(() => {
+    const app = window.__app;
+    app.reconstruction.setInteriorState('settlement');
+    const meshes = app.reconstruction.layer.group.children.filter((child) =>
+      child.name.includes('#settlement'),
+    );
+    const posts = app.reconstruction.layer.group.children.filter((child) =>
+      child.name.includes('accent') && child.name.includes('post'),
+    );
+    return {
+      visible: meshes.filter((mesh) => mesh.visible).length,
+      posts: posts.length,
+      vertices: app.reconstruction.vertices,
+      standing: app.reconstruction.standing,
+      summary: app.reconstruction.interior,
+    };
+  });
+  check(
+    'houses-drawn-on-settlement',
+    patchedOn.visible > 0 && patchedOn.summary.placed > 0,
+    `${patchedOn.summary.placed} of ${patchedOn.summary.requested} placed, ${patchedOn.visible} meshes, ` +
+      `${patchedOn.posts} trestle-post batch(es)`,
+  );
+  check(
+    'count-is-an-upper-bound',
+    patchedOn.summary.placed <= patchedOn.summary.requested &&
+      (patchedOn.summary.placed === patchedOn.summary.requested ||
+        patchedOn.summary.warnings.length > 0),
+    patchedOn.summary.warnings.join(' | ') || 'every stated building placed',
+  );
+  check(
+    'scene-budget-with-houses',
+    patchedOn.vertices < 4_000_000,
+    `${Math.round(patchedOn.vertices / 1000)} k vertices with ${patchedOn.summary.placed} buildings ` +
+      `(${Math.round(patchedOff.vertices / 1000)} k without them drawn)`,
+  );
+  report.settlement = {
+    placed: patchedOn.summary.placed,
+    requested: patchedOn.summary.requested,
+    vertices: patchedOn.vertices,
+  };
+
+  // --- §0 again, with the houses on --------------------------------------
+  const houseExaggeration = await page.evaluate(() => {
+    const app = window.__app;
+    const arrays = () =>
+      app.reconstruction.layer.group.children
+        .filter((child) => child.name.includes('#settlement') && child.geometry)
+        .map((child) => Float32Array.from(child.geometry.getAttribute('position').array));
+    const snapshot = (exaggeration) => {
+      app.terrain.setExaggeration(exaggeration);
+      app.reconstruction.layer.refreshHeights();
+      return arrays();
+    };
+    const one = snapshot(1);
+    const twoFive = snapshot(2.5);
+    const four = snapshot(4);
+    app.terrain.setExaggeration(1.5);
+    app.reconstruction.layer.refreshHeights();
+
+    let drift = 0;
+    let slopeError = 0;
+    let sampled = 0;
+    let tallest = 0;
+    for (let b = 0; b < one.length; b++) {
+      for (let i = 0; i < one[b].length; i += 3) {
+        drift = Math.max(
+          drift,
+          Math.abs(one[b][i] - twoFive[b][i]),
+          Math.abs(one[b][i + 2] - twoFive[b][i + 2]),
+        );
+        const slopeA = (twoFive[b][i + 1] - one[b][i + 1]) / 1.5;
+        const slopeB = (four[b][i + 1] - one[b][i + 1]) / 3;
+        slopeError = Math.max(slopeError, Math.abs(slopeA - slopeB));
+        // The metric height each vertex keeps: y = ground·e + height.
+        tallest = Math.max(tallest, one[b][i + 1] - slopeA);
+        sampled++;
+      }
+    }
+    return { drift, slopeError, sampled, tallest };
+  });
+  check(
+    'houses-no-lateral-drift',
+    houseExaggeration.drift === 0,
+    `max |Δx|,|Δz| = ${houseExaggeration.drift} over ${houseExaggeration.sampled} house vertices`,
+  );
+  check(
+    'houses-true-metric-height',
+    houseExaggeration.sampled > 1000 &&
+      houseExaggeration.slopeError < 1e-3 &&
+      houseExaggeration.tallest > 2 &&
+      houseExaggeration.tallest < 12,
+    `${houseExaggeration.sampled} vertices, worst slope mismatch ` +
+      `${houseExaggeration.slopeError.toExponential(2)} m between ×1, ×2.5 and ×4; ridge ` +
+      `${houseExaggeration.tallest.toFixed(2)} m above its own ground`,
+  );
+  report.houseExaggeration = houseExaggeration;
+
+  // --- and the patched scene is reproducible too --------------------------
+  const settlementSignature = () =>
+    page.evaluate(() => {
+      const out = [];
+      for (const child of window.__app.reconstruction.layer.group.children) {
+        if (!child.name.includes('#settlement')) continue;
+        const attribute = child.geometry?.getAttribute?.('position');
+        if (!attribute) continue;
+        let hash = 2166136261;
+        const array = attribute.array;
+        for (let i = 0; i < array.length; i++) {
+          hash ^= Math.round(array[i] * 1000) | 0;
+          hash = Math.imul(hash, 16777619);
+        }
+        out.push(`${child.name}:${array.length}:${hash >>> 0}`);
+      }
+      return out.join('|');
+    });
+  const firstHouses = await settlementSignature();
+  await loadPatched();
+  await page.evaluate(() => window.__app.reconstruction.setInteriorState('settlement'));
+  const secondHouses = await settlementSignature();
+  check(
+    'houses-reload-identical',
+    firstHouses.length > 0 && firstHouses === secondHouses,
+    `${firstHouses.split('|').length} building batches, byte-identical across a reload`,
+  );
+
 } catch (error) {
   check('run', false, error instanceof Error ? error.message : String(error));
 }
