@@ -54,6 +54,7 @@ import {
 } from '../src/overlays/reconstruction/longhouse';
 import {
   FALLBACK_TEMPLATE,
+  buildYardFeature,
   footprintsClash,
   houseFromTemplate,
   inSector,
@@ -1453,6 +1454,31 @@ describe('the §6.H yard layout, outside a fort', () => {
     );
     expect(inside.buildings.length).toBeGreaterThan(0);
     expect(inside.features).toEqual([]);
+  });
+
+
+  it('brings every yard feature back to the ground at its own rim', () => {
+    // The same rule the monument shapes keep: nothing stands on a lip of
+    // nothing, and a feature drapes on the measured ground rather than being
+    // seated rigidly like a building.
+    for (const kind of ['yard', 'hearth', 'well'] as const) {
+      const build = buildYardFeature(
+        { kind, x: 4, z: -2, radiusM: kind === 'yard' ? 6 : 1 },
+        (x, z) => 12 + x / 50 - z / 80,
+        9,
+      );
+      const rim: number[] = [];
+      for (let i = 0; i < build.localY.length; i++) {
+        const x = build.positionsXZ[i * 2];
+        const z = build.positionsXZ[i * 2 + 1];
+        const radius = Math.hypot(x - 4, z + 2);
+        if (radius > (kind === 'yard' ? 6 : 1) - 1e-6) rim.push(build.localY[i]);
+        // Draped, not seated: each vertex takes the ground under itself.
+        expect(build.groundY[i]).toBeCloseTo(12 + x / 50 - z / 80, 4);
+      }
+      expect(rim.length).toBeGreaterThan(8);
+      for (const y of rim) expect(y).toBe(0);
+    }
   });
 
   it('is byte-identical for the same seed', () => {

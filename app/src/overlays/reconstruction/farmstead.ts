@@ -599,7 +599,7 @@ export function buildYardFeature(
   seed: number,
 ): BuildingBuild {
   const spokes = 18;
-  const rings = feature.kind === 'yard' ? 3 : 2;
+  const rings = feature.kind === 'yard' ? 3 : 4;
   const family: MaterialFamily = feature.kind === 'yard' ? 'soil' : 'stone';
 
   const positionsXZ: number[] = [];
@@ -608,14 +608,17 @@ export function buildYardFeature(
   const colors: number[] = [];
   const indices: number[] = [];
 
+  // Every profile comes back to the ground at its own rim, so a feature never
+  // stands on a lip of nothing — the same rule `shapes.buildShape` keeps.
   const profile = (t: number): number => {
+    if (t >= 0.999) return 0;
     switch (feature.kind) {
       // A well: a stone curb standing about a third of a metre, dark inside.
       case 'well':
-        return t < 0.55 ? -0.08 : 0.35 * Math.min(1, (t - 0.55) / 0.2);
+        return t < 0.5 ? -0.1 : 0.35;
       // A hearth: ash and embers in a low ring of set stone.
       case 'hearth':
-        return t < 0.7 ? 0.03 : 0.18;
+        return t < 0.5 ? 0.03 : 0.18;
       default:
         // A yard: ground packed hard by feet and hooves, barely raised at all.
         return 0.02 * (1 - t);
@@ -625,11 +628,11 @@ export function buildYardFeature(
     const cell = stoneCell(seed + 7, x, z, feature.kind === 'yard' ? 1.2 : 0.35);
     const c =
       feature.kind === 'well'
-        ? t < 0.55
+        ? t < 0.5
           ? colour(SURFACE_COLOURS.wellWater)
           : colour(SURFACE_COLOURS.wellStone).clone().lerp(colour(SURFACE_COLOURS.settingStoneDark), cell)
         : feature.kind === 'hearth'
-          ? t < 0.7
+          ? t < 0.5
             ? colour(SURFACE_COLOURS.hearthAsh).clone().lerp(colour(SURFACE_COLOURS.hearthEmber), cell * 0.8)
             : colour(SURFACE_COLOURS.wellStone)
           : colour(SURFACE_COLOURS.yardWorn).clone().lerp(colour(SURFACE_COLOURS.subsoil), cell * 0.5);
