@@ -1333,13 +1333,42 @@ its houses out radially against the inner wall face, and takes its house count a
 the sentence, which on those two islands usually states both. The gate itself is identical
 everywhere, and no fort is offered `settlement` for being on limestone.
 
-**One filter this gate does not yet have: fort confidence.** Every rate above is over *all*
-registered fornborgar, including the four in five that §6.A.1 judges are probably not Migration
-Period forts at all. Re-running the survey over the `fortConfidence ≥ threshold` subset is a
-join, not a re-download (the companion JSON carries every fort's slug), and if interior evidence
-concentrates in high-confidence forts the way the Mälardalen figure implies, this gate could
-reasonably become confidence-dependent. Until somebody runs it, it is not, and the gate above is
-uniform.
+**One filter this gate deliberately does not have: fort confidence.** Every rate above is over
+*all* registered fornborgar, including the two in three that §6.A.1's score puts below its
+threshold — so the obvious objection is that 4.1 % is measured over the wrong denominator, and
+that within the forts the app actually draws as standing ramparts the rate would climb toward
+the Mälardalen survey's 17–21 %. **That join has been run**, and the answer is a null:
+`docs/confidence-join-2026-09-12.md` (2026-09-12) replays all 1 304 descriptions through the
+shipped `fort_confidence` and cross-tabulates the result against
+`docs/interior-survey-2026-08-30.json`. Its findings, which belong here because they decide the
+shape of this gate:
+
+- **433 forts (33.2 %) reach the 0.60 threshold.** Mean 0.42, median 0.30, strongly bimodal —
+  441 forts at exactly 0.15, 119 at a perfect 1.00.
+- Refined interior evidence runs **6.0 % above the threshold against 3.2 % below** (crude odds
+  ratio 1.92, *p* = 0.026) — and that difference is **entirely description length**. Both
+  variables are mined from the same block of prose; stratified by description-length quartile
+  the within-band odds ratios change sign and pool to **Mantel–Haenszel OR 1.08, *p* = 0.91**
+  (ten strata: OR 1.11, *p* = 0.83).
+- **No dose–response.** The highest refined rate, 11.5 %, sits at score 0.55 — one notch
+  *below* the threshold — and the 119 forts that score a perfect 1.00 carry it at 5.0 %, barely
+  above the national 4.1 %.
+- Against the 17–21 % the Mälardalen figure would predict if the score were selecting that
+  population, the observed high-confidence rate is **6.0 %**, over a subset that is a third of
+  the register rather than the ~17 % that prediction assumes. Uppsala — the county the four
+  criteria were derived from — passes only **26.6 %**, with **zero** refined positives.
+
+So the gate stays uniform, **and now on evidence rather than for want of the run**: interior
+evidence does not concentrate in confident forts, and 4.1 % is not an artefact of the
+denominator. The two scores answer different questions — one asks whether a wall was built, the
+other whether a surveyor wrote down what stood inside it — and keeping them independent is the
+honest consequence. A fort scoring 0.15 whose description names its own husgrunder has better
+grounds for the `settlement` state than a fort scoring 1.00 whose description says nothing;
+Broborg is the second of those. **One pairing the implementing phase must handle rather than
+this gate:** 28 of the 54 positives fall below the confidence threshold, so a fort can be owed
+a `settlement` interior while §6.A.1 refuses it a standing rampart. That is not a contradiction
+— the register can record houses inside an enclosure whose wall it does not describe well
+enough to rebuild — but the two states have to be drawn together honestly, low bank and all.
 
 #### 7.5.3 What the visitor must be able to check, and what the app refuses
 
@@ -1591,9 +1620,17 @@ decided and what the build — or, for 2 and 7, the specification — added. The
    right round or across the non-steep side, and an enclosure compact enough not to read as a
    *hägnat berg* — and writes the score, the threshold and the individual criteria into
    `reconstruction.json`. Below the threshold the app draws the low bank the register records
-   and the popup says which criteria failed. Broborg scores 1.00 on all four. What is still
-   owed before national scope is a look at the score *distribution* across the 1 304 registry
-   forts, which needs a batch run.
+   and the popup says which criteria failed. Broborg scores 1.00 on all four. *The outstanding
+   item — a look at the score **distribution** across the 1 304 registry forts — was discharged
+   2026-09-12 by `docs/confidence-join-2026-09-12.md`, which replays every registry description
+   through the shipped `fort_confidence`:* **433 forts (33.2 %) reach the 0.60 threshold** and
+   871 render as the low bank; mean 0.42, median 0.30; the distribution is strongly bimodal,
+   with 441 forts at exactly 0.15 and 119 at a perfect 1.00. Two properties of the score that
+   doc states plainly and that national scope should carry: `compactEnclosure` passes 93.3 % of
+   forts, so it functions as a near-constant offset rather than a discriminator, and **no fort
+   with a description under 200 characters reaches the threshold** — the score partly measures
+   how much the surveyor wrote. County pass rates spread from 75.9 % to 3.4 % for the same
+   reason, so the score must not be read as a map of Migration Period fortification.
 7. ~~**Which Broborg interior state is the default (§7.5)?**~~ **Answered 2026-09-12:
    `cleared`, and not only at Broborg — `cleared` is the default for all 1 304 forts, with
    `settlement` a per-fort state and never a national one.** The question was asked about one
@@ -1613,8 +1650,14 @@ decided and what the build — or, for 2 and 7, the specification — added. The
    term although the Mälardalen survey names 5–6 with house terraces, and **Broborg itself
    fails the gate** despite an excavated, dated interior settlement layer. The repair is
    §7.5.2's cited channel 3, a per-site entry carrying a literature citation, not a looser
-   keyword rule. Öland and Gotland get a layout branch (§7.5.2), not a lower gate. Contract:
-   `docs/data-formats.md` §15.
+   keyword rule. Öland and Gotland get a layout branch (§7.5.2), not a lower gate. **(d)** the
+   gate is **uniform, and tested**: the obvious objection — that 4.1 % is measured over all
+   1 304 forts rather than over the third the app draws as standing ramparts — was answered by
+   the join in `docs/confidence-join-2026-09-12.md`, which finds **no** concentration of
+   interior evidence in high-confidence forts (6.0 % vs 3.2 % crude, but Mantel–Haenszel
+   OR 1.08, *p* = 0.91 once description length is controlled, and no dose–response). Fort
+   confidence is therefore out of this gate on evidence, not for want of the measurement.
+   Contract: `docs/data-formats.md` §15.
 8. ~~**Do we need a section measured through a rampart?**~~ **Answered — and better than
    hoped.** Two excavated cross-sections through Broborg's inner wall are published as
    drawings (Sjöblom et al. 2022, Figs. 5a/5b; the same sections as Englund 2018, Figs. 9–10),
