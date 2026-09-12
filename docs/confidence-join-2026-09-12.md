@@ -28,8 +28,8 @@ nothing: **Mantel–Haenszel OR 1.08, p = 0.91** over four length bands, **OR 1.
 ten. Every sensitivity run reproduces the same collapse.
 
 The observed high-confidence rate of 6.0 % is also nowhere near the **17–21 %** the Mälardalen
-figure would predict if the score were selecting that population. And **48 % of the 54 positives
-sit below the threshold**, in forts the app already refuses to draw as standing ramparts.
+figure would predict if the score were selecting that population. And **28 of the 54 positives
+(52 %) sit below the threshold**, in forts the app already refuses to draw as standing ramparts.
 
 **This is not grounds to reopen §1's decision.** The survey's recommendation stands unchanged and
 is, if anything, better supported than before: a uniform `cleared` default, with `settlement`
