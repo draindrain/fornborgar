@@ -59,6 +59,7 @@ import {
   inSector,
   planFarmstead,
   planInteriorBuildings,
+  templateFromDefaults,
 } from '../src/overlays/reconstruction/farmstead';
 import {
   buildShape,
@@ -1437,6 +1438,23 @@ describe('the §6.H yard layout, outside a fort', () => {
     expect(bare.features.map((f) => f.kind)).toEqual(['yard']);
   });
 
+
+  it('draws no yard at all for a record the pipeline placed inside a fort', () => {
+    // §7.5.3 refuses "hearths, wells, yards, fences, paths and field systems
+    // inside the wall" — buildings the record attests, on ground the DEM
+    // measured, and nothing else.
+    const inside = planFarmstead(
+      { ...farm, features: { hearth: false, well: false, enclosure: false }, insideFortId: 'L1943:7827' },
+      { x: 0, z: 0 },
+      null,
+      null,
+      levelTerrain,
+      5,
+    );
+    expect(inside.buildings.length).toBeGreaterThan(0);
+    expect(inside.features).toEqual([]);
+  });
+
   it('is byte-identical for the same seed', () => {
     const a = planFarmstead(farm, { x: 10, z: -5 }, null, null, levelTerrain, 3);
     const b = planFarmstead(farm, { x: 10, z: -5 }, null, null, levelTerrain, 3);
@@ -1653,5 +1671,26 @@ describe('the settlement state in the layer (§7.5, §9)', () => {
     expect(layer.summary(id)!.state).toBe('standing');
     expect(layer.summary(id)!.requested).toBe(2);
     layer.dispose();
+  });
+});
+
+describe('defaults.farmstead as the app’s tunables (§15)', () => {
+  it('takes the file’s own §6.H defaults where the record states nothing', () => {
+    const template = templateFromDefaults(file.defaults['farmstead']);
+    expect(template.lengthM).toEqual([20, 40]);
+    expect(template.widthM).toEqual([6, 8]);
+    expect(template.wallHeightM).toBe(1.2);
+    expect(template.hipPitchDeg).toBe(48);
+    expect(template.source).toBe('assumed');
+  });
+
+  it('re-imposes the two §6.H invariants, because a tunable can be turned wrong', () => {
+    const bad = templateFromDefaults({ wallHeightM: 0.4, roofPitchDeg: 50, hipPitchDeg: 30 });
+    expect(bad.wallHeightM).toBe(1.0); // Lojsta: the wall is load-bearing
+    expect(bad.hipPitchDeg).toBeGreaterThanOrEqual(bad.roofPitchDeg); // Eketorp-II
+  });
+
+  it('falls back to §6.H’s own numbers when the block is missing', () => {
+    expect(templateFromDefaults(undefined)).toEqual(FALLBACK_TEMPLATE);
   });
 });

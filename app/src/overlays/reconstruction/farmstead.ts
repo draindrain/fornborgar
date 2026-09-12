@@ -82,7 +82,16 @@ export const SECTOR_HALF_WIDTH_DEG = 45;
  * An `husgrund` ringfort's houses stand within a metre of each other.
  */
 const BUILDING_GAP_M = 0.6;
-/** Clear ground kept between a building and the extent boundary. */
+/**
+ * Clear ground kept between a building and the edge of the ground it may stand
+ * on, where the caller states no better number.
+ *
+ * The caller usually can: a fort's §3 extent polygon reaches to the **outside**
+ * of its collapsed wall — at Broborg the extent is ~93 m across and the measured
+ * crest ring inside it is ~65 m — so "against the inner wall face" (§7.5.1) is
+ * measured from the crest, not from the extent, and the layer passes the inset
+ * that says so.
+ */
 const EDGE_CLEARANCE_M = 1.5;
 
 /**
@@ -109,6 +118,44 @@ export const FALLBACK_TEMPLATE: BuildingTemplate = {
   source: 'assumed',
   tiers: { plan: 'assumed', profile: 'derived', surface: 'assumed' },
 };
+
+/**
+ * The file's own `defaults.farmstead` block (§15), as a template.
+ *
+ * §15 publishes those defaults "so the app can expose them as tunables, exactly
+ * as `defaults.mound` already is", so where a `buildings` block carries no
+ * template of its own the numbers come from the file rather than from this
+ * module's copy of them. The two §6.H invariants are re-imposed on the way
+ * through, because `defaults` is a tunable and a tunable can be turned wrong:
+ * a wall under a metre is the Lojsta error and a hip shallower than the long
+ * sides is the Eketorp-II one.
+ */
+export function templateFromDefaults(defaults: unknown): BuildingTemplate {
+  if (typeof defaults !== 'object' || defaults === null) return FALLBACK_TEMPLATE;
+  const block = defaults as Record<string, unknown>;
+  const band = (value: unknown, fallback: Range): Range =>
+    Array.isArray(value) &&
+    value.length === 2 &&
+    value.every((entry) => typeof entry === 'number' && Number.isFinite(entry)) &&
+    value[0] <= value[1]
+      ? [value[0] as number, value[1] as number]
+      : fallback;
+  const number = (value: unknown, fallback: number): number =>
+    typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+  const roofPitchDeg = number(block['roofPitchDeg'], FALLBACK_TEMPLATE.roofPitchDeg);
+  return {
+    ...FALLBACK_TEMPLATE,
+    lengthM: band(block['lengthM'], FALLBACK_TEMPLATE.lengthM),
+    widthM: band(block['widthM'], FALLBACK_TEMPLATE.widthM),
+    aisleFraction: Math.min(
+      0.6,
+      Math.max(0.3, number(block['aisleFraction'], FALLBACK_TEMPLATE.aisleFraction)),
+    ),
+    wallHeightM: Math.max(1.0, number(block['wallHeightM'], FALLBACK_TEMPLATE.wallHeightM)),
+    roofPitchDeg,
+    hipPitchDeg: Math.max(roofPitchDeg, number(block['hipPitchDeg'], FALLBACK_TEMPLATE.hipPitchDeg)),
+  };
+}
 
 /** An outdoor feature of a farmstead's yard. Never drawn inside a fort (§7.5.3). */
 export interface YardFeature {
@@ -292,8 +339,10 @@ export function planInteriorBuildings(
   rings: LocalRings,
   terrain: SamplerTerrain,
   seed: number,
+  defaults?: unknown,
+  edgeInsetM = EDGE_CLEARANCE_M,
 ): FarmPlan {
-  const template = buildings.template ?? FALLBACK_TEMPLATE;
+  const template = buildings.template ?? templateFromDefaults(defaults);
   // §15.1: `count: null` is "the record attests houses but states no number", so
   // the archetype default is one house — `countSource` already reads `assumed`.
   const requested = Math.max(1, Math.round(buildings.count ?? 1));
@@ -335,7 +384,7 @@ export function planInteriorBuildings(
         // its axis: a wall that curves away between them would otherwise put the
         // corners of a 12 m house outside a boundary its middle clears.
         const axial = reachAlong(rings, cx, cz, dx, dz, maxR);
-        const guess = axial - EDGE_CLEARANCE_M - base.lengthM / 2 - inset;
+        const guess = axial - edgeInsetM - base.lengthM / 2 - inset;
         const spanDeg =
           guess > 1 ? (Math.atan2(base.widthM / 2, guess) * 180) / Math.PI : 0;
         const reach = Math.min(
@@ -345,17 +394,15 @@ export function planInteriorBuildings(
             return reachAlong(rings, cx, cz, Math.sin(angle), -Math.cos(angle), maxR);
           }),
         );
-        const radius = reach - EDGE_CLEARANCE_M - base.lengthM / 2 - inset;
-        // How far round the wall to the next house. Measured at the **inner**
-        // end, which is where radial houses are closest — spacing them on their
-        // centres would set their inner corners into one another — and widened
-        // for the angle between two neighbours, which is what a radial group
-        // costs and a parallel row does not.
+        const radius = reach - edgeInsetM - base.lengthM / 2 - inset;
+        // How far round the wall to the next house: the angle this one subtends
+        // at its **inner** end, which is where radial houses converge and touch.
+        // Spacing them on their centres would set their inner corners into one
+        // another. Neighbours differ in width, so this is a starting guess; the
+        // footprint test below is the authority and a refused bearing creeps.
         const innerRadius = Math.max(2, radius - base.lengthM / 2);
-        const first = (base.widthM + BUILDING_GAP_M) / innerRadius;
         const step =
-          ((base.widthM + BUILDING_GAP_M + base.lengthM * Math.sin(first)) / innerRadius) *
-          (180 / Math.PI);
+          (Math.atan((base.widthM + BUILDING_GAP_M) / 2 / innerRadius) * 2 * 180) / Math.PI;
         if (radius > base.lengthM * 0.2) {
           const spec: HouseSpec = {
             ...base,
@@ -368,9 +415,14 @@ export function planInteriorBuildings(
           if (standable(spec, rings, terrain) && clear(spec, placed)) {
             placed.push(spec);
             inRing++;
+            bearing += Math.max(1, step);
+            continue;
           }
         }
-        bearing += Math.max(1, step);
+        // Nothing stood here: creep round rather than skipping a whole slot, so
+        // a neighbour a metre wider than its predecessor costs a metre of wall
+        // and not a house.
+        bearing += 1.5;
       }
     }
   } else {
@@ -443,8 +495,9 @@ export function planFarmstead(
   rings: LocalRings | null,
   terrain: SamplerTerrain,
   seed: number,
+  defaults?: unknown,
 ): FarmPlan {
-  const templates = farm.buildings.length ? farm.buildings : [FALLBACK_TEMPLATE];
+  const templates = farm.buildings.length ? farm.buildings : [templateFromDefaults(defaults)];
   const main = templates.find((t) => t.kind === 'longhouse') ?? templates[0];
   const random = mulberry32(streamSeed(seed, 0x4a2d));
   // The long axis: the record's own where it states one, and otherwise a
@@ -514,6 +567,12 @@ export function planFarmstead(
     );
   }
 
+  // §7.5.3: "hearths, wells, yards, fences, paths and field systems inside the
+  // wall" are refused outright. A record the pipeline placed inside a fort gets
+  // its buildings and nothing else, however its own block is filled in.
+  if (farm.insideFortId) {
+    return { buildings: placed, features: [], requested, warnings };
+  }
   const features: YardFeature[] = [{ kind: 'yard', x: yard.x, z: yard.z, radiusM: yardRadius }];
   if (farm.features.hearth) {
     features.push({ kind: 'hearth', x: yard.x + across.x * 1.5, z: yard.z + across.z * 1.5, radiusM: 1.0 });

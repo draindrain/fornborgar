@@ -634,19 +634,22 @@ export class ReconstructionLayer {
     const fort = this.file.monuments.find((monument) => monument.archetype === 'fort');
     const record = fort ? this.records.get(fort.id) : undefined;
     if (!fort || !record) return;
-    const rings = localRings(record);
     // §15.3: a building is a size, an orientation and a compass sector, resolved
     // "against the fort's §3 extent polygon at runtime". A fort known only as a
     // point has no interior to resolve them against, and inventing one would be
     // the app doing the guessing the contract forbids it.
-    if (!rings) return;
+    const ground = this.interiorGround(fort, record);
+    if (!ground) return;
 
     this.interiorFortId = fort.id;
     const plan = planInteriorBuildings(
       block.buildings,
-      rings,
+      ground.rings,
       this.terrain(),
       this.seedFor(`${fort.id}#interior`),
+      // §15's `defaults.farmstead`, for whatever the record left unstated.
+      this.file.defaults?.['farmstead'],
+      ground.insetM,
     );
     this.interiorPlan = plan;
     for (const house of plan.buildings) {
@@ -654,6 +657,45 @@ export class ReconstructionLayer {
       // stand exactly as long as it does.
       this.addHouse(house, 'farmstead', 'fort');
     }
+  }
+
+  /**
+   * The ground inside the wall, and how far in from its edge a house may stand.
+   *
+   * §7.5.1 puts the houses "against the inner wall face", and the inner wall
+   * face is not the §3 extent: a fort's registered extent reaches to the outside
+   * of its collapsed rampart — at Broborg the extent spans ~93 m and the crest
+   * ring the DEM measured inside it spans ~65 m — so a house set 1.5 m inside
+   * the extent would stand on the wall. So the boundary is the **measured crest**
+   * (`rampart.json` §8) wherever the site ships one, inset by half the wall's own
+   * thickness; where it does not, it is the extent inset by the collapse spread
+   * the register records. Both numbers are the record's, not this module's.
+   */
+  private interiorGround(
+    fort: Monument,
+    record: SiteRecord,
+  ): { rings: LocalRings; insetM: number } | null {
+    const spec = fort.fort?.ramparts[0];
+    const crest = this.options.rampart?.paths.filter((path) => path.closed && path.points.length > 3);
+    if (crest && crest.length > 0) {
+      // The main enclosure is the closed crest that encloses the most ground;
+      // an outwork or a cross-wall encloses less.
+      let best = crest[0];
+      let bestArea = -Infinity;
+      for (const path of crest) {
+        const area = ringArea(path.points as Array<[number, number]>);
+        if (area > bestArea) {
+          bestArea = area;
+          best = path;
+        }
+      }
+      const thickness = spec?.wallThicknessM ?? 5;
+      return { rings: [best.points as Array<[number, number]>], insetM: thickness / 2 + 1 };
+    }
+    const rings = localRings(record);
+    if (!rings) return null;
+    const spread = spec?.spreadM ? mid(spec.spreadM) : 0;
+    return { rings, insetM: Math.max(1.5, spread) };
   }
 
   /** Archetype H on its own record — §15.2's `farm` block, outside a fort. */
@@ -667,6 +709,7 @@ export class ReconstructionLayer {
       localRings(record),
       this.terrain(),
       this.seedFor(monument.id),
+      this.file.defaults?.['farmstead'],
     );
     summary.sampled = Math.max(0, plan.buildings.length - 1);
     summary.requested = plan.requested;
