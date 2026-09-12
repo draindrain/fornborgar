@@ -182,6 +182,7 @@ def site_config(entry: dict, out_dir: Path) -> SiteConfig:
         shoreline_max_clamp_m=1.5,
         extent_preset=preset_name,
         county=entry.get("county", ""),
+        kommun=entry.get("kommun", ""),
         from_registry=True,
     )
 

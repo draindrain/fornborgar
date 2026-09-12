@@ -77,6 +77,11 @@ class SiteConfig:
     # grid specs above, and the KMR extent bbox the preset was chosen from.
     extent_preset: str = "standard"
     county: str = ""
+    #: Registry `kommun`. Informational except for one thing: Öland is Borgholm
+    #: and Mörbylånga inside mainland Kalmar county, and the limestone ringforts
+    #: are a different building tradition (docs/reconstruction-mode.md §7.5.2), so
+    #: the county alone cannot tell the two apart.
+    kommun: str = ""
     # True for a site built from `registry.json` rather than configured by hand
     # here. It is what tells the KMR extract step that the *national* GeoPackage
     # is required: the Uppsala county file is a legitimate fallback for the

@@ -19,6 +19,14 @@ short version:
     default is used, the field's `source` says `assumed`, its name is appended to
     `fallbacks`, and `parseConfidence` drops. 8 % of records have no parseable plan
     size at all and this is the whole reason that machinery exists.
+  * **A fort's interior is decided here, never in the app** (§7.5.2, contract §15).
+    Every fort opens on `cleared` — the measured surface and the register's own
+    terrain vocabulary — and the `settlement` state is *offered* only where that
+    fort's own record supports it: a strong-tier term in its `beskrivning`, a
+    settlement record inside its extent, or a hand-entered literature citation.
+    4.1 % of the 1 304 registered forts pass. The block carries the verbatim
+    sentence behind every pass, because a fort that draws houses has to be able to
+    show the visitor the sentence it drew them from.
 
 Output is `reconstruction.json` per docs/data-formats.md §14: **no coordinates and
 no ground heights** — the file joins back to `sites.json` by `id` for position and
@@ -1121,6 +1129,786 @@ def parse_fort(text: str, plan: dict, params: TransformParams) -> dict:
 
 
 # --------------------------------------------------------------------------- #
+# §7.5.2 — the interior evidence gate
+#
+# `docs/reconstruction-mode.md` §7.5 fixes two interior states for a fort:
+# `cleared` (the measured surface and the register's own terrain vocabulary,
+# the default everywhere) and `settlement` (the same plus archetype-H buildings),
+# and `settlement` is offered **per fort, on that fort's own evidence**. The gate
+# is decided here because the browser does no parsing and no guessing (§14): the
+# app reads a boolean and a citation.
+#
+# The rule is the strong tier of `docs/interior-survey-2026-08-30.md` §6 and
+# nothing looser — 54 of 1 304 forts (4.1 %) pass it nationally. Three channels,
+# unioned, never intersected:
+#
+#   1. the fort's own `beskrivning`, strong-tier terms, sentence-scoped discards;
+#   2. a settlement-type KMR record inside the fort's own extent;
+#   3. a hand-entered literature citation (`INTERIOR_CITED`).
+#
+# Channel 2 is a union member rather than a cross-check because it under-detects
+# exactly where the evidence is best: Ismantorp's 88 house foundations return
+# *zero* settlement records, since KMR files them inside the fort's own record
+# rather than as separate lämningar.
+# --------------------------------------------------------------------------- #
+
+#: The named rule version, written into every file so the panel can say which
+#: rule decided and a later revision cannot be mistaken for this one.
+INTERIOR_RULE = "interior-strong-tier-2026-08-30"
+
+#: Provenance of the measurement the rule was calibrated on.
+INTERIOR_SURVEY = "docs/interior-survey-2026-08-30.json"
+
+#: v1.8 opens every fort on `cleared` (contract §15.1); `settlement` is offerable,
+#: never the opening state.
+INTERIOR_STATES = ("cleared", "settlement")
+INTERIOR_DEFAULT_STATE = "cleared"
+
+#: §7.5.2 channel 1. Case- and diacritic-folded, **prefix**-matched, so `husgrund`
+#: also catches `husgrunder`, `husgrunden` and `husgrundsterrass`. Three of the six
+#: return no counted hit anywhere in the country; they stay in the list because
+#: they cost nothing and the register is not finished being written.
+INTERIOR_STRONG_TERMS: tuple[str, ...] = (
+    "husgrund",
+    "husterrass",
+    "hustomtning",
+    "grophus",
+    "boplatsvall",
+    "boplatsborg",
+)
+
+#: §7.5.2 channel 2 — the KMR types whose representative point, falling inside the
+#: fort's own extent, is evidence of settlement in the interior.
+#:
+#: **This is a spatial evidence test, not an archetype mapping.** `Terrassering` is
+#: in this list and `ARCHETYPES` maps it to `cultivated-ground` (§6.J), which is
+#: the right archetype for drawing it. Conflating the two would draw cultivation
+#: terraces as houses.
+INTERIOR_SETTLEMENT_TYPES: frozenset[str] = frozenset(
+    {
+        "Boplats",
+        "Boplatsområde",
+        "Boplatslämning övrig",
+        "Husgrund, förhistorisk/medeltida",
+        "Boplatsvall",
+        "Terrassering",
+    }
+)
+
+#: §7.5.2's discard table. KMR writes the negation on either side of the noun
+#: — *"inga synliga anläggningar"* and *"husgrunder saknas"* — so every one of
+#: these is scoped to the **sentence**, never to a character window.
+_INTERIOR_NEGATION = (
+    "inga", "ingen", "inget", "inte", "ej", "icke", "saknas", "saknar",
+    "avsaknad", "utan",
+)
+#: The feature is outside the enclosure and belongs to the landscape.
+_INTERIOR_EXTERIOR = (
+    "utanför", "nedanför", "intill", "invid", "i anslutning till", "vid foten",
+)
+#: …unless the same sentence puts it inside, which outranks the exterior cue:
+#: *"terrassering i borgens inre, söder om vallen"* survives. The spec's six cues
+#: plus the three spellings the survey's own run matched (`inom borgen`,
+#: `i borgen`, `borgens inre`).
+_INTERIOR_INTERIOR = (
+    "innanför", "inne i", "i det inre", "borgplatån", "borggård", "borggården",
+)
+#: A cultivation terrace or a natural rock shelf is not a house.
+_INTERIOR_NONBUILDING = ("odlingsterrass", "naturlig terrass", "naturliga terrass")
+#: The discard that matters most: KMR describes a croft foundation and an Iron Age
+#: one in identical vocabulary. The last three are not in §7.5.2's table but are
+#: what the survey's own run matched — *"bedöms vara från historisk tid"* is the
+#: register dating a house foundation to the wrong millennium in as many words.
+_INTERIOR_MODERN = (
+    "sentida", "torp", "villa", "sommarstuga", "uthus", "tegelhus",
+    "nybebygg", "historisk tid", "sen tid",
+)
+#: §7.5.2 also lists "any 19xx date" as a modern-building cue. It is implemented
+#: below, but **not** as a bare year match: all four strong-tier hit sentences in
+#: the national corpus that carry an 18xx/19xx year carry it as an *antiquarian
+#: activity* date — *"under 1960- och 1970-talens utgrävningar"* (Eketorp),
+#: *"Enligt 1940 års inv"*, *"Revideringsinventeringen 1983"*, *"Undersökningar
+#: … företogs 1963"* — and none dates a building. A bare year rule would discard
+#: Eketorp's 75 excavated house foundations, which is the opposite of the rule's
+#: purpose, so a year only counts when the sentence is not reporting fieldwork.
+#: Deliberately *not* in this list: `1900-talet`. "En husgrund från 1900-talet" is
+#: the very sentence the year cue is for.
+_INTERIOR_FIELDWORK = (
+    "inventering", "inventeringen", "inv", "revidering", "revideringsinventering",
+    "revideringsinventeringen", "utgrävning", "utgrävningar", "utgrävningarna",
+    "undersökning", "undersökningar", "undersökt", "besiktning", "besiktningen",
+    "grävning", "grävningar", "utgrävdes", "företogs", "flygfotografering",
+)
+#: A surviving hit is *hedged*, not discarded: a surveyor's *möjlig husgrund* is
+#: still the register saying it saw something building-shaped inside the wall.
+#: `kan vara` / `kan utgöra` are not in §7.5.2's list and are in the survey's —
+#: *"en anläggning, som kan vara en liten husgrund"* hedges as plainly as
+#: *möjlig* does, and the flag travels with the fort into the panel, so missing
+#: one would let a hedged fort draw a confident longhouse.
+_INTERIOR_HEDGE = ("möjlig", "trolig", "sannolik", "eventuell")
+_INTERIOR_HEDGE_PHRASES = ("kan vara", "kan utgöra", "kan ha varit")
+
+#: §6.2 — the register's habitual statement about a fort interior is that it is
+#: bare and rough, and 32.2 % of forts make it. `cleared` is not the absence of a
+#: statement; for about a third of the corpus it *is* the statement. Matched as
+#: substrings so the compound heads the register actually writes — `grovblockig`,
+#: `småkuperad` — are caught, and the whole word is quoted back verbatim.
+INTERIOR_TERRAIN_WORDS: tuple[str, ...] = (
+    "berg i dagen", "hällmark", "berghäll",
+    "blockig", "blockrik", "stenbunden",
+    "ojämn", "kuperad", "oländig",
+    "avplanad", "plan yta", "platå",
+    "våtmark", "sankmark", "kärr", "myr",
+)
+
+#: Where `cleared`'s surface treatment reads its soil class from (§7.5.1, §9).
+INTERIOR_SOIL_SOURCE = "sgu"
+
+#: §7.5.2 channel 3 — a cited excavation, entered by hand, keyed by the fort's
+#: `lamningsnummer`. **Broborg is why this channel exists**: it fails channels 1
+#: and 2 (`classification: "neither"` in the survey) while having the best-dated
+#: interior occupation in the corpus, a settlement layer radiocarbon dated to
+#: AD 432–542. A gate that excludes the app's own reference fort is a gate with a
+#: known hole in it, and the honest repair is a cited channel rather than a looser
+#: keyword rule: loosening the keywords would admit a hundred rampart descriptions
+#: to gain a handful of real houses (§7.5.3). Open to any fort for which somebody
+#: does the reading, and it says who read it.
+INTERIOR_CITED: dict[str, dict] = {
+    "L1943:7827": {
+        "reference": "Englund 2018; Sjöblom et al. 2022",
+        "statement": (
+            "A settlement layer inside the fort, superimposed on the residue of the "
+            "wall's own weathering and radiocarbon dated to AD 432–542; a glass bead "
+            "of 400–575 CE from inside the fort. The occupation is dated; what the "
+            "loose interior stone means is contested (Olausson 1997:110 reads it as "
+            "building remains and published a settlement sketch, Bornfalk Back 2023 "
+            "as cleared surfaces), which is why Broborg opens on `cleared`."
+        ),
+    },
+}
+
+#: Öland and Gotland are a different building tradition (§2, §7.5.2) — Ismantorp's
+#: 88 radial foundations, Eketorp II's 53 internal cells — and the survey finds
+#: them enriched 3.6× over the mainland. It is a **layout and parameter** branch,
+#: never a lower gate: no fort is offered `settlement` for being on limestone.
+_LIMESTONE_KOMMUNER = frozenset({"Borgholm", "Mörbylånga"})
+_LIMESTONE_COUNTIES = frozenset({"Gotland"})
+
+#: Length-preserving fold: diacritics off, case down, offsets unchanged, so a match
+#: on the folded sentence can be quoted verbatim from the original one.
+_FOLD = str.maketrans(
+    "åäöÅÄÖéèêÉÈÊüÜáàÁÀ",
+    "aaoAAOeeeEEEuUaaAA",
+)
+
+
+def fold(text: str) -> str:
+    """Case- and diacritic-folded text of the same length as its input (§7.5.2)."""
+    return unicodedata.normalize("NFC", text).translate(_FOLD).lower()
+
+
+def _folded_alternation(cues: tuple[str, ...]) -> str:
+    return "|".join(re.escape(fold(cue)) for cue in sorted(cues, key=len, reverse=True))
+
+
+def _cue_pattern(cues: tuple[str, ...]) -> re.Pattern[str]:
+    """Whole-word (prefix-permitting) cue match over folded text."""
+    return re.compile(rf"(?<![a-z])(?:{_folded_alternation(cues)})(?![a-z])")
+
+
+_NEGATION_RE = _cue_pattern(_INTERIOR_NEGATION)
+# The exterior and non-building cues drop their **left** word boundary, because
+# the register's lost line breaks glue the cue to the word before it — *"två
+# stenraderutanför vallen i SÖ"*. That is the discarding direction (more hits fail
+# the gate, never fewer), so it is safe here and not for the short negation and
+# hedge words, where a bare substring match would fire inside unrelated words.
+#: The compass points, folded, longest first, for the `N/S/Ö/V om` cue.
+_BEARINGS_FOLDED = "|".join(sorted((fold(b) for b in BEARINGS), key=len, reverse=True))
+_EXTERIOR_RE = re.compile(
+    rf"(?:{_folded_alternation(_INTERIOR_EXTERIOR)})(?![a-z])"
+    # §7.5.2's `N/S/Ö/V om` cue, anchored on **the fort itself**: *"50 m Ö om
+    # fornborgen finns husgrunder"* places the houses outside the wall, which is
+    # what the cue is for. Unanchored it fires on every bearing the register uses
+    # to relate two features to each other — *"9 m SÖ om husgrunden finns en
+    # grop"* anchors a pit on the house rather than placing the house outside
+    # anything — and would discard five forts the survey counts.
+    rf"|(?<![a-z])(?:{_BEARINGS_FOLDED})\s+om\s+(?:den\s+|det\s+)?(?:forn)?"
+    r"borg(?:en|ens|omradet|platan|vallen)?(?![a-z])"
+)
+_INTERIOR_CUE_RE = re.compile(
+    rf"(?<![a-z])(?:{_folded_alternation(_INTERIOR_INTERIOR)})(?![a-z])"
+    # `i borgens`, `inom fornborgen`, `i borgområdet` and their forn- spellings.
+    r"|(?<![a-z])(?:i|inom)\s+(?:den\s+)?(?:forn)?borg(?:en|ens|området|plan)?(?![a-z])"
+    r"|(?<![a-z])(?:forn)?borgens\s+inre(?![a-z])"
+)
+_NONBUILDING_RE = re.compile(rf"(?:{_folded_alternation(_INTERIOR_NONBUILDING)})[a-z]*")
+# The modern cues keep their left word boundary, unlike the exterior ones: `torp`
+# is the tail of half the place names in Sweden, and Ismantorp — 88 house
+# foundations, the best interior in the corpus — is one of them.
+_MODERN_RE = re.compile(rf"(?<![a-z])(?:{_folded_alternation(_INTERIOR_MODERN)})[a-z]*")
+_MODERN_YEAR_RE = re.compile(r"(?<!\d)1[89]\d\d(?!\d)")
+_FIELDWORK_RE = _cue_pattern(_INTERIOR_FIELDWORK)
+_HEDGE_RE = re.compile(
+    rf"(?<![a-z])(?:{_folded_alternation(_INTERIOR_HEDGE)})[a-z]*"
+    rf"|(?<![a-z])(?:{_folded_alternation(_INTERIOR_HEDGE_PHRASES)})(?![a-z])"
+    # `husgrundsliknande`, `terrassliknande` — the surveyor's *-liknande* is the
+    # same hedge written as a suffix.
+    r"|(?<![a-z])[a-z]+liknande(?![a-z])"
+)
+#: One pattern per terrain word: a single word matches inside a compound
+#: (`grovblockig`), a phrase matches as written (`berg i dagen`).
+_TERRAIN_PATTERNS: tuple[re.Pattern[str], ...] = tuple(
+    re.compile(
+        re.escape(fold(word)) if " " in word else rf"[a-z]*{re.escape(fold(word))}[a-z]*"
+    )
+    for word in INTERIOR_TERRAIN_WORDS
+)
+_STRONG_TERM_RE = re.compile(
+    rf"(?<![a-z])(?:{'|'.join(sorted((fold(t) for t in INTERIOR_STRONG_TERMS), key=len, reverse=True))})"
+    r"[a-z0-9]*"
+)
+
+
+def interior_sentences(text: str) -> list[str]:
+    """Sentence scope for §7.5.2, tolerant of the register's lost line breaks.
+
+    `split_clauses` needs whitespace after the period, and 1 034 of the 1 304
+    national descriptions lost their hard line breaks **without gaining a space**
+    (`…anlagda.Den övre muren…`). A rule that misses those boundaries runs a
+    negation or an exterior cue on into the next sentence and discards hits that
+    are not negated at all, so this splitter is deliberately not §3's:
+
+    * **with** whitespace, anything opens the next sentence — the register writes
+      `…skärviga stenar. den kortsida som saknar stenvall…` in lower case, and
+      reading that `saknar` as a negation of the house two clauses back is exactly
+      the over-reach sentence scope exists to prevent;
+    * **without** it, only a capital does, because `0.5-1.4 m st stenar` is a
+      decimal point in a corpus that punctuates with both `,` and `.`, and
+      splitting inside a number would cut a measurement in half.
+
+    Over-splitting is the safe direction — it narrows the scope a cue can reach —
+    and under-splitting is not.
+    """
+    if not text:
+        return []
+    parts = re.split(
+        r"(?<=[.!?])(?:\s+(?=[(\"«]?[A-ZÅÄÖa-zåäö0-9])|(?=[(\"«]?[A-ZÅÄÖ]))",
+        text,
+    )
+    return [part.strip() for part in parts if part.strip()]
+
+
+def scan_interior_terms(text: str) -> list[dict]:
+    """Every strong-tier hit in a fort description, with its §7.5.2 verdict.
+
+    One dict per hit: the stem, the surface form KMR actually wrote, the verdict
+    (`counted` or the discard rule that fired), the cue that fired, the hedge flag,
+    and the **verbatim sentence**, because §7.5.3 requires the app to be able to
+    show the visitor the sentence a drawn interior rests on.
+    """
+    hits: list[dict] = []
+    for sentence in interior_sentences(text):
+        folded = fold(sentence)
+        negation = _NEGATION_RE.search(folded)
+        exterior = _EXTERIOR_RE.search(folded)
+        interior_cue = _INTERIOR_CUE_RE.search(folded)
+        nonbuilding = _NONBUILDING_RE.search(folded)
+        modern = _MODERN_RE.search(folded)
+        if modern is None and not _FIELDWORK_RE.search(folded):
+            modern = _MODERN_YEAR_RE.search(folded)
+        hedge = _HEDGE_RE.search(folded)
+        for match in _STRONG_TERM_RE.finditer(folded):
+            matched = sentence[match.start() : match.end()]
+            stem = next(
+                term for term in INTERIOR_STRONG_TERMS if fold(matched).startswith(fold(term))
+            )
+            if negation:
+                verdict = "negated"
+            elif exterior and not interior_cue:
+                verdict = "exterior"
+            elif nonbuilding:
+                verdict = "nonbuildingTerrass"
+            elif modern:
+                verdict = "modern"
+            else:
+                verdict = "counted"
+            hits.append(
+                {
+                    "term": stem,
+                    "matched": matched,
+                    "verdict": verdict,
+                    "negationCue": folded[negation.start() : negation.end()] if negation else None,
+                    "exteriorCue": folded[exterior.start() : exterior.end()] if exterior else None,
+                    "interiorCue": (
+                        folded[interior_cue.start() : interior_cue.end()] if interior_cue else None
+                    ),
+                    "modernCue": folded[modern.start() : modern.end()] if modern else None,
+                    "hedged": bool(hedge),
+                    "sentence": sentence,
+                }
+            )
+    return hits
+
+
+def _geometry_rings(geometry: dict | None) -> list[list[list[float]]]:
+    """Outer rings of a (Multi)Polygon in local [x, z] coordinates (§3)."""
+    if not isinstance(geometry, dict):
+        return []
+    kind = geometry.get("type")
+    coordinates = geometry.get("coordinates")
+    if kind == "Polygon" and isinstance(coordinates, list):
+        return [ring for ring in coordinates if isinstance(ring, list) and len(ring) >= 3]
+    if kind == "MultiPolygon" and isinstance(coordinates, list):
+        rings: list[list[list[float]]] = []
+        for polygon in coordinates:
+            if isinstance(polygon, list):
+                rings.extend(r for r in polygon if isinstance(r, list) and len(r) >= 3)
+        return rings
+    return []
+
+
+def _geometry_points(geometry: dict | None) -> list[list[float]]:
+    """Every vertex in a geometry, whatever its type — used for the bbox fallback."""
+    if not isinstance(geometry, dict):
+        return []
+    points: list[list[float]] = []
+
+    def walk(node) -> None:
+        if (
+            isinstance(node, list)
+            and len(node) >= 2
+            and all(isinstance(value, (int, float)) for value in node[:2])
+        ):
+            points.append([float(node[0]), float(node[1])])
+            return
+        if isinstance(node, list):
+            for child in node:
+                walk(child)
+
+    walk(geometry.get("coordinates"))
+    return points
+
+
+def point_in_polygon(x: float, z: float, rings: list[list[list[float]]]) -> bool:
+    """Even-odd ray cast, so a hole counts as outside (§7.5.2's polygon test)."""
+    inside = False
+    for ring in rings:
+        count = len(ring)
+        for index in range(count):
+            x1, z1 = ring[index][0], ring[index][1]
+            x2, z2 = ring[(index + 1) % count][0], ring[(index + 1) % count][1]
+            if (z1 > z) != (z2 > z):
+                crossing = x1 + (z - z1) * (x2 - x1) / ((z2 - z1) or 1e-12)
+                if crossing > x:
+                    inside = not inside
+    return inside
+
+
+def settlement_records_inside(fort: dict, records: list[dict]) -> list[dict]:
+    """§7.5.2 channel 2 — settlement-type records inside the fort's own extent.
+
+    Point in polygon where the fort has one, its bounding box where it has only a
+    line (43 forts nationally). The bbox is the weaker test and says so in the
+    citation, because a bounding box over a promontory fort reaches well outside
+    the wall.
+
+    This is a *spatial* test over `INTERIOR_SETTLEMENT_TYPES`, which is not the
+    archetype map: `Terrassering` is a settlement-type record here and archetype
+    J (`cultivated-ground`) there, and conflating the two would draw cultivation
+    terraces as houses.
+    """
+    geometry = fort.get("geometryLocal")
+    rings = _geometry_rings(geometry)
+    test = "polygon"
+    bounds: tuple[float, float, float, float] | None = None
+    if not rings:
+        points = _geometry_points(geometry)
+        if len(points) < 2:
+            # A fort known only as a point has no interior to test against, and
+            # inventing a radius for it would be the app guessing in the pipeline.
+            return []
+        xs = [p[0] for p in points]
+        zs = [p[1] for p in points]
+        bounds = (min(xs), min(zs), max(xs), max(zs))
+        test = "bbox"
+
+    found: list[dict] = []
+    for record in records:
+        if record.get("id") == fort.get("id"):
+            continue
+        if (record.get("lamningstyp") or "") not in INTERIOR_SETTLEMENT_TYPES:
+            continue
+        position = record.get("position") or {}
+        x, z = position.get("x"), position.get("z")
+        if not isinstance(x, (int, float)) or not isinstance(z, (int, float)):
+            continue
+        if bounds is not None:
+            hit = bounds[0] <= x <= bounds[2] and bounds[1] <= z <= bounds[3]
+        else:
+            hit = point_in_polygon(float(x), float(z), rings)
+        if hit:
+            found.append(
+                {
+                    "channel": "settlement-record",
+                    "id": record.get("id"),
+                    "lamningstyp": record.get("lamningstyp"),
+                    "test": test,
+                }
+            )
+    return found
+
+
+# --- what `cleared` draws (§7.5.1) ----------------------------------------- #
+
+_CLEARED_SENTENCE = re.compile(r"(?:sten)?rojd[a-z]*\s+(?:yta|ytor|ytan|ytorna)")
+#: `8x6 (VNV-ÖSÖ)` — the metre unit is optional because the register drops it on
+#: all but the last pair of a list.
+_PATCH = re.compile(
+    rf"({NUM})\s*[x×]\s*({NUM})\s*(?:m(?:eter)?)?\s*"
+    rf"(?:\(\s*([NSÖVWnsövw]{{1,3}}\s*-\s*[NSÖVWnsövw]{{1,3}})\s*\))?",
+    re.IGNORECASE,
+)
+_SECTOR = re.compile(
+    rf"(?<![{LETTER}])([NSÖVW]{{1,3}})\s*(?:-\s*)?del(?:en|arna|ar)?(?![{LETTER}])"
+)
+
+
+def parse_interior_sector(sentence: str) -> str | None:
+    """`"i den S delen av borgområdet"` → `"S"`. KMR's own word for a part of the
+    interior, never a coordinate (contract §15.3): the app resolves it against the
+    fort's §3 extent polygon at runtime."""
+    match = _SECTOR.search(sentence)
+    if not match:
+        return None
+    token = match.group(1).upper().replace("W", "V").replace("E", "Ö")
+    return token if token in BEARINGS else None
+
+
+def parse_terrain_words(text: str) -> list[str]:
+    """The interior-terrain vocabulary the register actually used, verbatim.
+
+    §6.2: 32.2 % of forts describe their interior as rock, block, rough ground or
+    wet ground, against 4.1 % that describe a building in it. `cleared` is not the
+    absence of a statement — for about a third of the corpus it *is* the statement
+    — so the words it is drawn from travel with it.
+
+    Matched inside compounds (`grovblockig`, `småkuperad`) and quoted back as the
+    whole word the surveyor wrote, not as the stem.
+    """
+    folded = fold(text)
+    found: list[tuple[int, str]] = []
+    for pattern in _TERRAIN_PATTERNS:
+        for match in pattern.finditer(folded):
+            word = text[match.start() : match.end()]
+            found.append((match.start(), word))
+    seen: set[str] = set()
+    words: list[str] = []
+    for _index, word in sorted(found):
+        key = word.lower()
+        if key not in seen:
+            seen.add(key)
+            words.append(word)
+    return words
+
+
+def parse_cleared_patches(text: str) -> list[dict]:
+    """Stone-picked patches — **only where KMR places them** (§7.5.1).
+
+    A size, an orientation and a compass sector, never a position (§15.3). The
+    normal case is `[]`: the register mentions cleared ground far more often than
+    it measures it, and a patch with no stated size is not drawn.
+    """
+    patches: list[dict] = []
+    for sentence in interior_sentences(text):
+        if not _CLEARED_SENTENCE.search(fold(sentence)):
+            continue
+        sector = parse_interior_sector(sentence)
+        for match in _PATCH.finditer(sentence):
+            length = _to_float(match.group(1))
+            width = _to_float(match.group(2))
+            if length is None or width is None:
+                continue
+            patches.append(
+                {
+                    "lengthM": _round(max(length, width)),
+                    "widthM": _round(min(length, width)),
+                    "orientationDeg": orientation_deg(match.group(3)),
+                    "sector": sector,
+                    "source": "measured",
+                    "sentence": sentence,
+                }
+            )
+    return patches
+
+
+# --- what `settlement` would draw, where the record states it (§7.5.1) ------ #
+
+#: §6.H's literature defaults, every one of them labelled. `docs/data-formats.md`
+#: §15 publishes the first block as `defaults.farmstead` so the app can expose
+#: them as tunables; the rest are constants of the same card.
+FARMSTEAD_DEFAULTS: dict = {
+    "lengthM": [20.0, 40.0],
+    "widthM": [6.0, 8.0],
+    "aisleFraction": 0.4,
+    "wallHeightM": 1.2,
+    "roofPitchDeg": 45.0,
+    "hipPitchDeg": 48.0,
+    "covering": "turf-over-birch-bark",
+    "ancillary": 2,
+    "grophus": 1,
+}
+FARMSTEAD_CONSTANTS: dict = {
+    "aisleWidthM": [1.3, 2.8],
+    "roofForm": "hipped",
+    "smokeVent": "board-with-hole",
+    "walls": "wattle-and-daub-on-stone-footing",
+    "trestleSpacingM": [2.0, 3.0],
+}
+#: §15's `defaults.interior`.
+INTERIOR_DEFAULTS: dict = {"state": INTERIOR_DEFAULT_STATE, "clearedPatchDepthM": 0.1}
+
+_SWEDISH_NUMERALS: dict[str, int] = {
+    "en": 1, "ett": 1, "två": 2, "tre": 3, "fyra": 4, "fem": 5, "sex": 6,
+    "sju": 7, "åtta": 8, "nio": 9, "tio": 10,
+}
+_GROUPS = re.compile(
+    rf"(?:fordelade?\s+pa|uppdelade?\s+(?:i|pa)|i)\s+({NUM}|{'|'.join(fold(w) for w in _SWEDISH_NUMERALS)})"
+    r"\s+(?:lika\s+manga\s+)?(grupper|kvarter)"
+)
+_RADIAL = re.compile(r"radie[lr]|radialt|radiellt|radiella|radiart")
+
+
+def _stated_count(hit: dict) -> int | None:
+    """A house count stated immediately before the term KMR wrote.
+
+    *"Innanför muren är 88 husgrunder"*, *"Inom borgen finns ca 50 husgrunder"*.
+    Intervening words must be at least three letters long, so the `m`, `l`, `h`
+    and `br` of a dimension cannot be read as a count.
+    """
+    folded_sentence = fold(hit["sentence"])
+    term = re.escape(fold(hit["matched"]))
+    pattern = re.compile(rf"(?:{CA})?(\d+)\s*(?:st\.?\s*)?(?:[a-z]{{3,}}\s+){{0,2}}{term}")
+    counts = [int(match.group(1)) for match in pattern.finditer(folded_sentence)]
+    return max(counts) if counts else None
+
+
+def _stated_plan(sentence: str) -> dict | None:
+    """A house's stated plan: `11x7 m (Ö-V)`, or `12-14 m l, 4-6 m br`."""
+    rect = _RECT.search(sentence)
+    if rect:
+        a, b = _to_float(rect.group(1)), _to_float(rect.group(2))
+        if a is not None and b is not None:
+            length, width = max(a, b), min(a, b)
+            return {
+                "lengthM": [_round(length), _round(length)],
+                "widthM": [_round(width), _round(width)],
+                "orientationDeg": orientation_deg(rect.group(3)),
+            }
+    length_match = _LENGTH.search(sentence)
+    width_match = _WIDTH.search(sentence)
+    if length_match and width_match:
+        length_range = _range(_to_float(length_match.group(1)), _to_float(length_match.group(2)))
+        width_range = _range(_to_float(width_match.group(1)), _to_float(width_match.group(2)))
+        if length_range and width_range:
+            orientation = re.search(
+                r"\(\s*([NSÖVWnsövw]{1,3}\s*-\s*[NSÖVWnsövw]{1,3})\s*\)", sentence
+            )
+            return {
+                "lengthM": length_range,
+                "widthM": width_range,
+                "orientationDeg": orientation_deg(orientation.group(1)) if orientation else None,
+            }
+    return None
+
+
+def interior_buildings(hits: list[dict], tradition: str) -> dict | None:
+    """The sampler spec for the `settlement` state, from the record's own words.
+
+    §7.5.1: count, dimensions and layout come from the source the fort passed the
+    gate on and **override the archetype defaults wherever that source states
+    them**; everything the sentence does not state falls back to §6.H's literature
+    defaults, and every fallback is named, because a house whose length came from
+    the register and a house whose length came from the 20–40 m default must not
+    read as equally certain in the popup.
+
+    `None` — the contract's "the record attests buildings but states nothing about
+    them" — is returned for a fort that passed on channel 2 or channel 3 alone.
+    """
+    if not hits:
+        return None
+
+    counts = [count for count in (_stated_count(hit) for hit in hits) if count]
+    plan = next(
+        (plan for plan in (_stated_plan(hit["sentence"]) for hit in hits) if plan), None
+    )
+    sector = next(
+        (sector for sector in (parse_interior_sector(hit["sentence"]) for hit in hits) if sector),
+        None,
+    )
+    joined = fold(" ".join(hit["sentence"] for hit in hits))
+    groups_match = _GROUPS.search(joined)
+    groups = None
+    if groups_match:
+        token = groups_match.group(1)
+        groups = (
+            int(token)
+            if token.isdigit()
+            else next(
+                (value for word, value in _SWEDISH_NUMERALS.items() if fold(word) == token), None
+            )
+        )
+    if _RADIAL.search(joined):
+        layout = "radial"
+    elif groups:
+        layout = "grouped"
+    else:
+        # §7.5.2's Öland/Gotland branch is a *layout and parameter* branch, not a
+        # lower gate: a limestone ringfort that passes the gate lays its houses
+        # out radially against the inner wall face. It never admits a fort.
+        layout = "radial" if tradition == "limestone-ringfort" else "free"
+
+    fallbacks: list[str] = []
+    if plan is None:
+        fallbacks.extend(["buildings.template.lengthM", "buildings.template.widthM"])
+    if not counts:
+        fallbacks.append("buildings.count")
+
+    template = {
+        "kind": "longhouse",
+        "count": 1,
+        "lengthM": list((plan or FARMSTEAD_DEFAULTS)["lengthM"]),
+        "widthM": list((plan or FARMSTEAD_DEFAULTS)["widthM"]),
+        "orientationDeg": plan.get("orientationDeg") if plan else None,
+        "aisleFraction": FARMSTEAD_DEFAULTS["aisleFraction"],
+        "aisleWidthM": list(FARMSTEAD_CONSTANTS["aisleWidthM"]),
+        "wallHeightM": FARMSTEAD_DEFAULTS["wallHeightM"],
+        "roofForm": FARMSTEAD_CONSTANTS["roofForm"],
+        "roofPitchDeg": FARMSTEAD_DEFAULTS["roofPitchDeg"],
+        "hipPitchDeg": FARMSTEAD_DEFAULTS["hipPitchDeg"],
+        "smokeVent": FARMSTEAD_CONSTANTS["smokeVent"],
+        "covering": FARMSTEAD_DEFAULTS["covering"],
+        "walls": FARMSTEAD_CONSTANTS["walls"],
+        "trestleSpacingM": list(FARMSTEAD_CONSTANTS["trestleSpacingM"]),
+        "source": "measured" if plan else "assumed",
+        "tiers": {
+            "plan": "measured" if plan else "assumed",
+            # The roof is §6.H's rule set applied to the plan, never a measurement:
+            # no Iron Age roof survives to be measured (§6.H, Näsman 2013).
+            "profile": "derived",
+            "surface": "assumed",
+        },
+    }
+    return {
+        "count": max(counts) if counts else None,
+        "countSource": "measured" if counts else "assumed",
+        "countStated": bool(counts),
+        "layout": layout,
+        "groups": groups,
+        "sector": sector,
+        "template": template,
+        "fallbacks": fallbacks,
+        "source": "measured" if (counts or plan) else "assumed",
+    }
+
+
+def interior_tradition(county: str = "", kommun: str = "") -> str:
+    """§7.5.2's limestone branch — a layout and parameter branch, never a gate."""
+    if county in _LIMESTONE_COUNTIES or kommun in _LIMESTONE_KOMMUNER:
+        return "limestone-ringfort"
+    return "mainland"
+
+
+def build_interior(
+    fort: dict,
+    records: list[dict],
+    *,
+    county: str = "",
+    kommun: str = "",
+) -> dict:
+    """The §15.1 `interior` block for one fort — the gate, and what it rests on.
+
+    Emitted **whether or not the gate passes**: `gate: "fail"` with empty citations
+    and the discard counters filled is a statement, and a useful one. It lets the
+    panel say "the register records no buildings inside this fort, and two mentions
+    of houses that it places outside it" instead of saying nothing, and it lets the
+    app tell "no evidence" from "a bundle built before this rule existed".
+    """
+    text = normalise(fort.get("description") or "")
+    hits = scan_interior_terms(text)
+    counted = [hit for hit in hits if hit["verdict"] == "counted"]
+    tradition = interior_tradition(county, kommun)
+
+    citations: list[dict] = [
+        {
+            "channel": "description",
+            "lamningsnummer": fort.get("id"),
+            "term": hit["term"],
+            "matched": hit["matched"],
+            "hedged": hit["hedged"],
+            "sentence": hit["sentence"],
+        }
+        for hit in counted
+    ]
+    settlement = settlement_records_inside(fort, records)
+    citations.extend(settlement)
+
+    cited = INTERIOR_CITED.get(fort.get("id") or "")
+    if cited is not None:
+        citations.append(
+            {
+                "channel": "cited",
+                "reference": cited["reference"],
+                "statement": cited["statement"],
+                "enteredBy": "pipeline",
+            }
+        )
+
+    channels: list[str] = []
+    if counted:
+        channels.append("description")
+    if settlement:
+        channels.append("settlement-record")
+    if cited is not None:
+        channels.append("cited")
+
+    discarded = {
+        "negated": sum(1 for hit in hits if hit["verdict"] == "negated"),
+        "exterior": sum(1 for hit in hits if hit["verdict"] == "exterior"),
+        "nonbuildingTerrass": sum(1 for hit in hits if hit["verdict"] == "nonbuildingTerrass"),
+        "modern": sum(1 for hit in hits if hit["verdict"] == "modern"),
+    }
+
+    return {
+        # v1.8 opens every fort on the conservative geometry, always. Passing the
+        # gate makes `settlement` *offerable*, not on (§7.5.1, §9).
+        "state": INTERIOR_DEFAULT_STATE,
+        "settlementOffered": bool(channels),
+        "tradition": tradition,
+        "ground": {
+            "terrainWords": parse_terrain_words(text),
+            "soilClass": INTERIOR_SOIL_SOURCE,
+            "clearedPatches": parse_cleared_patches(text),
+            "source": "derived",
+        },
+        "evidence": {
+            "rule": INTERIOR_RULE,
+            "gate": "pass" if channels else "fail",
+            "channels": channels,
+            # Hedging travels: true only when *every* surviving hit hedges, so a
+            # fort with one confident sentence is not marked down for a second,
+            # cautious one — and a fort with nothing but *möjlig husgrund* cannot
+            # draw a confident longhouse.
+            "hedged": bool(counted) and all(hit["hedged"] for hit in counted),
+            "terms": sorted({hit["term"] for hit in counted}),
+            "citations": citations,
+            "discarded": discarded,
+            "survey": INTERIOR_SURVEY,
+        },
+        "buildings": interior_buildings(counted, tradition),
+    }
+
+
+# --------------------------------------------------------------------------- #
 # the per-record builder
 # --------------------------------------------------------------------------- #
 
@@ -1407,8 +2195,22 @@ def build_document(
     site_id: str,
     params: TransformParams = DEFAULT_PARAMS,
     generated: str | None = None,
+    county: str = "",
+    kommun: str = "",
+    fort_id: str = "",
 ) -> dict:
-    """The whole §14 file for one site's `sites.json`."""
+    """The whole §14 file for one site's `sites.json`.
+
+    `county` and `kommun` are the registry's own, and feed exactly one field:
+    §7.5.2's Öland/Gotland layout branch (`interior.tradition`). They never widen
+    or narrow the evidence gate — no fort is offered `settlement` for being on
+    limestone.
+
+    `fort_id` is the site's **own** fort (`SiteConfig.raa["lamningsnummer"]`). A
+    2 × 2 km bundle can hold a second registered fornborg, and attributing one
+    fort's husgrunder to the other would be the quietest possible way to draw a
+    building nobody recorded there.
+    """
     records = sites.get("sites")
     if not isinstance(records, list):
         raise ReconstructError("sites.json has no 'sites' array (contract §3).")
@@ -1419,6 +2221,23 @@ def build_document(
         monument = build_monument(record, params, stats)
         if monument is not None:
             monuments.append(monument)
+
+    # §15.1: the `interior` block belongs to the site's fort. A site with no fort
+    # record has no interior to state anything about, and the block is omitted —
+    # which is not the same as a fort with no evidence, whose block says `fail`.
+    fort_ids = {m["id"] for m in monuments if m["archetype"] == "fort"}
+    fort_record = next(
+        (r for r in records if r.get("id") == fort_id and r.get("id") in fort_ids),
+        # A bundle with no declared fort id (or one whose fort is not in this
+        # extract) falls back to the first fort record, which is the site's own in
+        # every bundle built so far.
+        next((r for r in records if r.get("id") in fort_ids), None),
+    )
+    interior = (
+        build_interior(fort_record, records, county=county, kommun=kommun)
+        if fort_record is not None
+        else None
+    )
 
     total = max(1, stats.reconstructed)
     coverage = {
@@ -1438,7 +2257,36 @@ def build_document(
         "graveFieldsWithStatedCount": stats.field_counts,
         "sampledMonuments": stats.sampled,
         "withWarnings": stats.warned,
+        # §15: what the interior parse actually found. `null` is "not a fort site"
+        # and is a different statement from `"fail"`, which is "a fort, and the
+        # register records nothing built inside it".
+        "interiorGate": (interior["evidence"]["gate"] if interior else None),
+        "interiorBuildingsStated": (
+            bool(interior["buildings"] and interior["buildings"]["countStated"])
+            if interior
+            else None
+        ),
     }
+
+    document_defaults = {
+        key: {
+            "diameterM": value.diameter_m,
+            "heightM": value.height_m,
+            "stoneM": list(value.stone_m),
+            "material": value.material,
+            "reprofile": value.reprofile,
+            "form": value.form,
+        }
+        for key, value in sorted(ARCHETYPE_DEFAULTS.items())
+    }
+    # §15: the §6.H literature defaults and the interior's own, exposed as tunables
+    # beside `defaults.mound`. `defaults.farmstead` is the weakest-evidenced card
+    # in the catalogue, which is why every number in it is a *labelled* default
+    # that the record overrides wherever the record speaks. The house numbers are
+    # *added to* the archetype's §14 entry rather than replacing it — the same key
+    # already carries the footprint the marker is drawn from.
+    document_defaults["farmstead"] = {**document_defaults["farmstead"], **FARMSTEAD_DEFAULTS}
+    document_defaults["interior"] = dict(INTERIOR_DEFAULTS)
 
     return {
         "schemaVersion": SCHEMA_VERSION,
@@ -1458,19 +2306,10 @@ def build_document(
                 _camel(key): value for key, value in asdict(params).items()
             },
         },
-        "defaults": {
-            key: {
-                "diameterM": value.diameter_m,
-                "heightM": value.height_m,
-                "stoneM": list(value.stone_m),
-                "material": value.material,
-                "reprofile": value.reprofile,
-                "form": value.form,
-            }
-            for key, value in sorted(ARCHETYPE_DEFAULTS.items())
-        },
+        "defaults": {key: document_defaults[key] for key in sorted(document_defaults)},
         "coverage": coverage,
         "monuments": monuments,
+        **({"interior": interior} if interior is not None else {}),
     }
 
 
@@ -1518,6 +2357,212 @@ def validate_document(document: dict) -> None:
                     f"{mid}: {forbidden!r} must not appear in reconstruction.json — "
                     "positions live in sites.json and ground height is sampled at runtime (§14)."
                 )
+    validate_interior(document)
+
+
+#: The §15.1 citation shapes: each channel must carry the field that makes it
+#: checkable, because "no citation, no state" is the whole point of the block.
+_CITATION_REQUIRED: dict[str, tuple[str, ...]] = {
+    "description": ("lamningsnummer", "term", "matched", "sentence"),
+    "settlement-record": ("id", "lamningstyp", "test"),
+    "cited": ("reference", "statement"),
+}
+
+
+def validate_interior(document: dict) -> None:
+    """The §15 invariants for the `interior` block — honesty as a schema constraint.
+
+    The one that matters most is **no citation, no state**: `settlementOffered`
+    requires a non-empty `evidence.citations`, because a fort in the `settlement`
+    state has to be able to show the visitor the KMR sentence, the neighbouring
+    record or the publication it is drawn from (§7.5.3). A malformed block fails
+    the build here rather than reaching the app, which does no parsing and no
+    guessing and can only obey what this file says.
+    """
+    interior = document.get("interior")
+    monuments = document.get("monuments") or []
+    has_fort = any(m.get("archetype") == "fort" for m in monuments)
+    if interior is None:
+        # §15: a fort site states its interior even when the gate fails, so that the
+        # app can tell "the register records nothing built inside this fort" from
+        # "this bundle predates the rule". Omitting the block is the second of
+        # those, and a freshly built fort site must never look like it.
+        if has_fort:
+            raise ReconstructError(
+                "this site has a fort but no interior block — a fort with no evidence says so "
+                "positively (gate 'fail'), it does not go silent (§15.3)."
+            )
+        return
+    if not isinstance(interior, dict):
+        raise ReconstructError("interior must be an object (§15.1).")
+
+    if not has_fort:
+        raise ReconstructError(
+            "interior is present but no monument is a fort — the block describes the "
+            "ground inside an enclosure (§15.3)."
+        )
+
+    state = interior.get("state")
+    if state not in INTERIOR_STATES:
+        raise ReconstructError(f"interior.state must be cleared|settlement (§15.1), got {state!r}.")
+    if state != INTERIOR_DEFAULT_STATE:
+        raise ReconstructError(
+            "interior.state is 'cleared' in v1.8: passing the gate makes the settlement "
+            "state offerable, not on (§7.5.1)."
+        )
+    if interior.get("tradition") not in ("mainland", "limestone-ringfort"):
+        raise ReconstructError(
+            f"interior.tradition must be mainland|limestone-ringfort (§15.1), "
+            f"got {interior.get('tradition')!r}."
+        )
+
+    offered = interior.get("settlementOffered")
+    if not isinstance(offered, bool):
+        raise ReconstructError("interior.settlementOffered must be a boolean (§15.3).")
+
+    evidence = interior.get("evidence")
+    if not isinstance(evidence, dict):
+        raise ReconstructError("interior.evidence must be an object, present even on a fail (§15.1).")
+    gate = evidence.get("gate")
+    if gate not in ("pass", "fail"):
+        raise ReconstructError(f"interior.evidence.gate must be pass|fail (§15.1), got {gate!r}.")
+    if (gate == "pass") != offered:
+        raise ReconstructError(
+            "interior.evidence.gate and interior.settlementOffered must agree (§15.3)."
+        )
+    if not isinstance(evidence.get("hedged"), bool):
+        raise ReconstructError("interior.evidence.hedged must be a boolean (§15.3).")
+    if evidence.get("rule") != INTERIOR_RULE:
+        raise ReconstructError(
+            f"interior.evidence.rule must name the rule version {INTERIOR_RULE!r} (§15.1)."
+        )
+    channels = evidence.get("channels")
+    if not isinstance(channels, list) or any(
+        channel not in _CITATION_REQUIRED for channel in channels
+    ):
+        raise ReconstructError(
+            "interior.evidence.channels must be drawn from description|settlement-record|cited "
+            "(§15.1)."
+        )
+
+    citations = evidence.get("citations")
+    if not isinstance(citations, list):
+        raise ReconstructError("interior.evidence.citations must be an array (§15.1).")
+    # "No citation, no state" (§15.3, §7.5.3).
+    if offered and not citations:
+        raise ReconstructError(
+            "interior.settlementOffered is true with no citation — a fort in the settlement "
+            "state must be able to show the sentence, record or publication it is drawn from "
+            "(§7.5.3, §15.3)."
+        )
+    if not offered and citations:
+        raise ReconstructError(
+            "interior.evidence.citations is non-empty but the gate failed (§15.3)."
+        )
+    for citation in citations:
+        channel = citation.get("channel")
+        required = _CITATION_REQUIRED.get(channel)
+        if required is None:
+            raise ReconstructError(f"interior citation has unknown channel {channel!r} (§15.1).")
+        if channel not in channels:
+            raise ReconstructError(
+                f"interior citation on channel {channel!r} is not listed in evidence.channels (§15.1)."
+            )
+        for key in required:
+            if not citation.get(key):
+                raise ReconstructError(
+                    f"interior citation on channel {channel!r} is missing {key!r} (§15.3)."
+                )
+        if channel == "settlement-record" and citation["test"] not in ("polygon", "bbox"):
+            raise ReconstructError(
+                "a settlement-record citation's test must be polygon|bbox — a bounding box over "
+                "a promontory fort reaches well outside the wall and must be shown as the weaker "
+                "test it is (§7.5.2)."
+            )
+
+    ground = interior.get("ground")
+    if not isinstance(ground, dict):
+        raise ReconstructError("interior.ground must be an object (§15.1).")
+    for patch in ground.get("clearedPatches") or ():
+        for key in ("lengthM", "widthM"):
+            value = patch.get(key)
+            if not isinstance(value, (int, float)) or value <= 0:
+                raise ReconstructError(f"a cleared patch needs a positive {key} (§15.1).")
+        if patch["widthM"] > patch["lengthM"]:
+            raise ReconstructError("a cleared patch's widthM must not exceed its lengthM (§15.1).")
+        if not patch.get("sentence"):
+            raise ReconstructError(
+                "a cleared patch must quote the sentence that places it — patches are drawn only "
+                "where KMR places them (§7.5.1)."
+            )
+    for forbidden in ("position", "positionM", "x", "z", "easting", "northing"):
+        if forbidden in ground or any(forbidden in patch for patch in ground.get("clearedPatches") or ()):
+            raise ReconstructError(
+                f"{forbidden!r} must not appear in interior.ground — a patch is a size, an "
+                "orientation and a compass sector, never a position (§15.3)."
+            )
+
+    buildings = interior.get("buildings")
+    if buildings is None:
+        return
+    if not offered:
+        raise ReconstructError(
+            "interior.buildings is present on a fort that failed the gate — no buildings are "
+            "drawn inside it at any opacity, under any label (§7.5.3)."
+        )
+    count = buildings.get("count")
+    if count is not None and (not isinstance(count, int) or count <= 0):
+        raise ReconstructError("interior.buildings.count must be a positive integer or null (§15.1).")
+    if buildings.get("countStated") and count is None:
+        raise ReconstructError(
+            "interior.buildings.countStated is true with no count (§15.1)."
+        )
+    if buildings.get("layout") not in ("radial", "grouped", "free"):
+        raise ReconstructError(
+            f"interior.buildings.layout must be radial|grouped|free (§15.1), "
+            f"got {buildings.get('layout')!r}."
+        )
+    sector = buildings.get("sector")
+    if sector is not None and sector not in BEARINGS:
+        raise ReconstructError(f"interior.buildings.sector must be a compass point (§15.3).")
+    template = buildings.get("template")
+    if template is not None:
+        validate_building_template(template)
+
+
+def validate_building_template(template: dict) -> None:
+    """§15.3's checks on one archetype-H building spec.
+
+    `hipPitchDeg ≥ roofPitchDeg` is the Eketorp-II error written as an assertion:
+    a hip shallower than the long sides is the one roof shape the reconstruction
+    literature says was never built (§6.H).
+    """
+    for key in ("lengthM", "widthM", "aisleWidthM", "trestleSpacingM"):
+        band = template.get(key)
+        if (
+            not isinstance(band, list)
+            or len(band) != 2
+            or not all(isinstance(value, (int, float)) for value in band)
+            or band[0] > band[1]
+        ):
+            raise ReconstructError(f"building {key} must be a [min, max] range with min ≤ max (§15.3).")
+    if template.get("hipPitchDeg", 0) < template.get("roofPitchDeg", 0):
+        raise ReconstructError(
+            "a building's hipPitchDeg must be ≥ its roofPitchDeg — a hip shallower than the "
+            "long sides is the Eketorp-II error (§6.H, §15.3)."
+        )
+    if template.get("wallHeightM", 0) < 1.0:
+        raise ReconstructError(
+            "a building's wallHeightM must be ≥ 1.0 m: the wall is load-bearing, not a footing "
+            "(Näsman 1976, §6.H)."
+        )
+    if not 0.3 <= template.get("aisleFraction", 0) <= 0.6:
+        raise ReconstructError("a building's aisleFraction must be in [0.3, 0.6] (§6.H, §15.3).")
+    tiers = template.get("tiers")
+    if not isinstance(tiers, dict) or any(
+        tiers.get(key) not in ("measured", "derived", "assumed") for key in ("plan", "profile", "surface")
+    ):
+        raise ReconstructError("a building needs a measured|derived|assumed tier per part (§9.1).")
 
 
 def patch_manifest(cfg: SiteConfig, manifest_path: Path) -> dict:
@@ -1545,7 +2590,14 @@ def run(site_id: str, params: TransformParams = DEFAULT_PARAMS) -> dict:
         )
 
     sites = json.loads(sites_path.read_text(encoding="utf-8"))
-    document = build_document(sites, cfg.id, params)
+    document = build_document(
+        sites,
+        cfg.id,
+        params,
+        county=getattr(cfg, "county", "") or "",
+        kommun=getattr(cfg, "kommun", "") or "",
+        fort_id=(cfg.raa or {}).get("lamningsnummer", ""),
+    )
     coverage = document["coverage"]
     print(
         f"-- {coverage['reconstructed']}/{coverage['records']} records mapped to an archetype "
@@ -1580,6 +2632,43 @@ def run(site_id: str, params: TransformParams = DEFAULT_PARAMS) -> dict:
     print(
         f"   grave-field samplers will place {coverage['sampledMonuments']} further monuments"
     )
+
+    interior = document.get("interior")
+    if interior is not None:
+        evidence = interior["evidence"]
+        discarded = ", ".join(f"{key} {value}" for key, value in evidence["discarded"].items())
+        print(
+            f"-- interior ({interior['tradition']}): gate {evidence['gate']}, "
+            f"state {interior['state']}, settlement offered "
+            f"{str(evidence['gate'] == 'pass').lower()} "
+            f"[channels: {', '.join(evidence['channels']) or 'none'}]"
+        )
+        print(f"   strong-tier terms {evidence['terms'] or '[]'}; discarded {discarded}")
+        for citation in evidence["citations"]:
+            if citation["channel"] == "description":
+                print(
+                    f"     \"{citation['matched']}\""
+                    f"{' (hedged)' if citation['hedged'] else ''}: {citation['sentence'][:110]}"
+                )
+            elif citation["channel"] == "settlement-record":
+                print(
+                    f"     {citation['id']} {citation['lamningstyp']} "
+                    f"inside the extent ({citation['test']})"
+                )
+            else:
+                print(f"     cited: {citation['reference']}")
+        buildings = interior["buildings"]
+        if buildings:
+            print(
+                f"   buildings: count {buildings['count']} "
+                f"({'stated' if buildings['countStated'] else 'not stated'}), "
+                f"layout {buildings['layout']}, sector {buildings['sector']}"
+            )
+        ground = interior["ground"]
+        print(
+            f"   cleared ground: {len(ground['clearedPatches'])} recorded patches, "
+            f"terrain words {ground['terrainWords'][:4] or '[]'}"
+        )
 
     low = [m for m in document["monuments"] if m["parseConfidence"] < 0.5]
     print(f"-- {len(low)} monuments below 0.5 parseConfidence (archetype defaults, flagged)")
