@@ -6,7 +6,9 @@ hydrology in §9–§10), v1.4 (2026-08-21, additive — far-field rings, §11),
 v1.5 (2026-08-22, additive — the §1a web grid layout and the §12 connectivity
 delta, the two Phase-9a encoding wins), v1.6 (2026-08-22, additive — far-field
 land cover, §13), v1.7 (2026-08-26, additive — reconstruction mode, §14),
-v1.8 (2026-09-12, additive — fort interiors, §15).** This
+v1.8 (2026-09-12, additive — fort interiors, §15),
+v1.8.1 (2026-09-16, additive — §7.5.2's ringfort street plan, two optional keys in
+§15.1's `buildings`).** This
 file and the `manifest.json` schema below are the single source of truth for what the
 Python pipeline writes under `app/public/data/<siteId>/` and what the TypeScript app
 reads. Derived from PLAN.md §1, §4.1–§4.6 (incl. the [phase-0 verified] corrections).
@@ -1334,7 +1336,8 @@ actually found*:
   `pass` ⇔ `settlementOffered`; every citation carries a `channel` and the field its channel
   requires (`sentence`, `id`, or `reference`); `hipPitchDeg ≥ roofPitchDeg`;
   `wallHeightM ≥ 1.0`; `aisleFraction` ∈ [0.3, 0.6]; every range `[min, max]` with
-  `min ≤ max`; `farm` present only on `archetype: "farmstead"`, `interior` only on a site
+  `min ≤ max`; `blocks` an integer in [2, 12] or null and `streetWidthM` a positive band or
+  null; `farm` present only on `archetype: "farmstead"`, `interior` only on a site
   whose `monuments` contain a `fort`.
 - **Provenance.** Nothing here changes the `reconstruction` layer's `conjecture` provenance
   (§14, PLAN §6.1): it is already the floor of the range. `interior.ground` is Model over
@@ -1345,6 +1348,9 @@ actually found*:
 **Compatibility.** A pre-v1.8 `reconstruction.json` has no `interior` and no `farm`: the
 app opens every fort on `cleared`, offers no `settlement` state anywhere, and keeps the flat
 marker for every `farmstead` record, which is precisely the pre-amendment behaviour. A v1.8
-file in a pre-v1.8 app ignores both blocks (§2's rules) and renders as before. A
+file in a pre-v1.8 app ignores both blocks (§2's rules) and renders as before. A v1.8 file
+with no `blocks` and no `streetWidthM` — which is every fort in the country but Ismantorp —
+is a v1.8.1 file: the keys are optional, absent means "the register drew no street plan",
+and the layout then draws none. A
 `settlement` state the app cannot draw yet falls back to `cleared`, never to an empty
 interior with the control still showing.
