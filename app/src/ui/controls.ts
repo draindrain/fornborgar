@@ -112,6 +112,18 @@ export interface ControlState {
      * ordinary dry stone until the day it burned. Render both, claim neither.
      */
     vitrified: boolean;
+    /**
+     * §7.5's other contested question, as the same kind of state: what the loose
+     * stone on a fort's plateau means. Olausson (1997) read Broborg's as building
+     * remains, Bornfalk Back (2023) as ground picked clear. Both are rendered,
+     * neither is claimed — and `cleared` is the default for **every** fort,
+     * always, because it is the more conservative geometry.
+     *
+     * Asking for `settlement` is not the same as getting it: the layer refuses it
+     * outright where the pipeline did not offer it (§7.5.3), and the funnel writes
+     * the applied state back here.
+     */
+    interior: 'cleared' | 'settlement';
     /** Placement and jitter seed. Same seed ⇒ same monuments, byte for byte. */
     seed: number;
   };
@@ -177,6 +189,9 @@ export function createControlState(options: ControlOptions): ControlState {
     reconstruction: {
       show: false,
       vitrified: true,
+      // §7.5.1: "default every fort to `cleared`" — in debug as well as out of it.
+      // Archetype H is the weakest card in the catalogue and ships off (§9).
+      interior: 'cleared',
       seed: 1,
     },
     landcover: {
@@ -431,6 +446,15 @@ export interface ReconstructionControlOptions {
   vertexCount(): number;
   /** Records still drawn as flat markers (ruins, and archetypes not yet drawn). */
   markerCount(): number;
+  /**
+   * §7.5: does the pipeline offer this fort the `settlement` state? The debug
+   * folder obeys the same gate the visitor's selector does — an app that finds
+   * `settlementOffered: false` must not offer the state anywhere, including
+   * behind `?debug=1` (§15.3).
+   */
+  settlementOffered?: boolean;
+  /** Houses placed against houses asked for, in the state now in force. */
+  interiorReadout?(): string;
   onChange(): void;
 }
 
@@ -460,6 +484,15 @@ export function addReconstructionControls(
     .name('vitrified band (contested)')
     .onChange(changed);
   const seed = folder.add(state.reconstruction, 'seed', 1, 999, 1).name('placement seed').onChange(changed);
+  // §7.5's interior selector, mirrored into the debug folder — and mirrored
+  // *including its refusal*: where the pipeline did not offer the state there is
+  // no control here either, for the same reason there is none in the HUD.
+  const interior = options.settlementOffered
+    ? folder
+        .add(state.reconstruction, 'interior', ['cleared', 'settlement'])
+        .name('fort interior (contested)')
+        .onChange(changed)
+    : null;
 
   const readout = note(folder, 'control-readout', '');
   note(folder, 'control-note', options.caveat);
@@ -470,12 +503,29 @@ export function addReconstructionControls(
       'constructive, Bornfalk Back (2023) as the trace of a destruction. The band is a ' +
       'state, not a verdict.',
   );
+  note(
+    folder,
+    'control-note',
+    options.settlementOffered
+      ? 'What the loose stone inside the wall means is contested in the same way: Olausson ' +
+          '(1997) read it as building remains, Bornfalk Back (2023) as ground picked clear. ' +
+          'Both are states, neither is a verdict. "Cleared surfaces" is the default and does ' +
+          'NOT mean nobody was here — it is a statement about recorded structure, not about ' +
+          'occupation.'
+      : 'The register records no buildings inside this fort, so the settlement state is not ' +
+          'offered here at any opacity, under any label — not even in this panel. "Cleared ' +
+          'surfaces" does NOT mean nobody was here: it is a statement about recorded ' +
+          'structure, not about occupation.',
+  );
 
   const update = (): void => {
     for (const control of [show, vitrified, seed]) control.updateDisplay();
+    interior?.updateDisplay();
+    const houses = options.interiorReadout?.();
     readout.textContent =
       `${options.standingCount()} monuments standing · ${options.markerCount()} still markers · ` +
-      `${Math.round(options.vertexCount() / 1000)} k vertices`;
+      `${Math.round(options.vertexCount() / 1000)} k vertices` +
+      (houses ? ` · ${houses}` : '');
   };
   update();
   folder.close();

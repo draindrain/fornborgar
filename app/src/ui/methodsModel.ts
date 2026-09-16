@@ -218,6 +218,59 @@ const RECONSTRUCTION_VITRIFIED =
   'under the constructive reading the fort looked vitrified while in use, under the destruction ' +
   'reading it was ordinary dry stone until the day it burned.';
 
+/**
+ * §7.5: the interior is a two-state selector, and this is the half of it that
+ * carries the evidence.
+ *
+ * It follows the vitrified band exactly — both states rendered, neither claimed,
+ * the disagreement stated rather than resolved — and it adds the one thing the
+ * band does not need: a per-fort gate, so the section has to say which side of
+ * that gate this fort fell and what put it there.
+ */
+const INTERIOR_STATUS =
+  'The ground inside the wall is offered as two states rather than one picture. "Cleared ' +
+  'surfaces" is the default for every fort, always: the measured DEM surface unmodified, its ' +
+  'soil class and terrain vocabulary, and stone-picked patches only where the register places ' +
+  'them, at the size and in the compass sector it states. "Settlement" is the same ground plus ' +
+  'houses, and it is offered only where this fort’s own record — or a cited excavation — puts ' +
+  'buildings inside the wall. Neither state is the empty one, and neither is a verdict: like ' +
+  'the vitrified band, they are two readings of the same contested evidence, and the app ' +
+  'renders both instead of picking one.';
+
+/**
+ * §7.5.1's required sentence, and it is required for a reason: an empty,
+ * competently rendered fort interior reads as a finding unless the app says
+ * otherwise.
+ */
+const INTERIOR_CLEARED_NOTE =
+  'What "cleared surfaces" must never be read as saying is "nobody was here". It is a ' +
+  'statement about visible, recorded structure, which is a strict subset of occupation — the ' +
+  'register measures what a surveyor wrote down, not what was there. The gap is not ' +
+  'hypothetical: Broborg has a settlement layer radiocarbon dated to AD 432–542 by excavation, ' +
+  'invisible from the surface, on a fort whose register description says nothing about it. The ' +
+  'absence of a husgrund in a description is the absence of a surveyor’s note, not the absence ' +
+  'of a house.';
+
+/** §7.5.3: why the state is withheld rather than offered behind a label. */
+const INTERIOR_REFUSAL_NOTE =
+  'A fort with no such evidence is not offered the state at all — not offered behind a ' +
+  'warning. A caveat does not travel with a screenshot; for about a third of registered forts ' +
+  'houses would contradict the description rather than merely exceed it, since 32 % describe ' +
+  'their own interior as bare rock, block or wet ground; and a default longhouse drawn in ' +
+  '1 250 forts would be the same building 1 250 times, which reconstructs nothing. The ' +
+  'measurement behind those figures is docs/interior-survey-2026-08-30.md: 4.1 % of the 1 304 ' +
+  'registered forts carry defensible interior-building evidence, 2.1 % state it without ' +
+  'hedging.';
+
+/** §7.5.3: the gate's known hole, stated by the app rather than left for a reader to find. */
+const INTERIOR_GATE_UNDERCOUNTS =
+  'The gate is known to undercount, and that is written here rather than left to be ' +
+  'discovered: it reads the register, and the register is not a survey. Not one of Uppsala ' +
+  'county’s 79 forts carries a strong-tier term, yet a systematic Mälardalen survey names 5–6 ' +
+  'Uppland forts with house terraces. Broborg itself fails the keyword gate and is offered the ' +
+  'state only through channel 3 — a cited excavation entered by hand — which is the honest ' +
+  'repair for that hole, and is open to any fort for which somebody does the reading.';
+
 const VIEWSHED_METHOD =
   'Viewshed: XDraw algorithm over the 2 m context grid in a Web Worker, validated ' +
   'against gdal_viewshed (≥97 % cellwise agreement on rough terrain). Observer and ' +
@@ -366,6 +419,206 @@ function horizonDisclosure(manifest: SiteManifest): string | null {
 function provenanceOf(manifest: SiteManifest, layerId: string): Provenance | null {
   const entry = manifest.layers?.find((l) => l.id === layerId);
   return (entry?.provenance as Provenance | undefined) ?? null;
+}
+
+/**
+ * The interior selector's evidence, as the visitor's one click from the houses
+ * to the sentence they came from (§7.5.3).
+ *
+ * Every citation is rendered **verbatim**, per channel, because the three
+ * channels do not carry the same thing and flattening them would be the app
+ * asserting a uniformity the data does not have: channel 1 is a KMR sentence
+ * with a lämningsnummer and a matched term, channel 2 is a neighbouring record
+ * plus the geometry test that placed it inside, and channel 3 is a publication
+ * and a statement with no KMR sentence at all — which is precisely Broborg's
+ * case, so an implementation that assumed a sentence would fail on the app's own
+ * reference fort.
+ *
+ * A fort that failed the gate keeps its section. `gate: "fail"` is a statement,
+ * and the `discarded` counters make it a useful one: "the register records no
+ * buildings inside this fort, and two mentions of houses that it places outside
+ * it" says more than silence does (§15.3).
+ */
+export function interiorSection(
+  interior: NonNullable<ReconstructionFile['interior']>,
+): MethodsSection {
+  const evidence = interior.evidence;
+  const paragraphs = [INTERIOR_STATUS, INTERIOR_CLEARED_NOTE];
+
+  const channels = evidence.channels.length > 0 ? evidence.channels.join(', ') : 'none';
+  const passed = evidence.gate === 'pass';
+  paragraphs.push(
+    `Gate: rule ${evidence.rule}, result ${evidence.gate}` +
+      (passed ? ` on channel ${channels}.` : '.') +
+      (passed
+        ? ' The "settlement" state is therefore offered on this fort, and it is off until you' +
+          ' switch it on.'
+        : ' The "settlement" state is therefore not offered on this fort at all.') +
+      (evidence.hedged
+        ? ' Every surviving hit hedges (möjlig, trolig, eventuell, -liknande), so the register' +
+          ' is reporting something building-shaped rather than a building, and the houses must' +
+          ' not be read as a confident statement.'
+        : '') +
+      discardedSentence(evidence.discarded),
+  );
+
+  for (const citation of evidence.citations) {
+    paragraphs.push(citationParagraph(citation));
+  }
+  if (evidence.citations.length === 0) {
+    paragraphs.push(
+      'No citation, and therefore no state: the register carries no sentence, no neighbouring ' +
+        'settlement record and no cited excavation putting buildings inside this wall, so no ' +
+        'building is drawn inside it at any opacity, under any label.',
+    );
+  }
+
+  paragraphs.push(buildingsParagraph(interior));
+  paragraphs.push(INTERIOR_REFUSAL_NOTE, INTERIOR_GATE_UNDERCOUNTS);
+
+  const words = interior.ground?.terrainWords ?? [];
+  if (words.length > 0) {
+    paragraphs.push(
+      `What the register says about this interior’s own ground, in its own words: ` +
+        `${words.map((word) => `“${word}”`).join(', ')}. The cleared surface is read from those ` +
+        `words and the ${interior.ground.soilClass.toUpperCase()} soil class, over the measured ` +
+        `DEM — modelled surface on measured ground, with no regrading to seat anything.`,
+    );
+  }
+
+  return {
+    id: 'interior',
+    title: 'The fort interior — cleared surfaces or settlement',
+    badge: 'conjecture',
+    paragraphs,
+  };
+}
+
+/** §15.1's `discarded` counters, as a sentence, and only where there is one to make. */
+function discardedSentence(discarded: Record<string, number> | undefined): string {
+  if (!discarded) return '';
+  const parts: string[] = [];
+  const say = (key: string, text: string): void => {
+    const n = discarded[key];
+    if (typeof n === 'number' && n > 0) parts.push(`${n} ${text}`);
+  };
+  say('negated', 'negated by its own sentence');
+  say('exterior', 'placed outside the enclosure');
+  say('nonbuildingTerrass', 'a cultivation or natural terrace rather than a house');
+  say('modern', 'a modern croft or outbuilding');
+  if (parts.length === 0) return '';
+  return (
+    ` Mentions of buildings that were read and discarded: ${parts.join('; ')}. KMR describes a ` +
+    `19th-century croft foundation and an Iron Age one in identical vocabulary, which is why ` +
+    `the discards are counted here rather than assumed away.`
+  );
+}
+
+/**
+ * One citation, verbatim, in the shape its own channel actually has.
+ *
+ * `unknown`-typed on purpose: `InteriorEvidence.citations` is a list of raw
+ * records in the contract, the schema guarantees only `channel`, and the app
+ * must not invent a field the pipeline did not write.
+ */
+function citationParagraph(citation: Record<string, unknown>): string {
+  const str = (key: string): string | null => {
+    const value = citation[key];
+    return typeof value === 'string' && value.length > 0 ? value : null;
+  };
+  const channel = str('channel');
+
+  if (channel === 'description') {
+    const id = str('lamningsnummer') ?? 'this record';
+    const matched = str('matched') ?? str('term');
+    const hedged = citation['hedged'] === true;
+    const sentence = str('sentence');
+    return (
+      `Register description, ${id}` +
+      (matched ? `, on the word “${matched}”` : '') +
+      (hedged ? ', hedged' : '') +
+      (sentence ? `: “${sentence}”` : ' — but the pipeline wrote no sentence with it, which is a ' +
+        'defect in the data rather than a sentence the app may supply.')
+    );
+  }
+
+  if (channel === 'settlement-record') {
+    const id = str('id') ?? 'an unnamed record';
+    const type = str('lamningstyp');
+    const test = str('test');
+    return (
+      `Neighbouring settlement record ${id}` +
+      (type ? ` (${type})` : '') +
+      (test === 'bbox'
+        ? ', placed inside this fort by a BOUNDING-BOX test, not by its extent polygon. That is ' +
+          'the weaker of the two and is shown for that reason: a bounding box over a promontory ' +
+          'fort reaches well outside the wall.'
+        : test === 'polygon'
+          ? ', whose representative point falls inside this fort’s own extent polygon.'
+          : '.')
+    );
+  }
+
+  if (channel === 'cited') {
+    const reference = str('reference') ?? 'an unnamed source';
+    const statement = str('statement');
+    const enteredBy = str('enteredBy');
+    return (
+      `Cited excavation — ${reference}` +
+      (enteredBy ? `, entered by hand (${enteredBy})` : '') +
+      (statement ? `: “${statement}”` : '.') +
+      ' This is a publication rather than a KMR sentence: there is no lämningsnummer to give, ' +
+      'because the register does not record it.'
+    );
+  }
+
+  return `Citation on an unrecognised channel (${channel ?? 'none'}) — shown rather than hidden.`;
+}
+
+/** What the `settlement` state would actually draw, and where each number came from. */
+function buildingsParagraph(interior: NonNullable<ReconstructionFile['interior']>): string {
+  const buildings = interior.buildings;
+  if (!interior.settlementOffered) {
+    return (
+      'Nothing is drawn inside this wall in either state beyond the measured ground itself: no ' +
+      'buildings, and no hearths, wells, yards, fences or paths, which are a farmstead recipe ' +
+      'for open ground rather than anything recorded inside an enclosure.'
+    );
+  }
+  if (!buildings) {
+    return (
+      'This fort passes the gate and still draws no houses, because what it passed on states ' +
+      'that people were here without stating a single building: no count, no dimensions, no ' +
+      'layout. Switching to "settlement" therefore changes the citation you can read and not ' +
+      'the geometry you can see — the app will not supply a building the source does not.'
+    );
+  }
+  const count = buildings.count ?? 1;
+  const stated = buildings.countStated
+    ? `${count} buildings, a count the source states`
+    : `${count} building${count === 1 ? '' : 's'}, which the source does not state — the ` +
+      `archetype default`;
+  const layout =
+    buildings.layout === 'radial'
+      ? ' laid out radially against the inner wall face, as the source describes'
+      : buildings.layout === 'grouped'
+        ? ' in groups, as the source describes'
+        : ' without a stated layout';
+  const sector = buildings.sector
+    ? `, restricted to the ${buildings.sector} part of the interior because that is where the ` +
+      `sentence puts them`
+    : '';
+  const fallbacks =
+    buildings.fallbacks && buildings.fallbacks.length > 0
+      ? ` Everything the source leaves unstated takes a §6.H literature default, and each one is ` +
+        `named: ${buildings.fallbacks.join(', ')}. A house whose length came from the register ` +
+        `and a house whose length came from the 20–40 m default must not read as equally certain.`
+      : ' Every value the sampler used came from the source rather than from an archetype default.';
+  return (
+    `In the "settlement" state this fort draws ${stated}${layout}${sector}. The count is an upper ` +
+    `bound, never a target: where the measured interior will not hold them the shortfall is a ` +
+    `warning on the record, not a silent truncation.${fallbacks}`
+  );
 }
 
 function processingLines(manifest: SiteManifest): string {
@@ -527,6 +780,11 @@ export function buildMethodsModel(
       badge: provenanceOf(manifest, 'reconstruction') ?? 'conjecture',
       paragraphs,
     });
+    // §7.5: its own section, with its own id, because the interior selector
+    // links straight to it — "a visitor can get from the rendered houses to the
+    // sentence they came from in one click" is not satisfied by a paragraph
+    // buried in a longer one.
+    if (reconstruction.interior) sections.push(interiorSection(reconstruction.interior));
   }
 
   sections.push({ id: 'viewshed', title: 'Viewshed', badge: null, paragraphs: [VIEWSHED_METHOD] });
