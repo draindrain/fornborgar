@@ -61,7 +61,13 @@ import {
   planFarmstead,
   planInteriorBuildings,
   templateFromDefaults,
+  type FarmPlan,
 } from '../src/overlays/reconstruction/farmstead';
+import {
+  ASSUMED_STREET_M,
+  planFortInterior,
+  planRingfortInterior,
+} from '../src/overlays/reconstruction/ringfort';
 import {
   buildShape,
   kerbPlacements,
@@ -925,6 +931,11 @@ const ISMANTORP_BUILDINGS: InteriorBuildings = {
   countStated: true,
   layout: 'radial',
   groups: 2,
+  // §7.5.2's street plan, as the pipeline now parses it from the same sentence
+  // and the one after it: "genom fyra gator uppdelade i lika många kvarter" and
+  // "De båda husgrupperna skiljs av en 2-5 m br ringgata".
+  blocks: 4,
+  streetWidthM: [2, 5],
   sector: null,
   template: ISMANTORP_TEMPLATE,
   fallbacks: [],
@@ -1381,6 +1392,190 @@ describe('the interior building sampler (§7.5.1)', () => {
     expect(planInteriorBuildings(ismantorp(), circleRings(62.5), levelTerrain, 1).features).toEqual(
       [],
     );
+  });
+
+  it('is the layout a mainland fort gets, and it has not moved', () => {
+    // The mainland half of §7.5.2's acceptance, as a number rather than an
+    // assumption: the limestone branch is reached through `planFortInterior`,
+    // and a `mainland` fort goes down this function unchanged. 76 is what it
+    // placed before the branch existed, on the same fixture and the same seed.
+    const plan = planInteriorBuildings(ismantorp(), circleRings(62.5), levelTerrain, 4711);
+    expect(plan.buildings.length).toBe(76);
+    const viaBranch = planFortInterior(
+      'mainland',
+      ismantorp(),
+      circleRings(62.5),
+      levelTerrain,
+      4711,
+    );
+    expect(viaBranch.buildings).toEqual(plan.buildings);
+  });
+});
+
+// --------------------------------------------------------------------------- //
+// §7.5.2 — the Öland / Gotland ringfort branch
+// --------------------------------------------------------------------------- //
+
+describe('the limestone ringfort layout (§7.5.2)', () => {
+  const ismantorp = (patch: Partial<InteriorBuildings> = {}): InteriorBuildings => ({
+    ...ISMANTORP_BUILDINGS,
+    ...patch,
+  });
+  /** The bearings of the houses standing in a given radius band, sorted. */
+  const bearingsWithin = (plan: FarmPlan, max: number): number[] =>
+    plan.buildings
+      .filter((spec) => Math.hypot(spec.x, spec.z) < max)
+      .map((spec) => ((Math.atan2(spec.x, -spec.z) * 180) / Math.PI + 360) % 360)
+      .sort((a, b) => a - b);
+  /** The gaps between consecutive bearings, round the circle. */
+  const gaps = (bearings: number[]): number[] =>
+    bearings.map((bearing, i) => {
+      const next = bearings[(i + 1) % bearings.length];
+      return (next - bearing + 360) % 360;
+    });
+
+  it('is taken on the tradition and on nothing else', () => {
+    const rings = circleRings(62.5);
+    const limestone = planFortInterior('limestone-ringfort', ismantorp(), rings, levelTerrain, 4711);
+    const mainland = planFortInterior('mainland', ismantorp(), rings, levelTerrain, 4711);
+    expect(limestone.buildings).not.toEqual(mainland.buildings);
+    expect(mainland.buildings).toEqual(
+      planInteriorBuildings(ismantorp(), rings, levelTerrain, 4711).buildings,
+    );
+    // A limestone fort whose record states a layout the branch is not about goes
+    // down the same path a mainland fort does.
+    const grouped = ismantorp({ layout: 'grouped' });
+    expect(
+      planFortInterior('limestone-ringfort', grouped, rings, levelTerrain, 4711).buildings,
+    ).toEqual(planInteriorBuildings(grouped, rings, levelTerrain, 4711).buildings);
+  });
+
+  it('lays Ismantorp’s houses radially against the inner wall face', () => {
+    const rings = circleRings(62.5);
+    const plan = planRingfortInterior(ismantorp(), rings, levelTerrain, 4711);
+    expect(plan.requested).toBe(88);
+    expect(plan.buildings.length).toBe(74);
+    for (const spec of plan.buildings) {
+      // Radial: the long axis points at the middle of the interior.
+      const axis = [Math.cos(spec.rotationRad), Math.sin(spec.rotationRad)];
+      const radial = Math.hypot(spec.x, spec.z);
+      expect(Math.abs((spec.x * axis[0] + spec.z * axis[1]) / radial)).toBeCloseTo(1, 3);
+      // Inside the extent, every corner of it.
+      for (const [x, z] of footprint(spec)) expect(pointInRings(rings, x, z)).toBe(true);
+    }
+    for (let i = 0; i < plan.buildings.length; i++) {
+      for (let j = i + 1; j < plan.buildings.length; j++) {
+        expect(footprintsClash(plan.buildings[i], plan.buildings[j], 0)).toBe(false);
+      }
+    }
+  });
+
+  it('cuts the inner group into the blocks the record states, and only the inner one', () => {
+    // "…en inre, mer oregelbunden grupp, genom **fyra gator** uppdelade i lika
+    // många **kvarter**." Four streets is four gaps, and the outer group — "en
+    // yttre med husen radiellt utgående från murens insida" — is one unbroken
+    // ring against the wall, so it has none.
+    const plan = planRingfortInterior(ismantorp(), circleRings(62.5), levelTerrain, 4711);
+    const inner = bearingsWithin(plan, 45);
+    const outer = plan.buildings
+      .filter((spec) => Math.hypot(spec.x, spec.z) >= 45)
+      .map((spec) => ((Math.atan2(spec.x, -spec.z) * 180) / Math.PI + 360) % 360)
+      .sort((a, b) => a - b);
+    expect(inner.length).toBeGreaterThan(20);
+    expect(outer.length).toBeGreaterThan(20);
+    const wide = (bearings: number[]): number[] => gaps(bearings).filter((gap) => gap > 15);
+    expect(wide(inner)).toHaveLength(4);
+    expect(wide(outer)).toHaveLength(0);
+    // The four streets stand a quarter-circle apart, which is what four equal
+    // blocks means — including across the seam the arc closes on.
+    const starts = inner.filter((_bearing, i) => gaps(inner)[i] > 15).sort((a, b) => a - b);
+    const spans = starts.map((bearing, i) => ((starts[(i + 1) % 4] - bearing + 360) % 360));
+    for (const span of spans) expect(span).toBeGreaterThan(60);
+  });
+
+  it('draws no streets where the record states no blocks', () => {
+    // The normal case nationally: Ismantorp is the only description in the
+    // country that draws a street plan, so nowhere else gets one invented.
+    const plan = planRingfortInterior(
+      ismantorp({ blocks: null }),
+      circleRings(62.5),
+      levelTerrain,
+      4711,
+    );
+    expect(gaps(bearingsWithin(plan, 45)).filter((gap) => gap > 15)).toHaveLength(0);
+  });
+
+  it('steps the inner group back by the street the register measured', () => {
+    // 2–5 m, so 3.5 — against the 2 m the app assumes when nothing states one.
+    const rings = circleRings(62.5);
+    const stated = planRingfortInterior(ismantorp(), rings, levelTerrain, 4711);
+    const assumed = planRingfortInterior(
+      ismantorp({ streetWidthM: null, fallbacks: ['buildings.streetWidthM'] }),
+      rings,
+      levelTerrain,
+      4711,
+    );
+    const innermost = (plan: FarmPlan): number =>
+      Math.min(...plan.buildings.map((spec) => Math.hypot(spec.x, spec.z)));
+    // The record's wider street pushes the inner ring further in than the
+    // narrower assumption does.
+    expect(innermost(stated)).toBeLessThan(innermost(assumed));
+    expect(ASSUMED_STREET_M).toBe(2);
+  });
+
+  it('keeps the count an upper bound and the terrain unregraded (§15.3)', () => {
+    const tight = planRingfortInterior(ismantorp(), circleRings(30), levelTerrain, 4711);
+    expect(tight.buildings.length).toBeGreaterThan(0);
+    expect(tight.buildings.length).toBeLessThan(88);
+    expect(tight.warnings.join(' ')).toMatch(/upper bound/);
+    const scarp: SamplerTerrain = { groundAt: (x) => x * 2, classAt: null, isWet: () => false };
+    const onScarp = planRingfortInterior(ismantorp(), circleRings(62.5), scarp, 4711);
+    expect(onScarp.buildings.length).toBe(0);
+    expect(onScarp.warnings).toHaveLength(1);
+    const roomy = planRingfortInterior(
+      ismantorp({ count: 6 }),
+      circleRings(62.5),
+      levelTerrain,
+      4711,
+    );
+    expect(roomy.buildings.length).toBe(6);
+    expect(roomy.warnings).toEqual([]);
+  });
+
+  it('draws Eketorp from its own record, default plan and all', () => {
+    // Its description counts ~75 house foundations and states no grouping and no
+    // street plan, and the house size it gives two sentences later is not
+    // reachable from the sentence that counts them — so the plan is §6.H's
+    // default, `fallbacks` says so, and the shortfall is a warning rather than
+    // 75 houses forced into a courtyard that will not hold them.
+    const eketorp: InteriorBuildings = {
+      ...ISMANTORP_BUILDINGS,
+      count: 75,
+      groups: null,
+      blocks: null,
+      streetWidthM: null,
+      template: null,
+      fallbacks: ['buildings.template.lengthM', 'buildings.template.widthM'],
+    };
+    const plan = planRingfortInterior(eketorp, circleRings(40), levelTerrain, 99);
+    expect(plan.requested).toBe(75);
+    expect(plan.buildings.length).toBeGreaterThan(0);
+    expect(plan.buildings.length).toBeLessThan(75);
+    expect(plan.warnings.join(' ')).toMatch(/upper bound/);
+    for (const spec of plan.buildings) {
+      expect(spec.lengthM).toBeGreaterThanOrEqual(FALLBACK_TEMPLATE.lengthM[0]);
+      expect(spec.lengthM).toBeLessThanOrEqual(FALLBACK_TEMPLATE.lengthM[1]);
+    }
+  });
+
+  it('is byte-identical for the same seed, and draws no yard (§7.5.3)', () => {
+    const rings = circleRings(62.5);
+    const a = planRingfortInterior(ismantorp(), rings, levelTerrain, 4711);
+    const b = planRingfortInterior(ismantorp(), rings, levelTerrain, 4711);
+    const c = planRingfortInterior(ismantorp(), rings, levelTerrain, 4712);
+    expect(a.buildings).toEqual(b.buildings);
+    expect(a.buildings).not.toEqual(c.buildings);
+    expect(a.features).toEqual([]);
   });
 });
 

@@ -200,6 +200,19 @@ export interface InteriorBuildings {
   countStated: boolean;
   layout: BuildingLayout;
   groups: number | null;
+  /**
+   * §7.5.2's radial **blocks** — how many quarters the inner group is cut into,
+   * where the record states it. Ismantorp's *"genom fyra gator uppdelade i lika
+   * många kvarter"* is the only description in the country that does, so this is
+   * `null` everywhere else and the layout then draws no streets.
+   */
+  blocks?: number | null;
+  /**
+   * The street between the groups (*ringgata*), as the record measures it.
+   * `null` ⇒ not stated, `fallbacks` carries `buildings.streetWidthM`, and the
+   * layout falls back to a §6.H-tier assumption the panel names.
+   */
+  streetWidthM?: Range | null;
   /** A compass sector of the interior — KMR's own word, never a coordinate. */
   sector: string | null;
   template: BuildingTemplate | null;
@@ -550,6 +563,25 @@ export function readInterior(value: unknown, source: string, archetypes: Readonl
     const sector = b['sector'];
     if (sector !== null && sector !== undefined && !SECTORS.has(String(sector))) {
       throw new ReconstructionError(`${label}.sector must be a compass point (§15.3).`);
+    }
+    // §7.5.2's street plan. Both are the record's or both are absent: a block
+    // count of one is not a division, and fifty is a misread, so the band that
+    // the pipeline enforces is enforced here too rather than trusted.
+    const blocks = b['blocks'];
+    if (
+      blocks !== null &&
+      blocks !== undefined &&
+      (!finite(blocks) || !Number.isInteger(blocks) || (blocks as number) < 2 || (blocks as number) > 12)
+    ) {
+      throw new ReconstructionError(
+        `${label}.blocks must be a stated block count of 2–12, or null (§15.1).`,
+      );
+    }
+    if (b['streetWidthM'] !== null && b['streetWidthM'] !== undefined) {
+      const street = readRange(b['streetWidthM'], 'streetWidthM', label);
+      if (street[0] <= 0) {
+        throw new ReconstructionError(`${label}.streetWidthM must be a positive band (§15.1).`);
+      }
     }
     readTier(b['countSource'], 'countSource', label);
     if (b['template'] !== null && b['template'] !== undefined) {

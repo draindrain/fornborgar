@@ -608,6 +608,28 @@ function buildingsParagraph(interior: NonNullable<ReconstructionFile['interior']
     ? `, restricted to the ${buildings.sector} part of the interior because that is where the ` +
       `sentence puts them`
     : '';
+  // §7.5.2's Öland/Gotland branch. It changes where a house is put and nothing
+  // about whether it may be put there, and the two numbers it stands on are the
+  // register's own or absent — so the sentence names which, and it names the one
+  // thing the app draws more tidily than the record describes it.
+  const ringfort =
+    interior.tradition === 'limestone-ringfort'
+      ? ` This is a limestone ringfort, a different building tradition from a mainland boulder ` +
+        `rampart, so the houses are laid out in radial blocks against the inner wall face rather ` +
+        `than scattered across the interior — a layout branch, never a lower bar for evidence: ` +
+        `no fort is offered this state for standing on limestone.` +
+        (buildings.blocks
+          ? ` The inner group is cut into ${buildings.blocks} blocks by streets because the ` +
+            `description says so, and the record calls that group "mer oregelbunden" — more ` +
+            `irregular — while the app draws it as regular as the outer one, because nothing in ` +
+            `the record says what the irregularity was.`
+          : ``) +
+        (buildings.streetWidthM
+          ? ` The street between the groups is the ${buildings.streetWidthM[0]}–` +
+            `${buildings.streetWidthM[1]} m the register measures.`
+          : ` The register measures no street between the groups, so the gap between them is an ` +
+            `assumption and is named below.`)
+      : '';
   const fallbacks =
     buildings.fallbacks && buildings.fallbacks.length > 0
       ? ` Everything the source leaves unstated takes a §6.H literature default, and each one is ` +
@@ -617,7 +639,7 @@ function buildingsParagraph(interior: NonNullable<ReconstructionFile['interior']
   return (
     `In the "settlement" state this fort draws ${stated}${layout}${sector}. The count is an upper ` +
     `bound, never a target: where the measured interior will not hold them the shortfall is a ` +
-    `warning on the record, not a silent truncation.${fallbacks}`
+    `warning on the record, not a silent truncation.${ringfort}${fallbacks}`
   );
 }
 

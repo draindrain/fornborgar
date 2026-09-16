@@ -85,7 +85,8 @@ import {
   type Tier,
 } from './schema';
 import { buildHouse, type BuildingBuild, type HouseSpec } from './longhouse';
-import { buildYardFeature, planFarmstead, planInteriorBuildings, type FarmPlan } from './farmstead';
+import { buildYardFeature, planFarmstead, type FarmPlan } from './farmstead';
+import { planFortInterior } from './ringfort';
 import type { RampartFile } from '../palisade';
 
 /** Archetypes this build actually draws in 3D. Everything else keeps its marker. */
@@ -267,6 +268,14 @@ export interface InteriorSummary {
   countStated: boolean;
   countSource: Tier;
   layout: string;
+  /**
+   * §7.5.2's building tradition, which selects the layout and never the gate.
+   * `limestone-ringfort` is the Öland/Gotland radial-block branch.
+   */
+  tradition: string;
+  /** The inner group's blocks and the street between the groups, where stated. */
+  blocks: number | null;
+  streetWidthM: [number, number] | null;
   sector: string | null;
   /** Field paths that took a §6.H default rather than the record (§15.3). */
   fallbacks: string[];
@@ -418,6 +427,9 @@ export class ReconstructionLayer {
       countStated: Boolean(buildings?.countStated),
       countSource: buildings?.countSource ?? 'assumed',
       layout: buildings?.layout ?? 'free',
+      tradition: block.tradition,
+      blocks: buildings?.blocks ?? null,
+      streetWidthM: buildings?.streetWidthM ?? null,
       sector: buildings?.sector ?? null,
       fallbacks: buildings?.fallbacks ?? [],
       warnings: this.interiorPlan?.warnings ?? [],
@@ -644,7 +656,11 @@ export class ReconstructionLayer {
     if (!ground) return;
 
     this.interiorFortId = fort.id;
-    const plan = planInteriorBuildings(
+    // §7.5.2's Öland/Gotland branch is taken here and nowhere else: the
+    // tradition selects the layout, and a `mainland` fort goes down exactly the
+    // path it went down before the branch existed.
+    const plan = planFortInterior(
+      block.tradition,
       block.buildings,
       ground.rings,
       this.terrain(),

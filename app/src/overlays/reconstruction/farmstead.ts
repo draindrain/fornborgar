@@ -81,7 +81,7 @@ export const SECTOR_HALF_WIDTH_DEG = 45;
  * buildings the register states are there, which is the wrong way to be wrong.
  * An `husgrund` ringfort's houses stand within a metre of each other.
  */
-const BUILDING_GAP_M = 0.6;
+export const BUILDING_GAP_M = 0.6;
 /**
  * Clear ground kept between a building and the edge of the ground it may stand
  * on, where the caller states no better number.
@@ -92,7 +92,7 @@ const BUILDING_GAP_M = 0.6;
  * measured from the crest, not from the extent, and the layer passes the inset
  * that says so.
  */
-const EDGE_CLEARANCE_M = 1.5;
+export const EDGE_CLEARANCE_M = 1.5;
 
 /**
  * The §6.H literature defaults, for a `buildings` block that carries no template
@@ -214,7 +214,7 @@ export function houseFromTemplate(
 
 // ---------------------------------------------------------------- helpers ---
 
-function centroidOf(rings: LocalRings): [number, number] {
+export function centroidOf(rings: LocalRings): [number, number] {
   const ring = rings[0] ?? [];
   let x = 0;
   let z = 0;
@@ -226,7 +226,7 @@ function centroidOf(rings: LocalRings): [number, number] {
 }
 
 /** How far the extent reaches from `[cx, cz]` along a unit direction. */
-function reachAlong(
+export function reachAlong(
   rings: LocalRings,
   cx: number,
   cz: number,
@@ -244,7 +244,7 @@ function reachAlong(
 }
 
 /** Is this a spot a building can stand on — inside, dry, and not a scarp? */
-function standable(spec: HouseSpec, rings: LocalRings | null, terrain: SamplerTerrain): boolean {
+export function standable(spec: HouseSpec, rings: LocalRings | null, terrain: SamplerTerrain): boolean {
   if (rings) {
     for (const [x, z] of footprint(spec)) if (!pointInRings(rings, x, z)) return false;
   }
@@ -293,7 +293,7 @@ export function footprintsClash(a: HouseSpec, b: HouseSpec, gapM: number): boole
   return true;
 }
 
-function clear(spec: HouseSpec, placed: HouseSpec[]): boolean {
+export function clear(spec: HouseSpec, placed: HouseSpec[]): boolean {
   const radius = houseRadius(spec.lengthM, spec.widthM);
   for (const other of placed) {
     // Cheap circle rejection first; the exact test only for what it lets through.
