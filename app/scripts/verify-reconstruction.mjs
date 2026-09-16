@@ -21,10 +21,20 @@
  *     buildings, carries its caveat in the DOM when it is switched on, and —
  *     against a fort whose record *does* state its houses, patched into the
  *     response at the door — draws them off by default, inside the extent, at
- *     true metric height on the exaggerated ground, identically across loads.
+ *     true metric height on the exaggerated ground, identically across loads;
+ *   • **the interior selector is a control, asserted as one**: it is in the DOM,
+ *     it opens on `cleared`, one *click* on it changes the state and raises the
+ *     caveat, one *click* on its evidence button puts the citation on screen —
+ *     and on a fort the gate fails, patched in the same way, none of it exists.
+ *     That last one is the point: every other check here runs against a fort
+ *     that passes, so an absence nobody asserts is an absence nobody notices.
+ *     Driving the buttons rather than the state setter is the whole design —
+ *     for a release this file switched reconstruction mode through `setEnabled`
+ *     and never clicked the HUD button, so the button could have been broken
+ *     without any check noticing.
  *
- * **One live page at a time.** The archetype-H fixture opens its own context and
- * the first one is closed before it does. Under a software rasterizer each live
+ * **One live page at a time.** Each patched fixture opens its own context and the
+ * previous one is closed before it does. Under a software rasterizer each live
  * page holds a 4 M-vertex terrain and its far-field rings, and a fourth load
  * stacked on the same page gets the renderer killed — which reads as a failure
  * of the feature and is a failure of the harness. For the same reason the
@@ -316,33 +326,95 @@ try {
     `${firstLoadSignature.split('|').length} batches`,
   );
 
-  // --- §7.5: the interior's two states, and archetype H ------------------
+  // --- §7.5: the interior selector, as a CONTROL --------------------------
+  // Everything below drives the buttons a visitor presses, not the state setter
+  // behind them, and that is deliberate. For a whole release this file switched
+  // reconstruction mode on through `setEnabled` and never clicked the HUD button,
+  // so the button could have been broken without any check noticing. The
+  // interior selector is not getting the same hole: the state setter is checked
+  // once, at the end, only to confirm that it agrees with the control.
+  const selectorBefore = await page.evaluate(() => {
+    const group = document.querySelector('.hud-interior');
+    const states = [...document.querySelectorAll('.hud-interior-state')].map((b) => ({
+      state: b.dataset.state,
+      pressed: b.getAttribute('aria-pressed'),
+      label: b.textContent,
+    }));
+    return {
+      present: Boolean(group),
+      hidden: group?.hidden ?? true,
+      states,
+      evidence: Boolean(document.querySelector('.hud-interior-evidence')),
+      offered: window.__app.reconstruction.layer.settlementOffered,
+      layerState: window.__app.reconstruction.layer.interiorState,
+    };
+  });
+  check(
+    'interior-selector-offered-in-the-dom',
+    selectorBefore.present &&
+      !selectorBefore.hidden &&
+      selectorBefore.offered === true &&
+      selectorBefore.evidence &&
+      selectorBefore.states.length === 2 &&
+      selectorBefore.states[0].state === 'cleared' &&
+      selectorBefore.states[1].state === 'settlement',
+    `${selectorBefore.states.map((s) => s.label).join(' / ')} + evidence button`,
+  );
+  check(
+    'interior-opens-on-cleared',
+    selectorBefore.layerState === 'cleared' &&
+      selectorBefore.states.find((s) => s.state === 'cleared')?.pressed === 'true' &&
+      selectorBefore.states.find((s) => s.state === 'settlement')?.pressed === 'false',
+    `layer ${selectorBefore.layerState}, control agrees (§7.5.1: every fort, always)`,
+  );
+
   // Broborg passes the §7.5.2 gate on a literature citation (channel 3) and its
   // record states nothing at all about buildings, so `interior.buildings` is
   // null and the settlement state draws **no houses**. That is the honest case
   // and it is checked first, because it is the one a future change is most
   // likely to break by "fixing".
+  const meshesBefore = await page.evaluate(
+    () =>
+      window.__app.reconstruction.layer.group.children.filter((child) =>
+        child.name.includes('#settlement'),
+      ).length,
+  );
+  await page.click('.hud-interior-state[data-state="settlement"]', { timeout: 120000 });
   const broborgInterior = await page.evaluate(() => {
     const app = window.__app;
-    const settlementMeshes = () =>
-      app.reconstruction.layer.group.children.filter((child) => child.name.includes('#settlement'));
-    const before = settlementMeshes().length;
-    const state = app.reconstruction.setInteriorState('settlement');
-    const summary = app.reconstruction.interior;
-    return { before, after: settlementMeshes().length, state, summary };
+    const pressed = (state) =>
+      document
+        .querySelector(`.hud-interior-state[data-state="${state}"]`)
+        ?.getAttribute('aria-pressed');
+    return {
+      after: app.reconstruction.layer.group.children.filter((c) => c.name.includes('#settlement'))
+        .length,
+      state: app.reconstruction.layer.interiorState,
+      clearedPressed: pressed('cleared'),
+      settlementPressed: pressed('settlement'),
+      summary: app.reconstruction.interior,
+    };
   });
+  check(
+    'interior-switch-click-changes-state',
+    broborgInterior.state === 'settlement' &&
+      broborgInterior.settlementPressed === 'true' &&
+      broborgInterior.clearedPressed === 'false',
+    `one click on the control → ${broborgInterior.state}, and the control says so`,
+  );
   check(
     'gate-obeyed-and-nothing-invented',
     broborgInterior.summary?.offered === true &&
       broborgInterior.summary?.placed === 0 &&
-      broborgInterior.before === 0 &&
+      meshesBefore === 0 &&
       broborgInterior.after === 0,
     `${SITE}: gate ${broborgInterior.summary?.gate}, ${broborgInterior.summary?.citations} citation(s), ` +
       `${broborgInterior.after} building meshes — the record states no buildings (§15.1)`,
   );
 
   // §9: the strongest caveat in the app, in the DOM, the first time archetype H
-  // is switched on. Asserted on the element a visitor actually reads.
+  // is switched on — and switched on by the button, so the caveat is checked on
+  // the path a visitor actually takes.
   const caveat = await page.evaluate(() => {
     const node = document.querySelector('.hud-caveat');
     return { present: Boolean(node), hidden: node?.hidden ?? true, text: node?.textContent ?? '' };
@@ -351,6 +423,52 @@ try {
     'settlement-caveat-in-the-dom',
     caveat.present && !caveat.hidden && /ARCHETYPE H/.test(caveat.text),
     caveat.text.slice(0, 80),
+  );
+
+  // §7.5.3: one click from the houses to the sentence they came from. On Broborg
+  // that sentence is not a KMR sentence at all — it is a channel-3 literature
+  // citation with no lämningsnummer — so this check also pins that the panel
+  // renders a channel the register never wrote.
+  await page.click('.hud-interior-evidence', { timeout: 120000 });
+  const evidence = await page.evaluate(() => {
+    const section = document.querySelector('.methods-section[data-section="interior"]');
+    return {
+      open: window.__app.methods.isOpen,
+      present: Boolean(section),
+      targeted: section?.classList.contains('is-targeted') ?? false,
+      text: section?.textContent ?? '',
+    };
+  });
+  check(
+    'evidence-is-one-click-from-the-houses',
+    evidence.open &&
+      evidence.present &&
+      evidence.targeted &&
+      /Englund 2018; Sjöblom et al\. 2022/.test(evidence.text) &&
+      /AD 432–542/.test(evidence.text),
+    evidence.present
+      ? `methods panel opened at the interior section, ${evidence.text.length} characters of it`
+      : 'no interior section in the methods panel',
+  );
+  check(
+    'cleared-never-says-nobody-was-here',
+    /nobody was here/.test(evidence.text) && /absence of a surveyor/.test(evidence.text),
+    '§7.5.1: the conservative state states what it is a statement about',
+  );
+
+  // And back again: two states, both reachable, neither a trap.
+  await page.evaluate(() => window.__app.methods.close());
+  await page.click('.hud-interior-state[data-state="cleared"]', { timeout: 120000 });
+  const backToCleared = await page.evaluate(() => ({
+    state: window.__app.reconstruction.layer.interiorState,
+    pressed: document
+      .querySelector('.hud-interior-state[data-state="cleared"]')
+      ?.getAttribute('aria-pressed'),
+  }));
+  check(
+    'interior-switch-is-two-way',
+    backToCleared.state === 'cleared' && backToCleared.pressed === 'true',
+    `clicked back to ${backToCleared.state}`,
   );
 
   // --- the drawn longhouse, on a record that states its houses ------------
@@ -400,7 +518,25 @@ try {
    * three quarters of the way through a fifty-minute run. One live page at a
    * time costs nothing and does not depend on how much memory the box has.
    */
-  const openPatched = async () => {
+  /**
+   * A fort the register says nothing about: the gate fails, the state is not
+   * offered, and §7.5.3's refusal is "not offered-and-labelled: not offered".
+   *
+   * This is the failure mode the spec most needs a test for and the easy one to
+   * leave untested, because every other check here runs against a fort that
+   * passes. `settlementOffered` and `evidence.gate` have to move together or the
+   * app's own schema rejects the pair (§15.3), and `buildings` must go with them.
+   */
+  const NO_EVIDENCE = (interior) => {
+    interior.settlementOffered = false;
+    interior.buildings = null;
+    interior.evidence.gate = 'fail';
+    interior.evidence.channels = [];
+    interior.evidence.terms = [];
+    interior.evidence.citations = [];
+  };
+
+  const openPatched = async (mutate = (interior) => void (interior.buildings = ISMANTORP_BUILDINGS)) => {
     const patchedContext = await browser.newContext({ viewport: { width: 1280, height: 800 } });
     const patchedPage = await patchedContext.newPage();
     // The same listeners the first page has: a patched load's console errors are
@@ -413,7 +549,7 @@ try {
       try {
         const response = await route.fetch();
         const body = await response.json();
-        if (body && body.interior) body.interior.buildings = ISMANTORP_BUILDINGS;
+        if (body && body.interior) mutate(body.interior);
         await route.fulfill({
           status: 200,
           contentType: 'application/json',
@@ -484,9 +620,14 @@ try {
     `${patchedOff.built} building meshes, ${patchedOff.visible} drawn — §9 ships archetype H off`,
   );
 
+  // The houses go on the same way a visitor would put them on: by clicking the
+  // control. This is the check that would have caught the bug §0 of the brief
+  // describes, and the reason the state setter is not used here.
+  await patched.patchedPage.click('.hud-interior-state[data-state="settlement"]', {
+    timeout: 120000,
+  });
   const patchedOn = await patched.patchedPage.evaluate(() => {
     const app = window.__app;
-    app.reconstruction.setInteriorState('settlement');
     const meshes = app.reconstruction.layer.group.children.filter((child) =>
       child.name.includes('#settlement'),
     );
@@ -499,13 +640,16 @@ try {
       vertices: app.reconstruction.vertices,
       standing: app.reconstruction.standing,
       summary: app.reconstruction.interior,
+      pressed: document
+        .querySelector('.hud-interior-state[data-state="settlement"]')
+        ?.getAttribute('aria-pressed'),
     };
   });
   check(
     'houses-drawn-on-settlement',
-    patchedOn.visible > 0 && patchedOn.summary.placed > 0,
+    patchedOn.visible > 0 && patchedOn.summary.placed > 0 && patchedOn.pressed === 'true',
     `${patchedOn.summary.placed} of ${patchedOn.summary.requested} placed, ${patchedOn.visible} meshes, ` +
-      `${patchedOn.posts} trestle-post batch(es)`,
+      `${patchedOn.posts} trestle-post batch(es) — drawn by one click on the control`,
   );
   check(
     'count-is-an-upper-bound',
@@ -592,6 +736,62 @@ try {
     'houses-reload-identical',
     firstHouses.length > 0 && firstHouses === secondHouses,
     `${firstHouses.split('|').length} building batches, byte-identical across a fresh load`,
+  );
+  await closePatched(patched);
+  patched = null;
+
+  // --- §7.5.3: a fort with no evidence is not offered the state -----------
+  // The absence is the point, and it is the easy thing to leave untested: every
+  // check above runs against a fort that passes the gate, so a selector that had
+  // quietly started appearing everywhere would sail through all of them. It is
+  // asserted on the DOM rather than on a flag, because "not offered" is a
+  // statement about what a visitor can reach — and a hidden control is still
+  // reachable, which is why the app builds none at all here.
+  patched = await openPatched(NO_EVIDENCE);
+  const refused = await patched.patchedPage.evaluate(() => {
+    const app = window.__app;
+    // Ask for it anyway, by every route there is, and record what happens.
+    const applied = app.reconstruction.setInteriorState('settlement');
+    return {
+      selectorPresent: Boolean(document.querySelector('.hud-interior')),
+      states: document.querySelectorAll('.hud-interior-state').length,
+      evidenceButton: Boolean(document.querySelector('.hud-interior-evidence')),
+      hookSaysSelector: app.reconstruction.interiorSelector,
+      offered: app.reconstruction.layer.settlementOffered,
+      applied,
+      layerState: app.reconstruction.layer.interiorState,
+      settlementMeshes: app.reconstruction.layer.group.children.filter((child) =>
+        child.name.includes('#settlement'),
+      ).length,
+      // Reconstruction mode itself still works — the refusal is local to the
+      // interior, not a fort that fails to draw.
+      standing: app.reconstruction.standing,
+      section: Boolean(document.querySelector('.methods-section[data-section="interior"]')),
+    };
+  });
+  check(
+    'selector-absent-without-evidence',
+    refused.selectorPresent === false &&
+      refused.states === 0 &&
+      refused.evidenceButton === false &&
+      refused.hookSaysSelector === false,
+    `gate fail ⇒ no .hud-interior, no state buttons, no evidence button in the DOM ` +
+      `(§7.5.3: not offered-and-labelled — not offered)`,
+  );
+  check(
+    'settlement-refused-without-evidence',
+    refused.offered === false &&
+      refused.applied === 'cleared' &&
+      refused.layerState === 'cleared' &&
+      refused.settlementMeshes === 0 &&
+      refused.standing > 0,
+    `asked for settlement anyway → ${refused.applied}, ${refused.settlementMeshes} building meshes, ` +
+      `${refused.standing} monuments still standing`,
+  );
+  check(
+    'failed-gate-still-explains-itself',
+    refused.section === true,
+    '§15.3: a fort that failed the gate keeps its evidence section — a fail is a statement',
   );
   await closePatched(patched);
   patched = null;
