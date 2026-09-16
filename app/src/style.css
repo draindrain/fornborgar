@@ -812,6 +812,69 @@ body {
   background: rgba(121, 198, 221, 0.18);
 }
 
+/* Phase 13 §7.5: the interior selector. Only in the DOM at all for a fort the
+   pipeline offers the settlement state, and only visible in reconstruction mode.
+
+   Neither state is styled as the correct one: the two buttons are identical, and
+   the active one is marked the same way the mode switch marks itself. A control
+   that made "settlement" look like the answer would be a verdict drawn in CSS. */
+.hud-interior {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem;
+  margin-top: 0.45rem;
+  pointer-events: auto;
+}
+
+.hud-interior[hidden] {
+  display: none;
+}
+
+.hud-interior-label {
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+
+.hud-interior-state,
+.hud-interior-evidence {
+  padding: 0.22rem 0.55rem;
+  font: inherit;
+  font-size: 0.78rem;
+  color: var(--ink);
+  background: rgba(233, 230, 223, 0.08);
+  border: 1px solid var(--edge);
+  border-radius: 4px;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.hud-interior-state:hover,
+.hud-interior-evidence:hover {
+  background: rgba(233, 230, 223, 0.16);
+}
+
+.hud-interior-state.is-active {
+  color: #cdeef8;
+  border-color: rgba(121, 198, 221, 0.6);
+  background: rgba(121, 198, 221, 0.18);
+}
+
+.hud-interior-evidence {
+  margin-left: 0.25rem;
+  color: var(--ink-dim);
+  border-style: dashed;
+}
+
+/* The section the methods panel was opened *at*, so the reader can see which
+   part answered the button they pressed (§7.5.3's one click). */
+.methods-section.is-targeted {
+  border-left: 2px solid rgba(121, 198, 221, 0.6);
+  padding-left: 0.6rem;
+}
+
 .site-picker {
   position: fixed;
   top: 1rem;

@@ -41,6 +41,11 @@ export class MethodsPanel {
 
     for (const section of model.sections) {
       const block = el('section', 'methods-section');
+      // The section's own id reaches the DOM so a control elsewhere can open the
+      // panel *at* it — the interior selector's "Evidence" button does exactly
+      // that, which is what makes the houses one click from their citation
+      // (docs/reconstruction-mode.md §7.5.3).
+      block.dataset['section'] = section.id;
       const h = el('h3', 'methods-section-title', section.title);
       if (section.badge) h.append(badgeEl(section.badge));
       block.append(h);
@@ -66,8 +71,26 @@ export class MethodsPanel {
     this.modal.body.append(sources);
   }
 
-  show(): void {
+  /**
+   * Open the panel, optionally scrolled to one section.
+   *
+   * The section is highlighted as well as scrolled to, because a long modal that
+   * silently jumps is worse than one that does not move: the reader has to be
+   * able to see *which* part answered the button they pressed. An unknown id
+   * simply opens the panel at the top rather than failing.
+   */
+  show(sectionId?: string): void {
     this.modal.show();
+    for (const node of this.modal.body.querySelectorAll('.methods-section')) {
+      node.classList.remove('is-targeted');
+    }
+    if (!sectionId) return;
+    const target = this.modal.body.querySelector<HTMLElement>(
+      `.methods-section[data-section="${sectionId}"]`,
+    );
+    if (!target) return;
+    target.classList.add('is-targeted');
+    target.scrollIntoView({ block: 'start' });
   }
 
   hide(): void {

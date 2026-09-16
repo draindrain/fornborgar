@@ -21,6 +21,22 @@ function el<K extends keyof HTMLElementTagNameMap>(
   return node;
 }
 
+/** §7.5's two interior states, as the selector labels them to a visitor. */
+const INTERIOR_LABELS: Record<'cleared' | 'settlement', string> = {
+  cleared: 'Cleared surfaces',
+  settlement: 'Settlement',
+};
+
+const INTERIOR_TITLES: Record<'cleared' | 'settlement', string> = {
+  cleared:
+    'The measured ground inside the wall, with stone-picked patches only where the register ' +
+    'places them. This is not "empty" — it is a statement about recorded structure, not about ' +
+    'occupation.',
+  settlement:
+    'The same ground plus houses, where this fort’s own record or a cited excavation puts ' +
+    'buildings inside the wall. Interpretation: see the evidence.',
+};
+
 export class Hud {
   readonly root: HTMLElement;
 
@@ -32,6 +48,22 @@ export class Hud {
   private readonly pickerButton: HTMLButtonElement;
   /** Phase 12: the reconstruction-mode switch. Hidden unless the site ships §14. */
   private readonly modeButton: HTMLButtonElement;
+  /**
+   * Phase 13 §7.5: the interior selector, built **only** for a fort the pipeline
+   * offers the `settlement` state.
+   *
+   * It is created lazily rather than created hidden, and that is the whole point
+   * of it. §7.5.3 is explicit — "a fort with no evidence is not offered the state
+   * at all. Not offered-and-labelled: not offered" — and a `hidden` control is
+   * still a control: it is in the DOM, it is in the accessibility tree the moment
+   * someone unhides it by accident, and it is one CSS mistake away from being
+   * visible. The strongest expression the DOM affords for "not offered" is an
+   * element that does not exist, so on a fort that fails the gate none of this
+   * is ever constructed.
+   */
+  private interiorEl: HTMLElement | null = null;
+  private interiorButtons: HTMLButtonElement[] = [];
+  private readonly headerEl: HTMLElement;
   private readonly caveatsShown = new Set<string>();
   private caveatTimer = 0;
 
@@ -54,6 +86,7 @@ export class Hud {
     this.modeButton.type = 'button';
     this.modeButton.hidden = true;
     header.append(this.titleEl, this.pickerButton, this.modeButton);
+    this.headerEl = header;
 
     this.loadingEl = el('div', 'hud-loading');
     this.loadingLabel = el('div', 'hud-loading-label', 'Starting…');
@@ -113,6 +146,76 @@ export class Hud {
       ? 'Back to the register: flat markers coloured by lämningstyp'
       : 'Show the monuments as they may have looked when in use (interpretation)';
     this.modeButton.classList.toggle('is-active', on);
+  }
+
+  /**
+   * Build §7.5's interior selector. **Only call this where the pipeline offers
+   * the `settlement` state** — the caller obeys `settlementOffered` and never
+   * re-derives it (contract §15.3), and a fort that failed the gate gets no
+   * selector in the DOM at all.
+   *
+   * Two states, side by side, neither styled as the "correct" one: the
+   * disagreement about what the loose interior stone means is rendered as a
+   * choice, exactly as the vitrified band renders §7.1's. The third button is
+   * not a state — it opens the methods panel at this fort's own evidence, which
+   * is what puts the citation one click from the houses (§7.5.3).
+   */
+  enableInteriorSelector(
+    onState: (state: 'cleared' | 'settlement') => void,
+    onEvidence: () => void,
+  ): void {
+    if (this.interiorEl) return;
+    const group = el('div', 'hud-interior');
+    group.setAttribute('role', 'group');
+    group.setAttribute('aria-label', 'Fort interior');
+    group.hidden = true;
+    group.append(el('span', 'hud-interior-label', 'Interior'));
+
+    this.interiorButtons = (['cleared', 'settlement'] as const).map((state) => {
+      const button = el('button', 'hud-interior-state', INTERIOR_LABELS[state]);
+      button.type = 'button';
+      button.dataset['state'] = state;
+      button.title = INTERIOR_TITLES[state];
+      button.setAttribute('aria-pressed', 'false');
+      button.addEventListener('click', () => onState(state));
+      group.append(button);
+      return button;
+    });
+
+    const evidence = el('button', 'hud-interior-evidence', 'Evidence');
+    evidence.type = 'button';
+    evidence.title =
+      'What the register (or the cited excavation) actually says about the inside of this ' +
+      'fort — verbatim, with the record it came from.';
+    evidence.addEventListener('click', onEvidence);
+    group.append(evidence);
+
+    this.headerEl.append(group);
+    this.interiorEl = group;
+  }
+
+  /**
+   * Reflect the interior state actually in force, and show the selector only in
+   * reconstruction mode.
+   *
+   * `state` is the state the *layer* applied, not the one that was asked for:
+   * the layer refuses `settlement` outright where the data does not offer it, so
+   * driving the control from the applied value is what keeps the switch from
+   * ever claiming houses the scene is not drawing.
+   */
+  setInteriorState(state: 'cleared' | 'settlement', visible: boolean): void {
+    if (!this.interiorEl) return;
+    this.interiorEl.hidden = !visible;
+    for (const button of this.interiorButtons) {
+      const on = button.dataset['state'] === state;
+      button.setAttribute('aria-pressed', on ? 'true' : 'false');
+      button.classList.toggle('is-active', on);
+    }
+  }
+
+  /** Does this site offer the interior selector at all? For tests and hooks. */
+  get hasInteriorSelector(): boolean {
+    return this.interiorEl !== null;
   }
 
   /**

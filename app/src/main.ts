@@ -273,6 +273,23 @@ function applyReconstructionSettings(): void {
   const on = controlState.reconstruction.show;
   reconstruction.setEnabled(on);
   hud.setMode(on);
+  // §7.5's interior selector, through the same funnel and before the markers are
+  // filtered: archetype H going on or off moves records between drawn and
+  // marked, so the state has to settle first.
+  //
+  // The layer's answer, not the request, is what is written back and what the
+  // control shows. `setInteriorState` refuses `settlement` outright on a fort the
+  // pipeline did not offer it (§7.5.3, §15.3) — so a dev hook, a URL, or a stale
+  // control cannot leave the switch claiming houses the scene is not drawing.
+  const interior = reconstruction.setInteriorState(controlState.reconstruction.interior);
+  controlState.reconstruction.interior = interior;
+  hud.setInteriorState(interior, on);
+  // PLAN §6.1, first enable: archetype H's caveat is the strongest in the app and
+  // it is shown the first time the houses are actually switched on — not at
+  // startup, where nothing is asserted yet.
+  if (on && interior === 'settlement') {
+    hud.showCaveatOnce('reconstruction-settlement', 'conjecture', SETTLEMENT_CAVEAT);
+  }
   // The markers are the other half of the mode. In reconstruction mode only the
   // ruins and the not-yet-drawn archetypes keep theirs; leaving the mode
   // restores every one of them.
@@ -903,6 +920,13 @@ async function start(): Promise<void> {
       standingCount: () => reconstruction?.standingCount ?? 0,
       vertexCount: () => reconstruction?.vertexCount ?? 0,
       markerCount: () => sitesLayer?.shownCount ?? 0,
+      // The gate is the pipeline's, and the debug folder obeys it too (§15.3).
+      settlementOffered: reconstruction.settlementOffered,
+      interiorReadout: () => {
+        const summary = reconstruction?.interiorSummary();
+        if (!summary) return '';
+        return `interior ${summary.state}: ${summary.placed}/${summary.requested} houses`;
+      },
       onChange: () => applyReconstructionSettings(),
     });
     applyReconstructionSettings();
@@ -985,6 +1009,25 @@ async function start(): Promise<void> {
   const legend = new Legend(document.body);
   legend.setContent(manifest.layers ?? [], sitesFile?.sites ?? null, landcover?.legend ?? null);
   timeBar.setExplain(() => methods.show());
+
+  // §7.5's interior selector, built here rather than with the rest of the
+  // reconstruction block above because its third button needs the methods panel
+  // to open — "a visitor can get from the rendered houses to the sentence they
+  // came from in one click" is the acceptance criterion, and a click that lands
+  // anywhere short of the citation does not meet it.
+  //
+  // The condition is the whole of §7.5.3: where the pipeline did not offer the
+  // state, this never runs, and the DOM has no selector to find.
+  if (reconstruction?.settlementOffered) {
+    hud.enableInteriorSelector(
+      (state) => {
+        controlState.reconstruction.interior = state;
+        applyReconstructionSettings();
+      },
+      () => methods.show('interior'),
+    );
+    applyReconstructionSettings();
+  }
   // -------------------------------------------------------------------------
 
   // --- The kebab menu (PLAN §6.1, 2026-08-23b amendment) --------------------
@@ -1330,14 +1373,19 @@ async function start(): Promise<void> {
       get interior() {
         return reconstruction?.interiorSummary() ?? null;
       },
+      // Deliberately the same path the visitor's selector takes, and no shorter
+      // one: a hook that reached past `applyReconstructionSettings` would be a
+      // second place the caveat, the marker filter and the control's own label
+      // could drift out of step — which is exactly the bug §0 warns about, a
+      // check that drives the state setter and never touches the control.
       setInteriorState(state: 'cleared' | 'settlement') {
-        const applied = reconstruction?.setInteriorState(state) ?? 'cleared';
-        if (applied === 'settlement') {
-          hud.showCaveatOnce('reconstruction-settlement', 'conjecture', SETTLEMENT_CAVEAT);
-        }
-        // Archetype H going on or off moves records between drawn and marked.
+        controlState.reconstruction.interior = state;
         applyReconstructionSettings();
-        return applied;
+        return controlState.reconstruction.interior;
+      },
+      /** Is the selector in the DOM at all? §7.5.3's refusal, observable. */
+      get interiorSelector() {
+        return hud.hasInteriorSelector;
       },
       apply: applyReconstructionSettings,
     },
@@ -1387,7 +1435,7 @@ async function start(): Promise<void> {
     rings: ringsStatus,
     // Phase 6.
     methods: {
-      open: () => methods.show(),
+      open: (section?: string) => methods.show(section),
       close: () => methods.hide(),
       get isOpen() {
         return methods.open;
