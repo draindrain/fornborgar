@@ -1384,6 +1384,10 @@ async function start(): Promise<void> {
       // could drift out of step — which is exactly the bug §0 warns about, a
       // check that drives the state setter and never touches the control.
       setInteriorState(state: 'cleared' | 'settlement') {
+        // No layer, no state: a site that ships no §14 asset has no interior to
+        // switch, and answering "settlement" for one would be the hook asserting
+        // something the scene cannot show.
+        if (!reconstruction) return 'cleared';
         controlState.reconstruction.interior = state;
         applyReconstructionSettings();
         return controlState.reconstruction.interior;
