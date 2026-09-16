@@ -1023,6 +1023,34 @@ def test_eketorps_radial_houses_come_from_its_tradition_and_say_so(survey_forts:
     ]
 
 
+def test_the_limestone_branch_covers_106_forts_and_no_more(survey: dict) -> None:
+    """§7.5.2's own number, pinned so the branch cannot spread.
+
+    106 of the 1 304 registered forts are on Öland or Gotland — 85 and 21 — and
+    those are the forts whose interiors are laid out radially. A later edit to
+    `_LIMESTONE_COUNTIES` or `_LIMESTONE_KOMMUNER` has to move this number rather
+    than quietly claim the mainland.
+    """
+    limestone = [
+        fort["slug"]
+        for fort in survey["forts"]
+        if R.interior_tradition(fort["county"], fort["kommun"]) == "limestone-ringfort"
+    ]
+    assert len(limestone) == 106
+    regions = {fort["region"] for fort in survey["forts"] if fort["slug"] in set(limestone)}
+    assert regions == {"Öland", "Gotland"}
+    # And every other fort in the country is mainland, including the rest of
+    # Kalmar county — the branch is two kommuner, not a county.
+    assert (
+        sum(
+            1
+            for fort in survey["forts"]
+            if R.interior_tradition(fort["county"], fort["kommun"]) == "mainland"
+        )
+        == 1304 - 106
+    )
+
+
 def test_the_limestone_branch_never_widens_the_gate() -> None:
     """§7.5.2: "no fort is offered `settlement` for being on limestone"."""
     fort = fort_record("Fornborg, ringmur av kalksten. Inga husgrunder är synliga.")
