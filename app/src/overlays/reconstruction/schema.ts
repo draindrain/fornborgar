@@ -564,9 +564,10 @@ export function readInterior(value: unknown, source: string, archetypes: Readonl
     if (sector !== null && sector !== undefined && !SECTORS.has(String(sector))) {
       throw new ReconstructionError(`${label}.sector must be a compass point (§15.3).`);
     }
-    // §7.5.2's street plan. Both are the record's or both are absent: a block
-    // count of one is not a division, and fifty is a misread, so the band that
-    // the pipeline enforces is enforced here too rather than trusted.
+    // §7.5.2's street plan. Each is the record's or it is absent, and the band
+    // the pipeline enforces is enforced here too rather than trusted: a block
+    // count of one is not a division and fifty is a misread, and a street of no
+    // width is not a street.
     const blocks = b['blocks'];
     if (
       blocks !== null &&
