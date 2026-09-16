@@ -70,6 +70,19 @@ const FRAME_BUDGET = Number(opt('frame-budget', '1.6'));
  * absolute number — it converges long before a benchmark would.
  */
 const FRAMES = Number(opt('frames', '16'));
+/**
+ * How long a *click* may take, which is a different number from everything else
+ * here and was learned the hard way: a 120 s click timed out on this box.
+ *
+ * Playwright will not click an element until it is visible, enabled and stable,
+ * and "stable" means the same bounding box across two consecutive animation
+ * frames. Under a software rasterizer one frame of this scene is measured in
+ * *seconds* — the frame-time check above reported 18.5 ms × 10³ — so two frames
+ * plus a hit-test can outrun a timeout that would be absurdly generous in a real
+ * browser. The waiting is the renderer's, not the control's, and shortening it
+ * would only turn a slow box into a failed feature.
+ */
+const CLICK_TIMEOUT_MS = Number(opt('click-timeout', String(TIMEOUT_MS)));
 
 // Unlike verify-sites.mjs this never needs the agent proxy: the whole check runs
 // against a locally previewed build with repo-relative bundles, and routing a
@@ -379,7 +392,32 @@ try {
         child.name.includes('#settlement'),
       ).length,
   );
-  await page.click('.hud-interior-state[data-state="settlement"]', { timeout: 120000 });
+  // Record the caveat *as it appears*, before the click that raises it.
+  //
+  // PLAN §6.1's toast lives for nine seconds. On this box one frame takes
+  // eighteen, so asking the page about it after the click would routinely read a
+  // toast that had already come and gone — a harness artefact reported as a
+  // missing caveat. A MutationObserver fires as a microtask on the DOM change
+  // itself, so this snapshots what a visitor would have seen at the instant the
+  // button was pressed. It is a stricter check than reading the node later, not
+  // a looser one: it also proves the caveat was raised BY the click.
+  await page.evaluate(() => {
+    window.__caveatSeen = null;
+    const node = document.querySelector('.hud-caveat');
+    if (!node) return;
+    const snap = () => {
+      if (node.hidden || window.__caveatSeen) return;
+      window.__caveatSeen = { hidden: node.hidden, text: node.textContent };
+    };
+    new MutationObserver(snap).observe(node, {
+      attributes: true,
+      childList: true,
+      subtree: true,
+      characterData: true,
+    });
+    snap();
+  });
+  await page.click('.hud-interior-state[data-state="settlement"]', { timeout: CLICK_TIMEOUT_MS });
   const broborgInterior = await page.evaluate(() => {
     const app = window.__app;
     const pressed = (state) =>
@@ -417,19 +455,23 @@ try {
   // the path a visitor actually takes.
   const caveat = await page.evaluate(() => {
     const node = document.querySelector('.hud-caveat');
-    return { present: Boolean(node), hidden: node?.hidden ?? true, text: node?.textContent ?? '' };
+    const live = { present: Boolean(node), hidden: node?.hidden ?? true, text: node?.textContent ?? '' };
+    const seen = window.__caveatSeen;
+    // Prefer what the observer caught at the moment of the click; fall back to
+    // the live node when the toast is somehow still up.
+    return seen ? { present: true, hidden: seen.hidden, text: seen.text, recorded: true } : live;
   });
   check(
     'settlement-caveat-in-the-dom',
     caveat.present && !caveat.hidden && /ARCHETYPE H/.test(caveat.text),
-    caveat.text.slice(0, 80),
+    `${caveat.recorded ? 'raised by the click: ' : 'still on screen: '}${caveat.text.slice(0, 80)}`,
   );
 
   // §7.5.3: one click from the houses to the sentence they came from. On Broborg
   // that sentence is not a KMR sentence at all — it is a channel-3 literature
   // citation with no lämningsnummer — so this check also pins that the panel
   // renders a channel the register never wrote.
-  await page.click('.hud-interior-evidence', { timeout: 120000 });
+  await page.click('.hud-interior-evidence', { timeout: CLICK_TIMEOUT_MS });
   const evidence = await page.evaluate(() => {
     const section = document.querySelector('.methods-section[data-section="interior"]');
     return {
@@ -458,7 +500,7 @@ try {
 
   // And back again: two states, both reachable, neither a trap.
   await page.evaluate(() => window.__app.methods.close());
-  await page.click('.hud-interior-state[data-state="cleared"]', { timeout: 120000 });
+  await page.click('.hud-interior-state[data-state="cleared"]', { timeout: CLICK_TIMEOUT_MS });
   const backToCleared = await page.evaluate(() => ({
     state: window.__app.reconstruction.layer.interiorState,
     pressed: document
@@ -624,7 +666,7 @@ try {
   // control. This is the check that would have caught the bug §0 of the brief
   // describes, and the reason the state setter is not used here.
   await patched.patchedPage.click('.hud-interior-state[data-state="settlement"]', {
-    timeout: 120000,
+    timeout: CLICK_TIMEOUT_MS,
   });
   const patchedOn = await patched.patchedPage.evaluate(() => {
     const app = window.__app;
