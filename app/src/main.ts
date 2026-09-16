@@ -24,7 +24,7 @@ import { LandcoverTint } from './landcover/tint';
 import { bakeImpostorAtlas, type ImpostorAtlas } from './landcover/impostors';
 import { VegetationLayer } from './landcover/vegetation';
 import { PalisadeLayer } from './overlays/palisade';
-import { ReconstructionLayer } from './overlays/reconstruction/layer';
+import { ReconstructionLayer, SETTLEMENT_CAVEAT } from './overlays/reconstruction/layer';
 import { Atmosphere } from './sky/atmosphere';
 import { moonPosition, phaseLabel, type LunarPosition } from './sky/lunar';
 import { NightSky } from './sky/nightSky';
@@ -1322,6 +1322,22 @@ async function start(): Promise<void> {
       setEnabled(on: boolean) {
         controlState.reconstruction.show = on;
         applyReconstructionSettings();
+      },
+      // Phase 13 (§7.5): the fort interior's two states. `cleared` is the
+      // default for every fort, always; `settlement` is refused outright where
+      // the pipeline's gate did not offer it, and carries archetype H's caveat —
+      // the strongest in the app (§9) — the first time it is switched on.
+      get interior() {
+        return reconstruction?.interiorSummary() ?? null;
+      },
+      setInteriorState(state: 'cleared' | 'settlement') {
+        const applied = reconstruction?.setInteriorState(state) ?? 'cleared';
+        if (applied === 'settlement') {
+          hud.showCaveatOnce('reconstruction-settlement', 'conjecture', SETTLEMENT_CAVEAT);
+        }
+        // Archetype H going on or off moves records between drawn and marked.
+        applyReconstructionSettings();
+        return applied;
       },
       apply: applyReconstructionSettings,
     },

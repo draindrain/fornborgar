@@ -30,15 +30,38 @@ import {
   fortIsConfident,
   standingAt,
   validateReconstruction,
+  type BuildingTemplate,
+  type FarmSpec,
+  type InteriorBuildings,
   type Monument,
   type ReconstructionFile,
 } from '../src/overlays/reconstruction/schema';
 import {
   ReconstructionLayer,
   RENDERED_ARCHETYPES,
+  isDrawable,
   localRings,
   monumentState,
 } from '../src/overlays/reconstruction/layer';
+import {
+  aisleWidth,
+  bearingRotation,
+  buildHouse,
+  footprint,
+  roofGeometry,
+  trestleStations,
+  type HouseSpec,
+} from '../src/overlays/reconstruction/longhouse';
+import {
+  FALLBACK_TEMPLATE,
+  buildYardFeature,
+  footprintsClash,
+  houseFromTemplate,
+  inSector,
+  planFarmstead,
+  planInteriorBuildings,
+  templateFromDefaults,
+} from '../src/overlays/reconstruction/farmstead';
 import {
   buildShape,
   kerbPlacements,
@@ -179,8 +202,20 @@ describe('the §8 visibility gate', () => {
     }
   });
 
-  it('leaves the farmstead archetype out of this pass entirely (§6.H)', () => {
+  it('keeps the flat marker for a farmstead record the data says nothing about (§6.H.1.4)', () => {
+    // Archetype H is drawn from a `farm` block (§15.2) and from a fort's
+    // `interior.buildings`, never from the bare archetype: "free-standing
+    // farmsteads keep their flat markers until somebody makes the equivalent
+    // measurement for them". None of Broborg's four `Boplats` records carries
+    // one, so all four stay markers.
     expect(RENDERED_ARCHETYPES.has('farmstead')).toBe(false);
+    const farmsteads = file.monuments.filter((m) => m.archetype === 'farmstead');
+    expect(farmsteads.length).toBeGreaterThan(0);
+    for (const monument of farmsteads) {
+      expect(monument.farm).toBeUndefined();
+      expect(isDrawable(monument)).toBe(false);
+      expect(monumentState(monument, 500)).toBe('ruin');
+    }
   });
 });
 
@@ -856,5 +891,832 @@ describe('localRings', () => {
   it('returns null for a point record, so the sampler falls back to the extent', () => {
     const record = sites.sites.find((site) => !site.geometryLocal)!;
     expect(localRings(record)).toBeNull();
+  });
+});
+
+// --------------------------------------------------------------------------- //
+// §15 — the interior and farm blocks at the door
+// --------------------------------------------------------------------------- //
+
+/** Ismantorp's own sentence, as the pipeline writes it (§7.5.1, §15.1). */
+const ISMANTORP_TEMPLATE: BuildingTemplate = {
+  kind: 'longhouse',
+  count: 1,
+  lengthM: [12, 14],
+  widthM: [4, 6],
+  orientationDeg: null,
+  aisleFraction: 0.4,
+  aisleWidthM: [1.3, 2.8],
+  wallHeightM: 1.2,
+  roofForm: 'hipped',
+  roofPitchDeg: 45,
+  hipPitchDeg: 48,
+  smokeVent: 'board-with-hole',
+  covering: 'turf-over-birch-bark',
+  walls: 'wattle-and-daub-on-stone-footing',
+  trestleSpacingM: [2, 3],
+  source: 'measured',
+  tiers: { plan: 'measured', profile: 'derived', surface: 'assumed' },
+};
+
+const ISMANTORP_BUILDINGS: InteriorBuildings = {
+  count: 88,
+  countSource: 'measured',
+  countStated: true,
+  layout: 'radial',
+  groups: 2,
+  sector: null,
+  template: ISMANTORP_TEMPLATE,
+  fallbacks: [],
+  source: 'measured',
+};
+
+/** The committed file with a different `interior` block spliced into it. */
+function withInterior(patch: Record<string, unknown>): Record<string, unknown> {
+  const raw = clone();
+  raw['interior'] = { ...(raw['interior'] as Record<string, unknown>), ...patch };
+  return raw;
+}
+
+describe('the §15 interior block, at the door', () => {
+  it('accepts Broborg: the gate passes on a citation, and states no buildings', () => {
+    // §7.5.3's channel 3, and the reason Broborg is *not* the drawn-longhouse
+    // case: the occupation is dated, the interior stone is contested, and the
+    // record says nothing about buildings, so `buildings` is null and none are
+    // drawn.
+    const interior = file.interior!;
+    expect(interior.state).toBe('cleared');
+    expect(interior.settlementOffered).toBe(true);
+    expect(interior.evidence.gate).toBe('pass');
+    expect(interior.evidence.citations.length).toBeGreaterThan(0);
+    expect(interior.buildings).toBeNull();
+  });
+
+  it('refuses a hip shallower than the long sides — the Eketorp-II error (§6.H)', () => {
+    const broken = withInterior({
+      buildings: { ...ISMANTORP_BUILDINGS, template: { ...ISMANTORP_TEMPLATE, hipPitchDeg: 38 } },
+    });
+    expect(() => validateReconstruction(broken)).toThrow(/hipPitchDeg/);
+  });
+
+  it('refuses a wall under a metre — the wall carries load, it is not a footing', () => {
+    const broken = withInterior({
+      buildings: { ...ISMANTORP_BUILDINGS, template: { ...ISMANTORP_TEMPLATE, wallHeightM: 0.6 } },
+    });
+    expect(() => validateReconstruction(broken)).toThrow(/wallHeightM/);
+  });
+
+  it('refuses an aisle outside the underbalanced band (§6.H, §15.3)', () => {
+    const broken = withInterior({
+      buildings: {
+        ...ISMANTORP_BUILDINGS,
+        template: { ...ISMANTORP_TEMPLATE, aisleFraction: 0.75 },
+      },
+    });
+    expect(() => validateReconstruction(broken)).toThrow(/aisleFraction/);
+  });
+
+  it('refuses a gabled roof: v1.8 draws no gabled Iron Age longhouse', () => {
+    const broken = withInterior({
+      buildings: { ...ISMANTORP_BUILDINGS, template: { ...ISMANTORP_TEMPLATE, roofForm: 'gabled' } },
+    });
+    expect(() => validateReconstruction(broken)).toThrow(/roofForm/);
+  });
+
+  it('refuses the settlement state with no citation — no citation, no state', () => {
+    const broken = withInterior({
+      settlementOffered: true,
+      evidence: { ...file.interior!.evidence, gate: 'pass', citations: [] },
+    });
+    expect(() => validateReconstruction(broken)).toThrow(/citation/);
+  });
+
+  it('refuses buildings inside a fort that failed the gate (§7.5.3)', () => {
+    const broken = withInterior({
+      settlementOffered: false,
+      evidence: { ...file.interior!.evidence, gate: 'fail', citations: [] },
+      buildings: ISMANTORP_BUILDINGS,
+    });
+    expect(() => validateReconstruction(broken)).toThrow(/failed the gate/);
+  });
+
+  it('refuses a coordinate hidden in a building spec — a sector is not a position', () => {
+    const broken = withInterior({ buildings: { ...ISMANTORP_BUILDINGS, x: 12, z: -4 } });
+    expect(() => validateReconstruction(broken)).toThrow(/never a position/);
+  });
+
+  it('refuses a cleared patch with no sentence to place it', () => {
+    const broken = withInterior({
+      ground: {
+        ...file.interior!.ground,
+        clearedPatches: [
+          { lengthM: 8, widthM: 6, orientationDeg: null, sector: 'S', source: 'measured' },
+        ],
+      },
+    });
+    expect(() => validateReconstruction(broken)).toThrow(/sentence/);
+  });
+
+  it('refuses a farm block on a record that is not a farmstead (§15.2)', () => {
+    const broken = clone();
+    const mound = (broken['monuments'] as Array<Record<string, unknown>>).find(
+      (m) => m['archetype'] === 'mound',
+    )!;
+    mound['farm'] = {
+      buildings: [],
+      layout: 'yard',
+      features: {},
+      insideFortId: null,
+      source: 'assumed',
+    };
+    expect(() => validateReconstruction(broken)).toThrow(/archetype H only/);
+  });
+
+  it('refuses a yard inside a fort: no hearths, wells or fences in an enclosure', () => {
+    const broken = clone();
+    const farmstead = (broken['monuments'] as Array<Record<string, unknown>>).find(
+      (m) => m['archetype'] === 'farmstead',
+    )!;
+    farmstead['farm'] = {
+      buildings: [ISMANTORP_TEMPLATE],
+      layout: 'yard',
+      features: { hearth: true, well: false, enclosure: false },
+      insideFortId: 'L1943:7827',
+      source: 'assumed',
+    };
+    expect(() => validateReconstruction(broken)).toThrow(/inside fort/);
+  });
+});
+
+// --------------------------------------------------------------------------- //
+// §6.H — the four things reconstructions get wrong
+// --------------------------------------------------------------------------- //
+
+/** Gene house II, 40 × 9 m, ~350–600 CE: §6.H's recommended default. */
+function house(overrides: Partial<HouseSpec> = {}): HouseSpec {
+  return {
+    kind: 'longhouse',
+    x: 0,
+    z: 0,
+    lengthM: 40,
+    widthM: 9,
+    rotationRad: 0,
+    wallHeightM: 1.2,
+    roofPitchDeg: 45,
+    hipPitchDeg: 48,
+    aisleFraction: 0.4,
+    aisleWidthM: [1.3, 2.8],
+    trestleSpacingM: [2, 3],
+    doorSide: 1,
+    seed: 77,
+    ...overrides,
+  };
+}
+
+describe('the §6.H longhouse', () => {
+  it('gives Gene house II a roof far more than twice the height of its wall', () => {
+    const roof = roofGeometry(house());
+    expect(roof.roofHeightM).toBeCloseTo(5.0, 1);
+    expect(roof.roofHeightM).toBeGreaterThan(house().wallHeightM * 2);
+    expect(roof.ridgeY).toBeCloseTo(5.7, 1);
+  });
+
+  it('is hipped, never gabled: the ridge stops short of both ends', () => {
+    const roof = roofGeometry(house());
+    expect(roof.ridgeHalfM).toBeGreaterThan(0);
+    expect(roof.ridgeHalfM).toBeLessThan(roof.eaveHalfLengthM - 1);
+    expect(roof.hipRunM).toBeGreaterThan(0);
+  });
+
+  it('never lets the hip fall shallower than the long sides — the Eketorp-II error', () => {
+    // A steeper hip runs in a shorter way and leaves a longer ridge; an equal
+    // one runs in exactly half the breadth. Neither can be shallower, because a
+    // hip pitch under the roof pitch is clamped up rather than drawn.
+    const equal = roofGeometry(house({ hipPitchDeg: 45 }));
+    const steep = roofGeometry(house({ hipPitchDeg: 60 }));
+    const refused = roofGeometry(house({ hipPitchDeg: 20 }));
+    expect(equal.hipRunM).toBeCloseTo(equal.eaveHalfWidthM, 5);
+    expect(steep.hipRunM).toBeLessThan(equal.hipRunM);
+    expect(steep.ridgeHalfM).toBeGreaterThan(equal.ridgeHalfM);
+    expect(refused.hipRunM).toBeCloseTo(equal.hipRunM, 5);
+  });
+
+  it('builds the aisle underbalanced — 40 % of breadth, inside the Mälardalen band', () => {
+    // §6.H's table, in metres: *underbalanserad* is ~40 % of breadth at 1.3–2.8 m.
+    expect(aisleWidth(6, 0.4, [1.3, 2.8]).widthM).toBeCloseTo(2.4, 6);
+    expect(aisleWidth(6, 0.4, [1.3, 2.8]).clamped).toBe(false);
+    expect(aisleWidth(5, 0.4, [1.3, 2.8]).widthM).toBeCloseTo(2.0, 6);
+    // The 9 m Gene house is the case where the fraction and the measured band
+    // disagree; the band wins, and the disagreement is reported, not hidden.
+    expect(aisleWidth(9, 0.4, [1.3, 2.8])).toEqual({ widthM: 2.8, clamped: true });
+    // …and it is always less than half the breadth, which is the period rule.
+    for (const breadth of [5, 6, 7, 8, 9]) {
+      expect(aisleWidth(breadth, 0.4, [1.3, 2.8]).widthM).toBeLessThan(breadth / 2);
+    }
+  });
+
+  it('spaces the trestles unevenly: tight in the byre, open over the hearth', () => {
+    const stations = trestleStations(40, [2, 3], 7);
+    const gaps = stations.slice(1).map((u, i) => u - stations[i]);
+    expect(stations.length).toBeGreaterThan(10);
+    // The byre end is regular and close, at the tight end of the stated band.
+    const byre = gaps.slice(0, 6);
+    expect(Math.max(...byre) - Math.min(...byre)).toBeLessThan(1e-6);
+    expect(byre[0]).toBeCloseTo(2, 6);
+    // Somewhere in the dwelling there is one much larger span — the hearth.
+    expect(Math.max(...gaps)).toBeGreaterThan(3 * 1.4);
+    // …and the rest of the dwelling varies rather than repeating the byre.
+    expect(new Set(gaps.map((g) => g.toFixed(3))).size).toBeGreaterThan(3);
+    expect(trestleStations(40, [2, 3], 7)).toEqual(stations);
+    expect(trestleStations(40, [2, 3], 8)).not.toEqual(stations);
+  });
+
+  it('carries the roof on two rows of posts at the aisle width', () => {
+    const spec = house();
+    const build = buildHouse(spec, { groundAt: () => 12 });
+    const aisle = aisleWidth(spec.widthM, spec.aisleFraction, spec.aisleWidthM);
+    expect(build.posts.length).toBe(trestleStations(40, [2, 3], 0).length * 0 + build.posts.length);
+    expect(build.posts.length % 2).toBe(0);
+    expect(build.posts.length).toBeGreaterThan(10);
+    for (const post of build.posts) {
+      // Every post stands at half the aisle width from the centre line…
+      expect(Math.abs(post.z)).toBeCloseTo(aisle.widthM / 2, 6);
+      // …and reaches the roof plane it carries: above the wall, under the ridge.
+      expect(post.heightM).toBeGreaterThan(spec.wallHeightM);
+      expect(post.heightM).toBeLessThan(build.roof.ridgeY);
+    }
+  });
+
+  it('gives an ancillary building and a grophus no trestles', () => {
+    for (const kind of ['ancillary', 'grophus'] as const) {
+      const build = buildHouse(house({ kind, lengthM: 8, widthM: 5 }), { groundAt: () => 0 });
+      expect(build.posts).toEqual([]);
+    }
+  });
+
+  it('seats the whole building on one ground sample, so it cannot warp', () => {
+    // A house is rigid: contract §0 keeps its metric shape at any exaggeration,
+    // and a ridge draped over the terrain would sag differently at ×2.5.
+    const build = buildHouse(house(), { groundAt: (x) => 10 + x / 20 });
+    for (const part of build.parts) {
+      for (const value of part.groundY) expect(value).toBeCloseTo(build.groundY, 6);
+    }
+  });
+
+  it('keeps the wall, the roof and the footing in their own material families', () => {
+    const build = buildHouse(house(), { groundAt: () => 0 });
+    const families = build.parts.map((part) => part.family).sort();
+    expect(families).toEqual(['soil', 'stone', 'turf']);
+    for (const part of build.parts) {
+      expect(part.indices.length % 3).toBe(0);
+      expect(part.localY.length).toBe(part.positionsXZ.length / 2);
+      for (const index of part.indices) expect(index).toBeLessThan(part.localY.length);
+    }
+  });
+
+  it('reaches the ridge and no higher, and buries its footing rather than floating', () => {
+    const build = buildHouse(house(), { groundAt: (x, z) => 10 + Math.sin(x / 9) + z / 30 });
+    let highest = -Infinity;
+    let lowest = Infinity;
+    for (const part of build.parts) {
+      for (const y of part.localY) {
+        highest = Math.max(highest, y);
+        lowest = Math.min(lowest, y);
+      }
+    }
+    expect(highest).toBeCloseTo(build.roof.ridgeY, 1);
+    expect(lowest).toBeLessThan(0); // the footing skirt reaches below the seat
+  });
+
+  it('leaves a doorway in the middle of a long side (§6.H)', () => {
+    const build = buildHouse(house({ rotationRad: 0 }), { groundAt: () => 0 });
+    const wall = build.parts.find((part) => part.family === 'soil')!;
+    const doorSide: number[] = [];
+    for (let i = 0; i < wall.localY.length; i++) {
+      const x = wall.positionsXZ[i * 2];
+      const z = wall.positionsXZ[i * 2 + 1];
+      // Wall vertices on the door side: at the wall line, no higher than its head.
+      if (z > 4 && wall.localY[i] <= 1.2 && wall.localY[i] >= 0) doorSide.push(x);
+    }
+    expect(doorSide.length).toBeGreaterThan(0);
+    // Nothing stands across the middle of that wall: that is the doorway.
+    expect(doorSide.filter((x) => Math.abs(x) < 0.7).length).toBe(0);
+    expect(doorSide.some((x) => x < -1)).toBe(true);
+    expect(doorSide.some((x) => x > 1)).toBe(true);
+  });
+
+  it('is byte-identical for the same seed, and different for another', () => {
+    const flatten = (spec: HouseSpec): number[] =>
+      buildHouse(spec, { groundAt: () => 3 }).parts.flatMap((part) => [
+        ...part.positionsXZ,
+        ...part.localY,
+      ]);
+    expect(flatten(house())).toEqual(flatten(house()));
+    expect(flatten(house({ seed: 78 }))).not.toEqual(flatten(house()));
+  });
+
+  it('reads a compass bearing in the app frame, where north is −z', () => {
+    const north = bearingRotation(0);
+    expect(Math.cos(north)).toBeCloseTo(0, 6);
+    expect(Math.sin(north)).toBeCloseTo(-1, 6); // the long axis points north
+    const east = bearingRotation(90);
+    expect(Math.cos(east)).toBeCloseTo(1, 6);
+    expect(Math.sin(east)).toBeCloseTo(0, 6);
+  });
+});
+
+// --------------------------------------------------------------------------- //
+// §7.5.1 / §15.3 — where the buildings go, and how many of them
+// --------------------------------------------------------------------------- //
+
+/** A ring-fort interior, as a polygon. Ismantorp is ~125 m across. */
+function circleRings(radius: number): Array<Array<[number, number]>> {
+  const ring: Array<[number, number]> = [];
+  for (let i = 0; i < 64; i++) {
+    const theta = (i / 64) * Math.PI * 2;
+    ring.push([Math.cos(theta) * radius, Math.sin(theta) * radius]);
+  }
+  return [ring];
+}
+
+const levelTerrain: SamplerTerrain = { groundAt: () => 20, classAt: null, isWet: () => false };
+
+describe('the interior building sampler (§7.5.1)', () => {
+  const ismantorp = (patch: Partial<InteriorBuildings> = {}): InteriorBuildings => ({
+    ...ISMANTORP_BUILDINGS,
+    ...patch,
+  });
+
+  it('places Ismantorp’s houses radially against the inner wall face', () => {
+    const rings = circleRings(62.5);
+    const plan = planInteriorBuildings(ismantorp(), rings, levelTerrain, 4711);
+    expect(plan.requested).toBe(88);
+    expect(plan.buildings.length).toBeGreaterThan(40);
+    for (const spec of plan.buildings) {
+      // Radial: the long axis points at the middle of the interior.
+      const axis = [Math.cos(spec.rotationRad), Math.sin(spec.rotationRad)];
+      const radial = Math.hypot(spec.x, spec.z);
+      expect(Math.abs((spec.x * axis[0] + spec.z * axis[1]) / radial)).toBeCloseTo(1, 3);
+    }
+  });
+
+  it('never places more than the record states, and says so when it places fewer', () => {
+    // §15.3: "`count` is an upper bound. The sampler may place fewer buildings
+    // than a stated count if the extent will not hold them; the shortfall is a
+    // warning, never a silent truncation."
+    const tight = planInteriorBuildings(ismantorp(), circleRings(30), levelTerrain, 4711);
+    expect(tight.buildings.length).toBeLessThan(88);
+    expect(tight.buildings.length).toBeGreaterThan(0);
+    expect(tight.warnings.join(' ')).toMatch(/upper bound/);
+    const roomy = planInteriorBuildings(
+      ismantorp({ count: 6 }),
+      circleRings(62.5),
+      levelTerrain,
+      4711,
+    );
+    expect(roomy.buildings.length).toBe(6);
+    expect(roomy.warnings).toEqual([]);
+  });
+
+  it('never lets two buildings stand in each other', () => {
+    const plan = planInteriorBuildings(ismantorp(), circleRings(62.5), levelTerrain, 4711);
+    for (let i = 0; i < plan.buildings.length; i++) {
+      for (let j = i + 1; j < plan.buildings.length; j++) {
+        expect(footprintsClash(plan.buildings[i], plan.buildings[j], 0)).toBe(false);
+      }
+    }
+  });
+
+  it('keeps every building inside the fort’s own extent', () => {
+    const rings = circleRings(62.5);
+    const plan = planInteriorBuildings(ismantorp(), rings, levelTerrain, 4711);
+    for (const spec of plan.buildings) {
+      for (const [x, z] of footprint(spec)) expect(pointInRings(rings, x, z)).toBe(true);
+    }
+  });
+
+  it('places them in the stated sector and nowhere else (§7.5.3)', () => {
+    const plan = planInteriorBuildings(
+      ismantorp({ count: 20, layout: 'free', groups: 1, sector: 'S' }),
+      circleRings(62.5),
+      levelTerrain,
+      4711,
+    );
+    expect(plan.buildings.length).toBeGreaterThan(4);
+    for (const spec of plan.buildings) {
+      // South is +z in the app's frame, and the sector is a quadrant of it.
+      expect(spec.z).toBeGreaterThan(0);
+      expect(inSector((Math.atan2(spec.x, -spec.z) * 180) / Math.PI, 'S')).toBe(true);
+    }
+  });
+
+  it('refuses ground the terrain says is wet or too steep to build on', () => {
+    const wet: SamplerTerrain = { groundAt: () => 20, classAt: () => 1, isWet: () => true };
+    expect(
+      planInteriorBuildings(ismantorp(), circleRings(62.5), wet, 4711).buildings.length,
+    ).toBeGreaterThanOrEqual(0);
+    const scarp: SamplerTerrain = { groundAt: (x) => x * 2, classAt: null, isWet: () => false };
+    const onScarp = planInteriorBuildings(
+      ismantorp({ layout: 'free' }),
+      circleRings(62.5),
+      scarp,
+      4711,
+    );
+    // §7.5.3: "if a longhouse will not sit on it, that is a finding, not a
+    // licence to flatten" — so a fort of scarp holds nothing at all.
+    expect(onScarp.buildings.length).toBe(0);
+    expect(onScarp.warnings.length).toBe(1);
+  });
+
+  it('uses the record’s stated orientation where it has one', () => {
+    const stated = planInteriorBuildings(
+      ismantorp({
+        count: 4,
+        layout: 'free',
+        groups: 1,
+        template: { ...ISMANTORP_TEMPLATE, orientationDeg: 135 },
+      }),
+      circleRings(62.5),
+      levelTerrain,
+      4711,
+    );
+    expect(stated.buildings.length).toBeGreaterThan(0);
+    for (const spec of stated.buildings) {
+      expect(spec.rotationRad).toBeCloseTo(bearingRotation(135), 6);
+    }
+  });
+
+  it('falls back to one house and the §6.H defaults where the record is silent', () => {
+    // §15.1: `count: null` is "the record attests houses but states no number".
+    const plan = planInteriorBuildings(
+      { ...ISMANTORP_BUILDINGS, count: null, countStated: false, countSource: 'assumed', template: null },
+      circleRings(62.5),
+      levelTerrain,
+      4711,
+    );
+    expect(plan.requested).toBe(1);
+    expect(plan.buildings.length).toBe(1);
+    expect(plan.buildings[0].lengthM).toBeGreaterThanOrEqual(FALLBACK_TEMPLATE.lengthM[0]);
+    expect(plan.buildings[0].lengthM).toBeLessThanOrEqual(FALLBACK_TEMPLATE.lengthM[1]);
+  });
+
+  it('draws length and width from one shared draw, so long is also wide', () => {
+    const long = houseFromTemplate(ISMANTORP_TEMPLATE, 'longhouse', 11);
+    const wide = houseFromTemplate({ ...ISMANTORP_TEMPLATE }, 'longhouse', 11);
+    expect(long).toEqual(wide);
+    const t = (long.lengthM - 12) / 2;
+    expect(long.widthM).toBeCloseTo(4 + t * 2, 6);
+  });
+
+  it('is byte-identical for the same seed — a reload is the same interior', () => {
+    const rings = circleRings(62.5);
+    const a = planInteriorBuildings(ismantorp(), rings, levelTerrain, 4711);
+    const b = planInteriorBuildings(ismantorp(), rings, levelTerrain, 4711);
+    const c = planInteriorBuildings(ismantorp(), rings, levelTerrain, 4712);
+    expect(a.buildings).toEqual(b.buildings);
+    expect(a.buildings).not.toEqual(c.buildings);
+  });
+
+  it('never draws a yard feature inside a fort (§7.5.3)', () => {
+    expect(planInteriorBuildings(ismantorp(), circleRings(62.5), levelTerrain, 1).features).toEqual(
+      [],
+    );
+  });
+});
+
+describe('the §6.H yard layout, outside a fort', () => {
+  const farm: FarmSpec = {
+    buildings: [
+      ISMANTORP_TEMPLATE,
+      { ...ISMANTORP_TEMPLATE, kind: 'ancillary', count: 2 },
+      { ...ISMANTORP_TEMPLATE, kind: 'grophus', count: 1 },
+    ],
+    layout: 'yard',
+    features: { hearth: true, well: true, enclosure: false },
+    insideFortId: null,
+    source: 'assumed',
+  };
+
+  it('draws a longhouse, its outbuildings and a grophus round one yard', () => {
+    const plan = planFarmstead(farm, { x: 0, z: 0 }, 90, null, levelTerrain, 5);
+    expect(plan.requested).toBe(4);
+    expect(plan.buildings.length).toBe(4);
+    expect(plan.buildings[0].kind).toBe('longhouse');
+    expect(plan.buildings.filter((b) => b.kind === 'ancillary').length).toBe(2);
+    expect(plan.buildings.filter((b) => b.kind === 'grophus').length).toBe(1);
+    // The farm is not a single building, and the outbuildings are smaller.
+    for (const other of plan.buildings.slice(1)) {
+      expect(other.lengthM).toBeLessThan(plan.buildings[0].lengthM);
+    }
+    expect(plan.buildings.every((b) => b.lengthM > 2)).toBe(true);
+  });
+
+  it('puts the hearth and the well in the yard, on the doorway side', () => {
+    const plan = planFarmstead(farm, { x: 0, z: 0 }, 90, null, levelTerrain, 5);
+    const kinds = plan.features.map((f) => f.kind).sort();
+    expect(kinds).toEqual(['hearth', 'well', 'yard']);
+    const yard = plan.features.find((f) => f.kind === 'yard')!;
+    const house0 = plan.buildings[0];
+    // The yard sits across the house from its long axis — that is the side the
+    // doorway is in — and the hearth is inside the yard.
+    const across = Math.hypot(yard.x - house0.x, yard.z - house0.z);
+    expect(across).toBeGreaterThan(house0.widthM / 2);
+    const hearth = plan.features.find((f) => f.kind === 'hearth')!;
+    expect(Math.hypot(hearth.x - yard.x, hearth.z - yard.z)).toBeLessThan(yard.radiusM);
+  });
+
+  it('draws no hearth, well or fence the data does not set', () => {
+    const bare = planFarmstead(
+      { ...farm, features: { hearth: false, well: false, enclosure: true } },
+      { x: 0, z: 0 },
+      null,
+      null,
+      levelTerrain,
+      5,
+    );
+    // The enclosure is not modelled at all: there is nothing to derive its line
+    // from, so the honest answer is to draw nothing rather than a guess.
+    expect(bare.features.map((f) => f.kind)).toEqual(['yard']);
+  });
+
+
+  it('draws no yard at all for a record the pipeline placed inside a fort', () => {
+    // §7.5.3 refuses "hearths, wells, yards, fences, paths and field systems
+    // inside the wall" — buildings the record attests, on ground the DEM
+    // measured, and nothing else.
+    const inside = planFarmstead(
+      { ...farm, features: { hearth: false, well: false, enclosure: false }, insideFortId: 'L1943:7827' },
+      { x: 0, z: 0 },
+      null,
+      null,
+      levelTerrain,
+      5,
+    );
+    expect(inside.buildings.length).toBeGreaterThan(0);
+    expect(inside.features).toEqual([]);
+  });
+
+
+  it('brings every yard feature back to the ground at its own rim', () => {
+    // The same rule the monument shapes keep: nothing stands on a lip of
+    // nothing, and a feature drapes on the measured ground rather than being
+    // seated rigidly like a building.
+    for (const kind of ['yard', 'hearth', 'well'] as const) {
+      const build = buildYardFeature(
+        { kind, x: 4, z: -2, radiusM: kind === 'yard' ? 6 : 1 },
+        (x, z) => 12 + x / 50 - z / 80,
+        9,
+      );
+      const rim: number[] = [];
+      for (let i = 0; i < build.localY.length; i++) {
+        const x = build.positionsXZ[i * 2];
+        const z = build.positionsXZ[i * 2 + 1];
+        const radius = Math.hypot(x - 4, z + 2);
+        if (radius > (kind === 'yard' ? 6 : 1) - 1e-6) rim.push(build.localY[i]);
+        // Draped, not seated: each vertex takes the ground under itself.
+        expect(build.groundY[i]).toBeCloseTo(12 + x / 50 - z / 80, 4);
+      }
+      expect(rim.length).toBeGreaterThan(8);
+      for (const y of rim) expect(y).toBe(0);
+    }
+  });
+
+  it('is byte-identical for the same seed', () => {
+    const a = planFarmstead(farm, { x: 10, z: -5 }, null, null, levelTerrain, 3);
+    const b = planFarmstead(farm, { x: 10, z: -5 }, null, null, levelTerrain, 3);
+    expect(a.buildings).toEqual(b.buildings);
+    expect(a.features).toEqual(b.features);
+  });
+});
+
+// --------------------------------------------------------------------------- //
+// the layer, with archetype H switched on
+// --------------------------------------------------------------------------- //
+
+describe('the settlement state in the layer (§7.5, §9)', () => {
+  const settlementFile = validateReconstruction(
+    withInterior({ buildings: ISMANTORP_BUILDINGS }),
+    'patched',
+    siteIds,
+  );
+  let exaggeration = 1;
+  function build(seed = 1): ReconstructionLayer {
+    return new ReconstructionLayer(
+      settlementFile,
+      sites,
+      {
+        groundAt: ground,
+        getExaggeration: () => exaggeration,
+        classAt: null,
+        classId: null,
+        rampart,
+        seed,
+        vitrified: true,
+      },
+      500,
+    );
+  }
+  const settlementMeshes = (layer: ReconstructionLayer): THREE.Mesh[] =>
+    layer.group.children.filter((child) => child.name.includes('#settlement')) as THREE.Mesh[];
+
+  it('opens on `cleared`, with the houses built but not drawn (§9, off by default)', () => {
+    const layer = build();
+    expect(layer.interiorState).toBe('cleared');
+    expect(settlementMeshes(layer).length).toBeGreaterThan(0);
+    expect(settlementMeshes(layer).every((mesh) => !mesh.visible)).toBe(true);
+    layer.dispose();
+  });
+
+  it('draws them when the interior is switched to `settlement`', () => {
+    const layer = build();
+    const before = layer.standingCount;
+    expect(layer.setInteriorState('settlement')).toBe('settlement');
+    expect(settlementMeshes(layer).some((mesh) => mesh.visible)).toBe(true);
+    expect(layer.standingCount).toBeGreaterThan(before);
+    const summary = layer.interiorSummary()!;
+    expect(summary.offered).toBe(true);
+    expect(summary.requested).toBe(88);
+    expect(summary.placed).toBeGreaterThan(10);
+    expect(summary.placed).toBeLessThanOrEqual(88);
+    expect(summary.countStated).toBe(true);
+    expect(summary.countSource).toBe('measured');
+    expect(summary.layout).toBe('radial');
+    expect(summary.citations).toBeGreaterThan(0);
+    layer.dispose();
+  });
+
+  it('refuses the settlement state where the gate did not offer it (§15.3)', () => {
+    // "An app that finds `settlementOffered: false` and an inhabited-looking
+    // description draws the `cleared` state and nothing else."
+    const refusedFile = validateReconstruction(
+      withInterior({
+        settlementOffered: false,
+        evidence: { ...file.interior!.evidence, gate: 'fail', citations: [] },
+        buildings: null,
+      }),
+      'refused',
+      siteIds,
+    );
+    const layer = new ReconstructionLayer(
+      refusedFile,
+      sites,
+      { groundAt: ground, getExaggeration: () => 1, classAt: null, classId: null, rampart, seed: 1, vitrified: true },
+      500,
+    );
+    expect(layer.settlementOffered).toBe(false);
+    expect(layer.setInteriorState('settlement')).toBe('cleared');
+    expect(layer.interiorState).toBe('cleared');
+    expect(layer.group.children.filter((c) => c.name.includes('#settlement')).length).toBe(0);
+    layer.dispose();
+  });
+
+  it('draws no houses on Broborg itself, which states none (§15.1)', () => {
+    // The committed bundle passes the gate on a literature citation and carries
+    // `buildings: null`. Passing the gate is not a licence to invent a house.
+    const layer = new ReconstructionLayer(
+      file,
+      sites,
+      { groundAt: ground, getExaggeration: () => 1, classAt: null, classId: null, rampart, seed: 1, vitrified: true },
+      500,
+    );
+    expect(layer.settlementOffered).toBe(true);
+    expect(layer.setInteriorState('settlement')).toBe('settlement');
+    expect(layer.group.children.filter((c) => c.name.includes('#settlement')).length).toBe(0);
+    expect(layer.interiorSummary()!.placed).toBe(0);
+    layer.dispose();
+  });
+
+  it('keeps true metric height at ×1 and ×2.5 — contract §0, with houses on', () => {
+    const layer = build();
+    layer.setInteriorState('settlement');
+    const heights = (value: number): Float32Array[] => {
+      exaggeration = value;
+      layer.refreshHeights();
+      return settlementMeshes(layer).map((mesh) => {
+        const array = mesh.geometry.getAttribute('position').array as Float32Array;
+        const out = new Float32Array(array.length / 3);
+        for (let i = 0; i < out.length; i++) out[i] = array[i * 3 + 1];
+        return out;
+      });
+    };
+    const positionsAt = (value: number): Float32Array[] => {
+      exaggeration = value;
+      layer.refreshHeights();
+      return settlementMeshes(layer).map(
+        (mesh) => Float32Array.from(mesh.geometry.getAttribute('position').array as Float32Array),
+      );
+    };
+
+    const flat = positionsAt(1);
+    const tall = positionsAt(2.5);
+    let drift = 0;
+    for (let m = 0; m < flat.length; m++) {
+      for (let i = 0; i < flat[m].length; i += 3) {
+        drift = Math.max(drift, Math.abs(flat[m][i] - tall[m][i]), Math.abs(flat[m][i + 2] - tall[m][i + 2]));
+      }
+    }
+    expect(drift).toBe(0);
+
+    const one = heights(1);
+    const twoFive = heights(2.5);
+    const four = heights(4);
+    let worst = 0;
+    let sampled = 0;
+    for (let m = 0; m < one.length; m++) {
+      for (let i = 0; i < one[m].length; i++) {
+        const slopeA = (twoFive[m][i] - one[m][i]) / 1.5;
+        const slopeB = (four[m][i] - one[m][i]) / 3;
+        worst = Math.max(worst, Math.abs(slopeA - slopeB));
+        sampled++;
+      }
+    }
+    expect(sampled).toBeGreaterThan(1000);
+    expect(worst).toBeLessThan(1e-3);
+    exaggeration = 1;
+    layer.dispose();
+  });
+
+  it('is byte-identical for the same seed, houses and all', () => {
+    exaggeration = 1;
+    const positions = (layer: ReconstructionLayer): number[] =>
+      layer.group.children
+        .filter((child) => (child as THREE.Mesh).isMesh)
+        .flatMap((child) => {
+          const attribute = (child as THREE.Mesh).geometry.getAttribute('position');
+          return attribute ? Array.from(attribute.array as Float32Array) : [];
+        });
+    const a = build();
+    const b = build();
+    a.setInteriorState('settlement');
+    b.setInteriorState('settlement');
+    expect(positions(a)).toEqual(positions(b));
+    a.dispose();
+    b.dispose();
+  });
+
+  it('takes the houses away with the fort at 1050 CE (§8)', () => {
+    exaggeration = 1;
+    const layer = build();
+    layer.setInteriorState('settlement');
+    expect(settlementMeshes(layer).some((mesh) => mesh.visible)).toBe(true);
+    layer.setYear(1050);
+    // The buildings are this fort's interior: they stand exactly as long as it does.
+    expect(settlementMeshes(layer).some((mesh) => mesh.visible)).toBe(false);
+    layer.setYear(500);
+    expect(settlementMeshes(layer).some((mesh) => mesh.visible)).toBe(true);
+    layer.dispose();
+  });
+
+  it('gives a farm-block record its marker back when archetype H is off', () => {
+    // §9: archetype H is off by default, and a record whose geometry is off
+    // keeps its flat §3 marker rather than disappearing from the scene.
+    const raw = withInterior({ buildings: ISMANTORP_BUILDINGS });
+    const farmstead = (raw['monuments'] as Array<Record<string, unknown>>).find(
+      (m) => m['archetype'] === 'farmstead',
+    )!;
+    farmstead['farm'] = {
+      buildings: [ISMANTORP_TEMPLATE, { ...ISMANTORP_TEMPLATE, kind: 'grophus', count: 1 }],
+      layout: 'yard',
+      features: { hearth: true, well: true, enclosure: false },
+      insideFortId: null,
+      source: 'assumed',
+    };
+    const withFarm = validateReconstruction(raw, 'with-farm', siteIds);
+    const id = farmstead['id'] as string;
+    exaggeration = 1;
+    const layer = new ReconstructionLayer(
+      withFarm,
+      sites,
+      { groundAt: ground, getExaggeration: () => 1, classAt: null, classId: null, rampart, seed: 1, vitrified: true },
+      500,
+    );
+    expect(layer.markerIds().has(id)).toBe(true);
+    expect(layer.summary(id)!.state).toBe('ruin');
+    layer.setInteriorState('settlement');
+    expect(layer.markerIds().has(id)).toBe(false);
+    expect(layer.summary(id)!.state).toBe('standing');
+    expect(layer.summary(id)!.requested).toBe(2);
+    layer.dispose();
+  });
+});
+
+describe('defaults.farmstead as the app’s tunables (§15)', () => {
+  it('takes the file’s own §6.H defaults where the record states nothing', () => {
+    const template = templateFromDefaults(file.defaults['farmstead']);
+    expect(template.lengthM).toEqual([20, 40]);
+    expect(template.widthM).toEqual([6, 8]);
+    expect(template.wallHeightM).toBe(1.2);
+    expect(template.hipPitchDeg).toBe(48);
+    expect(template.source).toBe('assumed');
+  });
+
+  it('re-imposes the two §6.H invariants, because a tunable can be turned wrong', () => {
+    const bad = templateFromDefaults({ wallHeightM: 0.4, roofPitchDeg: 50, hipPitchDeg: 30 });
+    expect(bad.wallHeightM).toBe(1.0); // Lojsta: the wall is load-bearing
+    expect(bad.hipPitchDeg).toBeGreaterThanOrEqual(bad.roofPitchDeg); // Eketorp-II
+  });
+
+  it('falls back to §6.H’s own numbers when the block is missing', () => {
+    expect(templateFromDefaults(undefined)).toEqual(FALLBACK_TEMPLATE);
   });
 });

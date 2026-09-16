@@ -141,6 +141,11 @@ export class SitePanel {
     for (const warning of monument.warnings ?? []) {
       box.append(el('p', 'site-panel-recon-note', warning));
     }
+    // The sampler's own warnings, which are about this scene rather than about
+    // the record: a shortfall against a stated count is never silent (§15.3).
+    for (const warning of summary.warnings) {
+      box.append(el('p', 'site-panel-recon-note', warning));
+    }
     if (monument.fallbacks.length > 0) {
       box.append(
         el(

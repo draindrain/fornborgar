@@ -15,7 +15,22 @@
  *   • **frame time has not regressed** — the mode is compared against marker
  *     mode in the same page, so the software rasterizer's own speed cancels;
  *   • §8's gate actually moves: at 500 CE the fort stands and no runestone is
- *     drawn; at 1050 CE the fort is a ruin and its marker is back.
+ *     drawn; at 1050 CE the fort is a ruin and its marker is back;
+ *   • **archetype H obeys its gate** (§7.5): the settlement state is offered on
+ *     the record's own evidence and draws nothing where the record states no
+ *     buildings, carries its caveat in the DOM when it is switched on, and —
+ *     against a fort whose record *does* state its houses, patched into the
+ *     response at the door — draws them off by default, inside the extent, at
+ *     true metric height on the exaggerated ground, identically across loads.
+ *
+ * **One live page at a time.** The archetype-H fixture opens its own context and
+ * the first one is closed before it does. Under a software rasterizer each live
+ * page holds a 4 M-vertex terrain and its far-field rings, and a fourth load
+ * stacked on the same page gets the renderer killed — which reads as a failure
+ * of the feature and is a failure of the harness. For the same reason the
+ * teardown is bounded and ends in an explicit exit: a route handler left pending
+ * against a page that has gone blocks `context.close()` forever, and a checker
+ * that never returns is worse than one that fails.
  *
  * Exit code 0 only if every check passed. The report is JSON on stdout.
  */
@@ -100,6 +115,10 @@ const MEASURE_FRAMES = `async (frames) => {
 const url = `${BASE}/?site=${encodeURIComponent(SITE)}`;
 let firstLoadSignature = null;
 let report = {};
+/** The archetype-H fixture's own context, while one is open. */
+let patched = null;
+/** True once the first page is closed, so the teardown does not close it twice. */
+let firstContextClosed = false;
 
 try {
   await page.goto(url, { waitUntil: 'domcontentloaded', timeout: TIMEOUT_MS });
@@ -296,6 +315,287 @@ try {
     firstLoadSignature === secondLoadSignature && firstLoadSignature.length > 0,
     `${firstLoadSignature.split('|').length} batches`,
   );
+
+  // --- §7.5: the interior's two states, and archetype H ------------------
+  // Broborg passes the §7.5.2 gate on a literature citation (channel 3) and its
+  // record states nothing at all about buildings, so `interior.buildings` is
+  // null and the settlement state draws **no houses**. That is the honest case
+  // and it is checked first, because it is the one a future change is most
+  // likely to break by "fixing".
+  const broborgInterior = await page.evaluate(() => {
+    const app = window.__app;
+    const settlementMeshes = () =>
+      app.reconstruction.layer.group.children.filter((child) => child.name.includes('#settlement'));
+    const before = settlementMeshes().length;
+    const state = app.reconstruction.setInteriorState('settlement');
+    const summary = app.reconstruction.interior;
+    return { before, after: settlementMeshes().length, state, summary };
+  });
+  check(
+    'gate-obeyed-and-nothing-invented',
+    broborgInterior.summary?.offered === true &&
+      broborgInterior.summary?.placed === 0 &&
+      broborgInterior.before === 0 &&
+      broborgInterior.after === 0,
+    `${SITE}: gate ${broborgInterior.summary?.gate}, ${broborgInterior.summary?.citations} citation(s), ` +
+      `${broborgInterior.after} building meshes — the record states no buildings (§15.1)`,
+  );
+
+  // §9: the strongest caveat in the app, in the DOM, the first time archetype H
+  // is switched on. Asserted on the element a visitor actually reads.
+  const caveat = await page.evaluate(() => {
+    const node = document.querySelector('.hud-caveat');
+    return { present: Boolean(node), hidden: node?.hidden ?? true, text: node?.textContent ?? '' };
+  });
+  check(
+    'settlement-caveat-in-the-dom',
+    caveat.present && !caveat.hidden && /ARCHETYPE H/.test(caveat.text),
+    caveat.text.slice(0, 80),
+  );
+
+  // --- the drawn longhouse, on a record that states its houses ------------
+  // Broborg's own record does not, so the geometry is checked against a fort
+  // whose record does: Ismantorp's sentence — "Innanför muren är 88 husgrunder,
+  // fördelade på två grupper, en yttre med husen radiellt utgående från murens
+  // insida" — as the pipeline writes it, patched into the response at the door
+  // exactly as an Ismantorp bundle would deliver it. No committed data changes.
+  const ISMANTORP_BUILDINGS = {
+    count: 88,
+    countSource: 'measured',
+    countStated: true,
+    layout: 'radial',
+    groups: 2,
+    sector: null,
+    fallbacks: [],
+    source: 'measured',
+    template: {
+      kind: 'longhouse',
+      count: 1,
+      lengthM: [12, 14],
+      widthM: [4, 6],
+      orientationDeg: null,
+      aisleFraction: 0.4,
+      aisleWidthM: [1.3, 2.8],
+      wallHeightM: 1.2,
+      roofForm: 'hipped',
+      roofPitchDeg: 45,
+      hipPitchDeg: 48,
+      smokeVent: 'board-with-hole',
+      covering: 'turf-over-birch-bark',
+      walls: 'wattle-and-daub-on-stone-footing',
+      trestleSpacingM: [2, 3],
+      source: 'measured',
+      tiers: { plan: 'measured', profile: 'derived', surface: 'assumed' },
+    },
+  };
+  /**
+   * Open the site in a **fresh context**, with the fixture patched into the
+   * response at the door, and hand back the page plus what it built.
+   *
+   * A fresh context rather than another `page.reload`, for a reason that is
+   * specific to this sandbox: the software rasterizer holds a 4 M-vertex terrain
+   * and its far-field rings per live page, and stacking a third and fourth load
+   * onto the page that has already been reloaded once and frame-timed twice gets
+   * the renderer killed — "Target page, context or browser has been closed",
+   * three quarters of the way through a fifty-minute run. One live page at a
+   * time costs nothing and does not depend on how much memory the box has.
+   */
+  const openPatched = async () => {
+    const patchedContext = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    const patchedPage = await patchedContext.newPage();
+    // The same listeners the first page has: a patched load's console errors are
+    // this run's errors too.
+    patchedPage.on('console', (msg) => {
+      if (msg.type() === 'error') consoleErrors.push(msg.text());
+    });
+    patchedPage.on('pageerror', (error) => pageErrors.push(String(error)));
+    await patchedPage.route('**/reconstruction.json*', async (route) => {
+      try {
+        const response = await route.fetch();
+        const body = await response.json();
+        if (body && body.interior) body.interior.buildings = ISMANTORP_BUILDINGS;
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(body),
+        });
+      } catch {
+        // The page went away under the handler. Let the request take its own
+        // chances rather than leaving it pending, which would hang the close.
+        await route.continue().catch(() => {});
+      }
+    });
+
+    await patchedPage.goto(url, { waitUntil: 'domcontentloaded', timeout: TIMEOUT_MS });
+    await patchedPage.waitForFunction(() => window.__terrainReady === true, null, {
+      timeout: TIMEOUT_MS,
+    });
+    const built = await patchedPage.evaluate(() => {
+      window.__app.time.setYear(500);
+      window.__app.reconstruction.setEnabled(true);
+      const meshes = window.__app.reconstruction.layer.group.children.filter((child) =>
+        child.name.includes('#settlement'),
+      );
+      return {
+        built: meshes.length,
+        visible: meshes.filter((mesh) => mesh.visible).length,
+        state: window.__app.reconstruction.layer.interiorState,
+        vertices: window.__app.reconstruction.vertices,
+      };
+    });
+    return { patchedContext, patchedPage, built };
+  };
+
+  /** Close a patched context, and its route handler with it. */
+  const closePatched = async (open) => {
+    if (!open) return;
+    await open.patchedContext.unrouteAll({ behavior: 'ignoreErrors' }).catch(() => {});
+    await open.patchedContext.close().catch(() => {});
+  };
+
+  /** The digest of everything archetype H drew, for the determinism check. */
+  const SETTLEMENT_SIGNATURE = () => {
+    const out = [];
+    for (const child of window.__app.reconstruction.layer.group.children) {
+      if (!child.name.includes('#settlement')) continue;
+      const attribute = child.geometry?.getAttribute?.('position');
+      if (!attribute) continue;
+      let hash = 2166136261;
+      const array = attribute.array;
+      for (let i = 0; i < array.length; i++) {
+        hash ^= Math.round(array[i] * 1000) | 0;
+        hash = Math.imul(hash, 16777619);
+      }
+      out.push(`${child.name}:${array.length}:${hash >>> 0}`);
+    }
+    return out.join('|');
+  };
+
+  // The first page has nothing left to check, and holding it open while another
+  // renders the same terrain is what kills the renderer.
+  await context.close().catch(() => {});
+  firstContextClosed = true;
+
+  patched = await openPatched();
+  const patchedOff = patched.built;
+  check(
+    'houses-built-but-off-by-default',
+    patchedOff.built > 0 && patchedOff.visible === 0 && patchedOff.state === 'cleared',
+    `${patchedOff.built} building meshes, ${patchedOff.visible} drawn — §9 ships archetype H off`,
+  );
+
+  const patchedOn = await patched.patchedPage.evaluate(() => {
+    const app = window.__app;
+    app.reconstruction.setInteriorState('settlement');
+    const meshes = app.reconstruction.layer.group.children.filter((child) =>
+      child.name.includes('#settlement'),
+    );
+    const posts = app.reconstruction.layer.group.children.filter(
+      (child) => child.name.includes('accent') && child.name.includes('post'),
+    );
+    return {
+      visible: meshes.filter((mesh) => mesh.visible).length,
+      posts: posts.length,
+      vertices: app.reconstruction.vertices,
+      standing: app.reconstruction.standing,
+      summary: app.reconstruction.interior,
+    };
+  });
+  check(
+    'houses-drawn-on-settlement',
+    patchedOn.visible > 0 && patchedOn.summary.placed > 0,
+    `${patchedOn.summary.placed} of ${patchedOn.summary.requested} placed, ${patchedOn.visible} meshes, ` +
+      `${patchedOn.posts} trestle-post batch(es)`,
+  );
+  check(
+    'count-is-an-upper-bound',
+    patchedOn.summary.placed <= patchedOn.summary.requested &&
+      (patchedOn.summary.placed === patchedOn.summary.requested ||
+        patchedOn.summary.warnings.length > 0),
+    patchedOn.summary.warnings.join(' | ') || 'every stated building placed',
+  );
+  check(
+    'scene-budget-with-houses',
+    patchedOn.vertices < 4_000_000,
+    `${Math.round(patchedOn.vertices / 1000)} k vertices with ${patchedOn.summary.placed} buildings ` +
+      `(${Math.round(patchedOff.vertices / 1000)} k without them drawn)`,
+  );
+  report.settlement = {
+    placed: patchedOn.summary.placed,
+    requested: patchedOn.summary.requested,
+    vertices: patchedOn.vertices,
+  };
+
+  // --- §0 again, with the houses on --------------------------------------
+  const houseExaggeration = await patched.patchedPage.evaluate(() => {
+    const app = window.__app;
+    const arrays = () =>
+      app.reconstruction.layer.group.children
+        .filter((child) => child.name.includes('#settlement') && child.geometry)
+        .map((child) => Float32Array.from(child.geometry.getAttribute('position').array));
+    const snapshot = (exaggeration) => {
+      app.terrain.setExaggeration(exaggeration);
+      app.reconstruction.layer.refreshHeights();
+      return arrays();
+    };
+    const one = snapshot(1);
+    const twoFive = snapshot(2.5);
+    const four = snapshot(4);
+    app.terrain.setExaggeration(1.5);
+    app.reconstruction.layer.refreshHeights();
+
+    let drift = 0;
+    let slopeError = 0;
+    let sampled = 0;
+    let tallest = 0;
+    for (let b = 0; b < one.length; b++) {
+      for (let i = 0; i < one[b].length; i += 3) {
+        drift = Math.max(
+          drift,
+          Math.abs(one[b][i] - twoFive[b][i]),
+          Math.abs(one[b][i + 2] - twoFive[b][i + 2]),
+        );
+        const slopeA = (twoFive[b][i + 1] - one[b][i + 1]) / 1.5;
+        const slopeB = (four[b][i + 1] - one[b][i + 1]) / 3;
+        slopeError = Math.max(slopeError, Math.abs(slopeA - slopeB));
+        // The metric height each vertex keeps: y = ground·e + height.
+        tallest = Math.max(tallest, one[b][i + 1] - slopeA);
+        sampled++;
+      }
+    }
+    return { drift, slopeError, sampled, tallest };
+  });
+  check(
+    'houses-no-lateral-drift',
+    houseExaggeration.drift === 0,
+    `max |Δx|,|Δz| = ${houseExaggeration.drift} over ${houseExaggeration.sampled} house vertices`,
+  );
+  check(
+    'houses-true-metric-height',
+    houseExaggeration.sampled > 1000 &&
+      houseExaggeration.slopeError < 1e-3 &&
+      houseExaggeration.tallest > 2 &&
+      houseExaggeration.tallest < 12,
+    `${houseExaggeration.sampled} vertices, worst slope mismatch ` +
+      `${houseExaggeration.slopeError.toExponential(2)} m between ×1, ×2.5 and ×4; ridge ` +
+      `${houseExaggeration.tallest.toFixed(2)} m above its own ground`,
+  );
+  report.houseExaggeration = houseExaggeration;
+
+  // --- and the patched scene is reproducible too --------------------------
+  const firstHouses = await patched.patchedPage.evaluate(SETTLEMENT_SIGNATURE);
+  await closePatched(patched);
+  patched = await openPatched();
+  await patched.patchedPage.evaluate(() => window.__app.reconstruction.setInteriorState('settlement'));
+  const secondHouses = await patched.patchedPage.evaluate(SETTLEMENT_SIGNATURE);
+  check(
+    'houses-reload-identical',
+    firstHouses.length > 0 && firstHouses === secondHouses,
+    `${firstHouses.split('|').length} building batches, byte-identical across a fresh load`,
+  );
+  await closePatched(patched);
+  patched = null;
+
 } catch (error) {
   check('run', false, error instanceof Error ? error.message : String(error));
 }
@@ -303,9 +603,25 @@ try {
 check('no-page-errors', pageErrors.length === 0, pageErrors.join(' | '));
 check('no-console-errors', consoleErrors.length === 0, consoleErrors.join(' | '));
 
-await context.close();
-await browser.close();
+// Teardown that cannot hang, because a checker that never exits is worse than
+// one that fails: a route handler left pending against a page that has gone away
+// blocks `context.close()` indefinitely, and a crashed renderer makes every one
+// of these throw. So each step swallows its own error and the lot is raced
+// against a deadline, after which the report is printed and the process ends.
+await Promise.race([
+  (async () => {
+    if (patched) {
+      await patched.patchedContext.unrouteAll({ behavior: 'ignoreErrors' }).catch(() => {});
+      await patched.patchedContext.close().catch(() => {});
+    }
+    if (!firstContextClosed) await context.close().catch(() => {});
+    await browser.close().catch(() => {});
+  })(),
+  new Promise((resolve) => setTimeout(resolve, 60000)),
+]);
 
 report = { base: BASE, site: SITE, checks, ...report };
 console.log(JSON.stringify(report, null, 2));
+// Explicit, and the last thing that happens: a stray browser handle must not
+// keep the run alive after its verdict is written.
 process.exit(checks.every((c) => c.ok) ? 0 : 1);

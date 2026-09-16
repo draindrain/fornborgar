@@ -145,6 +145,120 @@ export interface FortSpec {
   ramparts: RampartSpec[];
 }
 
+// --------------------------------------------------- §15 (the v1.8 amendment) -
+
+/** §15.1. `cleared` is the default for every fort, always; `settlement` is offered. */
+export type InteriorState = 'cleared' | 'settlement';
+
+/** §7.5.2's layout branch — never a different gate. */
+export type InteriorTradition = 'mainland' | 'limestone-ringfort';
+
+/** §15.2. Three kinds, one recipe (§6.H): the farm is not a single building. */
+export type BuildingKind = 'longhouse' | 'ancillary' | 'grophus';
+
+/** §15.1. How a fort's interior buildings are arranged, where the record says. */
+export type BuildingLayout = 'radial' | 'grouped' | 'free';
+
+/**
+ * One archetype-H building spec (§15.2).
+ *
+ * Every number traces to `docs/reconstruction-mode.md` §6.H, the weakest-evidenced
+ * card in the catalogue — which is why each one is a labelled default that the
+ * record overrides wherever the record speaks, and why `source` and `tiers` ride
+ * along with it rather than being inferred from the shape.
+ */
+export interface BuildingTemplate {
+  kind: BuildingKind;
+  count: number;
+  lengthM: Range;
+  widthM: Range;
+  /** Long axis, 0–180°, 0 = N–S; null ⇒ the sampler chooses and says so. */
+  orientationDeg: number | null;
+  /** *Underbalanserad*: ~40 % of breadth (Göthberg 2000, §6.H). */
+  aisleFraction: number;
+  aisleWidthM: Range;
+  /** ≥ 1.0 m and load-bearing — not a footing (Näsman 1976, §6.H). */
+  wallHeightM: number;
+  /** `hipped`. There is no gabled Iron Age longhouse in v1.8 (§6.H). */
+  roofForm: string;
+  roofPitchDeg: number;
+  /** MUST be ≥ `roofPitchDeg` — a shallower hip is the Eketorp-II error (§6.H). */
+  hipPitchDeg: number;
+  smokeVent: string;
+  covering: string;
+  walls: string;
+  trestleSpacingM: Range;
+  source: Tier;
+  tiers: { plan: Tier; profile: Tier; surface: Tier };
+}
+
+/** §15.1's sampler spec for the `settlement` state. */
+export interface InteriorBuildings {
+  /** An **upper bound** (§15.3). `null` = no count stated; the default is one. */
+  count: number | null;
+  countSource: Tier;
+  countStated: boolean;
+  layout: BuildingLayout;
+  groups: number | null;
+  /** A compass sector of the interior — KMR's own word, never a coordinate. */
+  sector: string | null;
+  template: BuildingTemplate | null;
+  /** Field paths that fell back to a §6.H default. */
+  fallbacks?: string[];
+  source: Tier;
+}
+
+/** One stone-picked patch, drawn only where KMR places it (§7.5.1). */
+export interface ClearedPatch {
+  lengthM: number;
+  widthM: number;
+  orientationDeg: number | null;
+  sector: string | null;
+  source: Tier;
+  /** The sentence that places it — a patch with no sentence is not drawn. */
+  sentence: string;
+}
+
+/** §15.1's evidence block. Present even when the gate fails — a `fail` is a statement. */
+export interface InteriorEvidence {
+  rule: string;
+  gate: 'pass' | 'fail';
+  channels: string[];
+  hedged: boolean;
+  terms: string[];
+  citations: Array<Record<string, unknown>>;
+  discarded?: Record<string, number>;
+  survey?: string;
+}
+
+/** §15.1 — one optional per-site block, sibling of `monuments`. */
+export interface InteriorSpec {
+  state: InteriorState;
+  /** false ⇒ the app MUST NOT offer the settlement state, at any opacity (§7.5.3). */
+  settlementOffered: boolean;
+  tradition: InteriorTradition;
+  ground: {
+    terrainWords: string[];
+    soilClass: string;
+    clearedPatches: ClearedPatch[];
+    source: Tier;
+  };
+  evidence: InteriorEvidence;
+  /** `null` = the record attests buildings but states nothing about them. */
+  buildings: InteriorBuildings | null;
+}
+
+/** §15.2 — one optional per-monument block, `archetype: "farmstead"` only. */
+export interface FarmSpec {
+  buildings: BuildingTemplate[];
+  layout: 'yard' | 'radial' | 'grouped' | 'row';
+  /** All false inside a fort: a yard is a recipe for open ground (§15.3). */
+  features: { hearth: boolean; well: boolean; enclosure: boolean };
+  /** The fort whose extent contains this record, or null. */
+  insideFortId: string | null;
+  source: Tier;
+}
+
 export interface Monument {
   id: string;
   lamningstyp: string;
@@ -162,6 +276,8 @@ export interface Monument {
   parseConfidence: number;
   field?: GraveFieldSpec;
   fort?: FortSpec;
+  /** §15.2. Present only on `archetype: "farmstead"`. */
+  farm?: FarmSpec;
 }
 
 export interface ReconstructionParams {
@@ -190,6 +306,8 @@ export interface ReconstructionFile {
   defaults: Record<string, unknown>;
   coverage: Record<string, unknown>;
   monuments: Monument[];
+  /** §15.1. Absent in a pre-v1.8 bundle, which means exactly "feature off". */
+  interior?: InteriorSpec;
 }
 
 export class ReconstructionError extends Error {
@@ -205,9 +323,23 @@ const ARCHETYPES = new Set<string>([
 ]);
 const TIERS = new Set<string>(['measured', 'derived', 'assumed']);
 const FORMS = new Set<string>(['round', 'square', 'rectangular', 'oval', 'triangular']);
+const BUILDING_KINDS = new Set<string>(['longhouse', 'ancillary', 'grophus']);
+const BUILDING_LAYOUTS = new Set<string>(['radial', 'grouped', 'free']);
+const FARM_LAYOUTS = new Set<string>(['yard', 'radial', 'grouped', 'row']);
+/** §15.3's compass sectors: KMR's own words for a part of an interior. */
+const SECTORS = new Set<string>([
+  'N', 'NNÖ', 'NÖ', 'ÖNÖ', 'Ö', 'ÖSÖ', 'SÖ', 'SSÖ',
+  'S', 'SSV', 'SV', 'VSV', 'V', 'VNV', 'NV', 'NNV',
+]);
 
 /** Keys §14 forbids outright — a coordinate or a ground height in this file. */
 const FORBIDDEN_KEYS = ['position', 'geometryLocal', 'groundM', 'elevationM'] as const;
+/**
+ * The same rule for §15's blocks, where it is easiest to break: a cleared patch
+ * and a building are a **size, an orientation and a compass sector**, never a
+ * position. The register does not place them, so neither may this file.
+ */
+const FORBIDDEN_PLACEMENT_KEYS = ['position', 'positionM', 'x', 'z', 'easting', 'northing'] as const;
 
 function finite(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value);
@@ -238,6 +370,230 @@ function readPositive(value: unknown, label: string, source: string): number {
     throw new ReconstructionError(`${source}: ${label} must be a finite non-negative number, got ${JSON.stringify(value)}.`);
   }
   return value;
+}
+
+/**
+ * §15.3's checks on one archetype-H building spec — the second line behind
+ * `reconstruct.validate_building_template`.
+ *
+ * `hipPitchDeg ≥ roofPitchDeg` is the Eketorp-II error written as an assertion:
+ * a hip shallower than the long sides is the one roof shape the reconstruction
+ * literature says was never built (§6.H). `wallHeightM ≥ 1.0` is the Lojsta
+ * error: the 1930s reconstruction read a low dry-stone wall as a footing under a
+ * tall roof, and later excavation corrected it.
+ */
+export function readBuildingTemplate(value: unknown, where: string): BuildingTemplate {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw new ReconstructionError(`${where} must be an object (§15.2).`);
+  }
+  const t = value as Record<string, unknown>;
+  if (typeof t['kind'] !== 'string' || !BUILDING_KINDS.has(t['kind'] as string)) {
+    throw new ReconstructionError(
+      `${where}.kind must be longhouse|ancillary|grophus (§15.2), got ${JSON.stringify(t['kind'])}.`,
+    );
+  }
+  for (const key of ['lengthM', 'widthM', 'aisleWidthM', 'trestleSpacingM'] as const) {
+    readRange(t[key], key, where);
+  }
+  const roofPitch = t['roofPitchDeg'];
+  const hipPitch = t['hipPitchDeg'];
+  if (!finite(roofPitch) || !finite(hipPitch)) {
+    throw new ReconstructionError(`${where}: roofPitchDeg and hipPitchDeg must be numbers (§15.2).`);
+  }
+  if ((hipPitch as number) < (roofPitch as number)) {
+    throw new ReconstructionError(
+      `${where}: hipPitchDeg ${hipPitch} is shallower than roofPitchDeg ${roofPitch} — a hip ` +
+        'shallower than the long sides is the Eketorp-II error (§6.H, §15.3).',
+    );
+  }
+  if (!finite(t['wallHeightM']) || (t['wallHeightM'] as number) < 1.0) {
+    throw new ReconstructionError(
+      `${where}.wallHeightM must be ≥ 1.0 m: the wall is load-bearing, not a footing ` +
+        '(Näsman 1976, §6.H).',
+    );
+  }
+  const aisle = t['aisleFraction'];
+  if (!finite(aisle) || (aisle as number) < 0.3 || (aisle as number) > 0.6) {
+    throw new ReconstructionError(`${where}.aisleFraction must be in [0.3, 0.6] (§6.H, §15.3).`);
+  }
+  if (t['roofForm'] !== 'hipped') {
+    throw new ReconstructionError(
+      `${where}.roofForm must be "hipped" — v1.8 draws no gabled Iron Age longhouse (§6.H).`,
+    );
+  }
+  const tiers = t['tiers'] as Record<string, unknown> | undefined;
+  if (typeof tiers !== 'object' || tiers === null) {
+    throw new ReconstructionError(`${where}.tiers must be an object (§9.1 — one badge per part).`);
+  }
+  for (const key of ['plan', 'profile', 'surface'] as const) readTier(tiers[key], `tiers.${key}`, where);
+  readTier(t['source'], 'source', where);
+  return value as BuildingTemplate;
+}
+
+/** §15.3's "still no coordinates", applied to whatever object §15 hands over. */
+function refusePlacementKeys(value: unknown, where: string): void {
+  if (typeof value !== 'object' || value === null) return;
+  for (const key of FORBIDDEN_PLACEMENT_KEYS) {
+    if (key in (value as Record<string, unknown>)) {
+      throw new ReconstructionError(
+        `${where}.${key} must not appear — a patch or a building is a size, an orientation and ` +
+          'a compass sector, never a position (§15.3).',
+      );
+    }
+  }
+}
+
+/**
+ * Validate the §15.1 `interior` block.
+ *
+ * The rule that matters most is **no citation, no state**: a fort in the
+ * `settlement` state must be able to show the visitor the KMR sentence, the
+ * neighbouring record or the publication it is drawn from (§7.5.3), so the app
+ * refuses the pair broken rather than drawing houses it cannot source. The gate
+ * itself is decided in the pipeline and never here — this is a second line, not
+ * a second opinion.
+ */
+export function readInterior(value: unknown, source: string, archetypes: ReadonlySet<string>): InteriorSpec {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw new ReconstructionError(`${source}: interior must be an object (§15.1).`);
+  }
+  const block = value as Record<string, unknown>;
+  const where = `${source}: interior`;
+  if (!archetypes.has('fort')) {
+    throw new ReconstructionError(
+      `${where} is present but no monument is a fort — the block describes the ground inside ` +
+        'an enclosure (§15.3).',
+    );
+  }
+  if (block['state'] !== 'cleared' && block['state'] !== 'settlement') {
+    throw new ReconstructionError(`${where}.state must be cleared|settlement (§15.1).`);
+  }
+  if (block['tradition'] !== 'mainland' && block['tradition'] !== 'limestone-ringfort') {
+    throw new ReconstructionError(`${where}.tradition must be mainland|limestone-ringfort (§15.1).`);
+  }
+  const offered = block['settlementOffered'];
+  if (typeof offered !== 'boolean') {
+    throw new ReconstructionError(`${where}.settlementOffered must be a boolean (§15.3).`);
+  }
+
+  const evidence = block['evidence'] as Record<string, unknown> | undefined;
+  if (typeof evidence !== 'object' || evidence === null) {
+    throw new ReconstructionError(`${where}.evidence must be an object, present even on a fail (§15.1).`);
+  }
+  if (evidence['gate'] !== 'pass' && evidence['gate'] !== 'fail') {
+    throw new ReconstructionError(`${where}.evidence.gate must be pass|fail (§15.1).`);
+  }
+  if ((evidence['gate'] === 'pass') !== offered) {
+    throw new ReconstructionError(
+      `${where}.evidence.gate and settlementOffered must agree (§15.3).`,
+    );
+  }
+  const citations = evidence['citations'];
+  if (!Array.isArray(citations)) {
+    throw new ReconstructionError(`${where}.evidence.citations must be an array (§15.1).`);
+  }
+  if (offered && citations.length === 0) {
+    throw new ReconstructionError(
+      `${where}: settlementOffered is true with no citation — a fort in the settlement state ` +
+        'must be able to show the sentence, record or publication it is drawn from (§7.5.3).',
+    );
+  }
+  for (const citation of citations as Array<Record<string, unknown>>) {
+    if (typeof citation?.['channel'] !== 'string') {
+      throw new ReconstructionError(`${where}.evidence.citations[] each need a channel (§15.1).`);
+    }
+  }
+
+  const ground = block['ground'] as Record<string, unknown> | undefined;
+  if (typeof ground !== 'object' || ground === null) {
+    throw new ReconstructionError(`${where}.ground must be an object (§15.1).`);
+  }
+  refusePlacementKeys(ground, `${where}.ground`);
+  const patches = ground['clearedPatches'];
+  if (patches !== undefined && !Array.isArray(patches)) {
+    throw new ReconstructionError(`${where}.ground.clearedPatches must be an array (§15.1).`);
+  }
+  for (const [i, patch] of ((patches ?? []) as Array<Record<string, unknown>>).entries()) {
+    const label = `${where}.ground.clearedPatches[${i}]`;
+    refusePlacementKeys(patch, label);
+    readPositive(patch['lengthM'], 'lengthM', label);
+    readPositive(patch['widthM'], 'widthM', label);
+    if (!patch['sentence']) {
+      throw new ReconstructionError(
+        `${label} must quote the sentence that places it — patches are drawn only where KMR ` +
+          'places them (§7.5.1).',
+      );
+    }
+  }
+
+  const buildings = block['buildings'];
+  if (buildings !== undefined && buildings !== null) {
+    const b = buildings as Record<string, unknown>;
+    const label = `${where}.buildings`;
+    if (!offered) {
+      throw new ReconstructionError(
+        `${label} is present on a fort that failed the gate — no buildings are drawn inside it ` +
+          'at any opacity, under any label (§7.5.3).',
+      );
+    }
+    refusePlacementKeys(b, label);
+    const count = b['count'];
+    if (count !== null && count !== undefined && (!finite(count) || (count as number) <= 0)) {
+      throw new ReconstructionError(`${label}.count must be a positive number or null (§15.1).`);
+    }
+    if (b['countStated'] === true && (count === null || count === undefined)) {
+      throw new ReconstructionError(`${label}.countStated is true with no count (§15.1).`);
+    }
+    if (typeof b['layout'] !== 'string' || !BUILDING_LAYOUTS.has(b['layout'] as string)) {
+      throw new ReconstructionError(`${label}.layout must be radial|grouped|free (§15.1).`);
+    }
+    const sector = b['sector'];
+    if (sector !== null && sector !== undefined && !SECTORS.has(String(sector))) {
+      throw new ReconstructionError(`${label}.sector must be a compass point (§15.3).`);
+    }
+    readTier(b['countSource'], 'countSource', label);
+    if (b['template'] !== null && b['template'] !== undefined) {
+      readBuildingTemplate(b['template'], `${label}.template`);
+    }
+  }
+
+  return value as InteriorSpec;
+}
+
+/** §15.2's `farm` block, on a farmstead record and nowhere else. */
+function readFarm(value: unknown, archetype: string, where: string): FarmSpec {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw new ReconstructionError(`${where}.farm must be an object (§15.2).`);
+  }
+  if (archetype !== 'farmstead') {
+    throw new ReconstructionError(
+      `${where}.farm is present on a ${archetype} record — §15.2 carries it on archetype H only.`,
+    );
+  }
+  const farm = value as Record<string, unknown>;
+  refusePlacementKeys(farm, `${where}.farm`);
+  const buildings = farm['buildings'];
+  if (!Array.isArray(buildings)) {
+    throw new ReconstructionError(`${where}.farm.buildings must be an array (§15.2).`);
+  }
+  buildings.forEach((building, i) => readBuildingTemplate(building, `${where}.farm.buildings[${i}]`));
+  if (typeof farm['layout'] !== 'string' || !FARM_LAYOUTS.has(farm['layout'] as string)) {
+    throw new ReconstructionError(`${where}.farm.layout must be yard|radial|grouped|row (§15.2).`);
+  }
+  const features = farm['features'] as Record<string, unknown> | undefined;
+  if (typeof features !== 'object' || features === null) {
+    throw new ReconstructionError(`${where}.farm.features must be an object (§15.2).`);
+  }
+  // §15.3: "Inside a fort, `farm.features` is all false." Hearths, wells, yards
+  // and fences are a farmstead recipe for open ground; inside an enclosure they
+  // are furniture nobody recorded (§7.5.3).
+  if (farm['insideFortId'] && Object.values(features).some(Boolean)) {
+    throw new ReconstructionError(
+      `${where}.farm is inside fort ${JSON.stringify(farm['insideFortId'])} with a yard feature ` +
+        'set — hearths, wells, yards and fences are refused inside an enclosure (§15.3, §7.5.3).',
+    );
+  }
+  return value as FarmSpec;
 }
 
 /**
@@ -416,8 +772,19 @@ export function validateReconstruction(
       });
     }
 
+    if (m['farm'] !== undefined && m['farm'] !== null) {
+      readFarm(m['farm'], archetype, `${source}: ${label}`);
+    }
+
     return entry as Monument;
   });
+
+  // §15.1's block is a sibling of `monuments`, and it is validated after them
+  // because two of its rules are about them: it belongs to a fort site, and the
+  // gate it carries decides whether archetype H may be drawn inside that fort.
+  if (file['interior'] !== undefined && file['interior'] !== null) {
+    readInterior(file['interior'], source, new Set(monuments.map((m) => m.archetype)));
+  }
 
   return { ...(file as object), schemaVersion: SUPPORTED_RECONSTRUCTION_VERSION, monuments } as ReconstructionFile;
 }
