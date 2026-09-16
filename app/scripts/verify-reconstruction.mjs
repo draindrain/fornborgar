@@ -955,6 +955,68 @@ try {
   await closePatched(patched);
   patched = null;
 
+  // --- the other reference ringfort, drawn as it parses -------------------
+  // Eketorp's record counts ~75 house foundations and states no grouping and no
+  // street plan, and the house size it gives two sentences later is not
+  // reachable from the sentence that counts them — KMR's own text for that fort
+  // has lost a full stop mid-sentence. So the plan is §6.H's 20–40 m literature
+  // default, and the check is that the app *says* so rather than passing the
+  // default off as the register's: `fallbacks` names it and the shortfall is a
+  // warning, not 75 houses forced into a courtyard that will not hold them.
+  const EKETORP = (interior) => {
+    interior.tradition = 'limestone-ringfort';
+    interior.buildings = {
+      ...ISMANTORP_BUILDINGS,
+      count: 75,
+      groups: null,
+      blocks: null,
+      streetWidthM: null,
+      template: null,
+      fallbacks: ['buildings.template.lengthM', 'buildings.template.widthM'],
+    };
+  };
+  patched = await openPatched(EKETORP);
+  await patched.patchedPage.click('.hud-interior-state[data-state="settlement"]', {
+    timeout: CLICK_TIMEOUT_MS,
+  });
+  const eketorp = await patched.patchedPage.evaluate(() => {
+    const app = window.__app;
+    return {
+      summary: app.reconstruction.interior,
+      visible: app.reconstruction.layer.group.children.filter(
+        (child) => child.name.includes('#settlement') && child.visible,
+      ).length,
+    };
+  });
+  await patched.patchedPage.click('.hud-interior-evidence', { timeout: CLICK_TIMEOUT_MS });
+  const eketorpPanel = await patched.patchedPage.evaluate(() => {
+    const section = document.querySelector('.methods-section[data-section="interior"]');
+    return (section?.textContent ?? '').replace(/\s+/g, ' ');
+  });
+  check(
+    'ringfort-without-a-street-plan-draws-none-and-says-so',
+    eketorp.summary.tradition === 'limestone-ringfort' &&
+      eketorp.summary.blocks === null &&
+      eketorp.summary.streetWidthM === null &&
+      eketorp.summary.requested === 75 &&
+      eketorp.summary.placed > 0 &&
+      eketorp.summary.placed < 75 &&
+      eketorp.summary.warnings.length > 0 &&
+      eketorp.visible > 0 &&
+      /buildings\.template\.lengthM/.test(eketorpPanel) &&
+      /20–40 m default/.test(eketorpPanel) &&
+      !/blocks by streets/.test(eketorpPanel),
+    `${eketorp.summary.placed} of 75 placed at §6.H's default plan, no invented street plan, ` +
+      `and the panel names the fallback`,
+  );
+  report.eketorp = {
+    placed: eketorp.summary.placed,
+    requested: eketorp.summary.requested,
+    fallbacks: eketorp.summary.fallbacks,
+  };
+  await closePatched(patched);
+  patched = null;
+
   // --- and the mainland fort the branch must not have touched -------------
   // `report.settlement` above is the *same* fixture with `tradition: mainland`,
   // carrying the same `blocks` and `streetWidthM` the limestone run used. It has

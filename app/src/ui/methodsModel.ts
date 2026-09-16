@@ -627,8 +627,12 @@ function buildingsParagraph(interior: NonNullable<ReconstructionFile['interior']
         (buildings.streetWidthM
           ? ` The street between the groups is the ${buildings.streetWidthM[0]}–` +
             `${buildings.streetWidthM[1]} m the register measures.`
-          : ` The register measures no street between the groups, so the gap between them is an ` +
-            `assumption and is named below.`)
+          : // Only where there is more than one group is there a street to have
+            // an opinion about; a single ring against the wall needs no gap.
+            (buildings.groups ?? 1) > 1
+            ? ` The register measures no street between the groups, so the gap between them is ` +
+              `an assumption and is named below.`
+            : ``)
       : '';
   const fallbacks =
     buildings.fallbacks && buildings.fallbacks.length > 0

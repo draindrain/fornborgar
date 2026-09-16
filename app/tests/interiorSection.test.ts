@@ -274,6 +274,35 @@ describe('interiorSection (§7.5.3 — the evidence behind the selector)', () =>
     expect(text).not.toContain('blocks by streets');
   });
 
+  it('says nothing about a street where there is only one group — Eketorp', () => {
+    // Its record counts ~75 house foundations and states no grouping, no street
+    // plan and no house size the parser can reach, so the paragraph names the
+    // §6.H default and claims nothing about a gap between groups it has not got.
+    const text = interiorSection({
+      ...BASE,
+      tradition: 'limestone-ringfort',
+      buildings: {
+        count: 75,
+        countSource: 'measured',
+        countStated: true,
+        layout: 'radial',
+        groups: null,
+        blocks: null,
+        streetWidthM: null,
+        sector: null,
+        template: null,
+        fallbacks: ['buildings.template.lengthM', 'buildings.template.widthM'],
+        source: 'measured',
+      },
+    }).paragraphs.join('\n');
+    expect(text).toContain('limestone ringfort');
+    expect(text).toContain('75 buildings, a count the source states');
+    expect(text).toContain('buildings.template.lengthM');
+    expect(text).toContain('20–40 m default');
+    expect(text).not.toContain('street between the groups');
+    expect(text).not.toContain('blocks by streets');
+  });
+
   it('leaves a mainland fort’s paragraph alone', () => {
     // The same buildings block, carrying the same street plan, on a mainland
     // fort: none of §7.5.2's sentences may appear.
