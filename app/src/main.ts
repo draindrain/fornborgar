@@ -1024,7 +1024,12 @@ async function start(): Promise<void> {
         controlState.reconstruction.interior = state;
         applyReconstructionSettings();
       },
-      () => methods.show('interior'),
+      // §6.H.1.4: the layer also offers the state for a farmstead record that
+      // sits *outside* any fort, and such a site has no `interior` block to
+      // point at. Then the button opens the reconstruction section, which is
+      // where that record's own archetype is described — a button that opened
+      // a panel at nothing would be worse than one that opened it at the top.
+      () => methods.show(reconstructionFile?.interior ? 'interior' : 'reconstruction'),
     );
     applyReconstructionSettings();
   }
