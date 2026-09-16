@@ -950,6 +950,89 @@ def test_ismantorps_count_grouping_and_layout_come_from_the_record(survey_forts:
     assert block["tradition"] == "limestone-ringfort"
 
 
+def test_ismantorps_street_plan_is_the_records_own(survey_forts: dict) -> None:
+    """§7.5.2's radial **block** layout, and the two numbers it stands on.
+
+    *"…en inre, mer oregelbunden grupp, genom fyra gator uppdelade i lika många
+    kvarter"* is a block count; *"De båda husgrupperna skiljs av en 2-5 m br
+    ringgata"* is the street between the groups, one sentence later. Both are the
+    register's; neither is an archetype default, and without them the app would
+    have to invent the streets of the best-recorded fort interior in the country.
+    """
+    fort = fort_record(survey_forts["l1957-426"]["description"], "L1957:426")
+    buildings = R.build_interior(fort, [fort], county="Kalmar", kommun="Borgholm")["buildings"]
+    assert buildings["blocks"] == 4
+    assert buildings["streetWidthM"] == [2.0, 5.0]
+    # A stated street width means no assumption to name.
+    assert "buildings.streetWidthM" not in buildings["fallbacks"]
+
+
+def test_the_street_plan_is_ismantorps_alone(survey: dict) -> None:
+    """The measurement that keeps §7.5.2's branch off the mainland default.
+
+    Replayed over all 1 304 national descriptions, each pattern matches exactly
+    one fort. A later edit that widens either of them has to move this number.
+    """
+    with_blocks = []
+    with_street = []
+    for fort in survey["forts"]:
+        text = fort["description"] or ""
+        if not text:
+            continue
+        streets = R.parse_interior_streets(R.normalise(text))
+        if streets["blocks"] is not None:
+            with_blocks.append(fort["slug"])
+        if streets["streetWidthM"] is not None:
+            with_street.append(fort["slug"])
+    assert with_blocks == ["l1957-426"]
+    assert with_street == ["l1957-426"]
+
+
+def test_a_grouped_layout_with_no_stated_street_names_the_assumption() -> None:
+    """A layout in more than one group has to put something between the rings, so
+    where the record does not measure that gap the assumption is named (§15.3)."""
+    fort = fort_record("Innanför muren är 20 husgrunder, fördelade på två grupper.")
+    buildings = R.build_interior(fort, [fort], county="Kalmar", kommun="Borgholm")["buildings"]
+    assert buildings["groups"] == 2
+    assert buildings["streetWidthM"] is None and buildings["blocks"] is None
+    assert "buildings.streetWidthM" in buildings["fallbacks"]
+
+
+def test_eketorps_radial_houses_come_from_its_tradition_and_say_so(survey_forts: dict) -> None:
+    """Eketorp's own record counts its houses and nothing else the sampler needs.
+
+    ~75 house foundations is the register's number and it is read as one; the
+    house *size* its description states two sentences later — "De förra är ca
+    11x4-5 m" — is not reachable from the sentence that names them, because KMR's
+    own text for this fort has lost a full stop mid-sentence. So the plan takes
+    §6.H's literature default, `fallbacks` names it, and the panel says so rather
+    than the app quietly inventing an 11 m house it cannot cite.
+    """
+    fort = fort_record(survey_forts["l1958-4198"]["description"], "L1958:4198")
+    block = R.build_interior(fort, [fort], county="Kalmar", kommun="Mörbylånga")
+    buildings = block["buildings"]
+    assert block["tradition"] == "limestone-ringfort"
+    assert buildings["count"] == 75 and buildings["countSource"] == "measured"
+    assert buildings["layout"] == "radial"
+    assert buildings["blocks"] is None and buildings["streetWidthM"] is None
+    assert buildings["template"]["lengthM"] == R.FARMSTEAD_DEFAULTS["lengthM"]
+    assert buildings["template"]["tiers"]["plan"] == "assumed"
+    assert buildings["fallbacks"] == [
+        "buildings.template.lengthM",
+        "buildings.template.widthM",
+    ]
+
+
+def test_the_limestone_branch_never_widens_the_gate() -> None:
+    """§7.5.2: "no fort is offered `settlement` for being on limestone"."""
+    fort = fort_record("Fornborg, ringmur av kalksten. Inga husgrunder är synliga.")
+    block = R.build_interior(fort, [fort], county="Kalmar", kommun="Borgholm")
+    assert block["tradition"] == "limestone-ringfort"
+    assert block["evidence"]["gate"] == "fail"
+    assert block["settlementOffered"] is False
+    assert block["buildings"] is None
+
+
 def test_trabyborgs_stated_count_beats_the_archetype_default(survey_forts: dict) -> None:
     fort = fort_record(survey_forts["l1956-3284"]["description"], "L1956:3284")
     block = R.build_interior(fort, [fort], county="Kalmar", kommun="Mörbylånga")

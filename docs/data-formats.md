@@ -1207,6 +1207,10 @@ them. Both the state and the evidence it rests on have to reach the app as data,
     "countStated": true,           // false = inferred from the itemisation, as §14's field.count
     "layout": "radial",            // "radial" (against the inner wall face) | "grouped" | "free"
     "groups": 2,                   // null = not stated
+    "blocks": 4,                   // §7.5.2: the inner group's radial blocks (*kvarter*),
+                                   // where the record states them; null = not stated
+    "streetWidthM": [2.0, 5.0],    // the street between the groups (*ringgata*), as a range;
+                                   // null = not stated ⇒ `fallbacks` names it and the app assumes one
     "sector": null,                // restrict placement to this compass sector; null = whole interior
     "template": { /* one building spec — see §15.2 */ },
     "source": "measured"
@@ -1314,6 +1318,16 @@ actually found*:
 - **`count` is an upper bound.** The sampler may place fewer buildings than a stated count if
   the extent will not hold them; the shortfall is a monument `warnings` entry, never a silent
   truncation.
+- **The Öland/Gotland street plan is the record's or it is absent.** `blocks` and
+  `streetWidthM` are §7.5.2's radial-**block** layout drivers, and they are parsed from the
+  fort's own description or left `null`. Replayed over all 1 304 national descriptions each
+  matches **exactly one** fort, `l1957-426` (Ismantorp) — *"genom fyra gator uppdelade i lika
+  många kvarter"* and *"en 2-5 m br ringgata"* — so neither can drift onto the mainland
+  default. Where a layout in more than one group states no street width the app assumes one
+  and `fallbacks` carries `buildings.streetWidthM`, like every other assumption.
+- **`tradition` selects the layout, never the gate.** `limestone-ringfort` changes where the
+  sampler puts a house and nothing about whether it may put one there: `settlementOffered` is
+  decided by §7.5.2's gate, which is identical on both islands and the mainland.
 - **Validation** (`reconstruct.validate_document`, with the app's `schema.ts` as a second
   line): `interior.state` ∈ {`cleared`, `settlement`} and is `cleared` in v1.8;
   `tradition` ∈ {`mainland`, `limestone-ringfort`}; `evidence.gate` ∈ {`pass`, `fail`} and
