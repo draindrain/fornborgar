@@ -1333,6 +1333,46 @@ its houses out radially against the inner wall face, and takes its house count a
 the sentence, which on those two islands usually states both. The gate itself is identical
 everywhere, and no fort is offered `settlement` for being on limestone.
 
+**Implemented 2026-09-16 in `app/src/overlays/reconstruction/ringfort.ts`, and it is a radial
+*block* layout because Ismantorp's own description draws the streets.** `planFortInterior` is
+the only place the two traditions meet; `farmstead.planInteriorBuildings` — the mainland layout
+— is not touched by the branch and places the same houses it placed before it existed, which
+the unit tests pin as a number (76 on the reference fixture) rather than assume. What the
+register gave, and what it did not:
+
+- **Ismantorp (`l1957-426`) states its whole street plan and it is now parsed.** *"…genom fyra
+  gator uppdelade i lika många kvarter"* is `buildings.blocks: 4` and *"De båda husgrupperna
+  skiljs av en 2-5 m br ringgata"* is `buildings.streetWidthM: [2, 5]`. Replayed over all 1 304
+  national descriptions **each pattern matches exactly one fort**, this one, so the branch
+  cannot drift onto the mainland default; `test_the_street_plan_is_ismantorps_alone` pins that.
+  The blocks are the **inner** group's, as the sentence says; the outer group is one unbroken
+  ring of gables against the wall.
+- **The groups fill from the wall inward rather than dividing the count between them.** The
+  sentence defines the outer group by standing against the wall — *"en yttre med husen radiellt
+  utgående från murens insida"* — and says nothing about how the 88 split. An even split invents
+  a proportion and leaves a house-wide hole in the outer ring wherever the arithmetic runs out,
+  which reads as a fifth street the register never described.
+- **The central open space is not a parameter.** It is what is left when the groups the record
+  states have been laid against the wall. Giving it a radius of its own would assert a
+  measurement nobody made.
+- **Two refusals, written down rather than drawn over.** The record calls Ismantorp's inner
+  group *"mer oregelbunden"* and the app draws it as regular as the outer one, because nothing
+  in the record says what the irregularity *was*; the methods panel says so in as many words.
+  And Eketorp's seven houses *"på borggårdens mitt"* are not placed, because a per-house
+  position is exactly what contract §15.3 refuses to carry.
+- **Eketorp (`l1958-4198`) is drawn as it parses, not as one would like it to.** ~75 house
+  foundations and a radial arrangement come from the record; the house *plan* it states two
+  sentences later — *"De förra är ca 11x4-5 m"* — does **not**, and the reason is worth
+  recording rather than working around: KMR's own text for this fort has lost a full stop
+  mid-sentence (*"…i den. Ö hälften fyllts över…"*), so the sentence scope §7.5.2 depends on
+  breaks between the count and the dimensions, and `_RECT` does not accept a ranged second
+  dimension in any case. The plan therefore takes §6.H's 20–40 m default, `fallbacks` names it,
+  and the panel says so. Eketorp then places only a handful of houses inside its own courtyard
+  and warns about the shortfall — which is the honest reading of a parse gap, and a thing to fix
+  in the parser rather than in the layout.
+- **The 4.8 m wall is still not a measurement and is still not baked anywhere.** Nothing in this
+  branch sets a wall height; §5.1's derived height and its band are unchanged for both islands.
+
 **One filter this gate deliberately does not have: fort confidence.** Every rate above is over
 *all* registered fornborgar, including the two in three that §6.A.1's score puts below its
 threshold — so the obvious objection is that 4.1 % is measured over the wrong denominator, and
