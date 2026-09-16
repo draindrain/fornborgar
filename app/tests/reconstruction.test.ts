@@ -1016,6 +1016,26 @@ describe('the §15 interior block, at the door', () => {
     expect(() => validateReconstruction(broken)).toThrow(/never a position/);
   });
 
+  it('refuses a street plan the register could not have written (§7.5.2)', () => {
+    // A block division of one is not a division and fifty is a misread, and a
+    // street of no width is not a street. The pipeline enforces the same bands,
+    // and this is the second line rather than trust in the first.
+    for (const blocks of [1, 40, 2.5]) {
+      const broken = withInterior({ buildings: { ...ISMANTORP_BUILDINGS, blocks } });
+      expect(() => validateReconstruction(broken)).toThrow(/blocks/);
+    }
+    const noWidth = withInterior({ buildings: { ...ISMANTORP_BUILDINGS, streetWidthM: [0, 5] } });
+    expect(() => validateReconstruction(noWidth)).toThrow(/streetWidthM/);
+    const backwards = withInterior({ buildings: { ...ISMANTORP_BUILDINGS, streetWidthM: [5, 2] } });
+    expect(() => validateReconstruction(backwards)).toThrow(/streetWidthM/);
+    // Absent is fine: it is the normal case for every fort but one.
+    expect(() =>
+      validateReconstruction(
+        withInterior({ buildings: { ...ISMANTORP_BUILDINGS, blocks: null, streetWidthM: null } }),
+      ),
+    ).not.toThrow();
+  });
+
   it('refuses a cleared patch with no sentence to place it', () => {
     const broken = withInterior({
       ground: {

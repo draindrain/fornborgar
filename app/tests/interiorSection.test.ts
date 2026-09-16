@@ -220,6 +220,84 @@ describe('interiorSection (§7.5.3 — the evidence behind the selector)', () =>
     expect(text).toContain('upper bound');
   });
 
+  it('names the ringfort branch, its blocks, its street and what it does not draw', () => {
+    // §7.5.2, in the panel rather than only in the geometry: the branch is a
+    // layout, not a lower bar for evidence; the four blocks and the 2–5 m street
+    // are the register's own; and the record calls the inner group "mer
+    // oregelbunden" while the app draws it regular, which the panel has to own
+    // rather than leave the picture to imply.
+    const text = interiorSection({
+      ...BASE,
+      tradition: 'limestone-ringfort',
+      buildings: {
+        count: 88,
+        countSource: 'measured',
+        countStated: true,
+        layout: 'radial',
+        groups: 2,
+        blocks: 4,
+        streetWidthM: [2, 5],
+        sector: null,
+        template: null,
+        fallbacks: [],
+        source: 'measured',
+      },
+    }).paragraphs.join('\n');
+    expect(text).toContain('limestone ringfort');
+    expect(text).toContain('radial blocks against the inner wall face');
+    expect(text).toContain('never a lower bar for evidence');
+    expect(text).toContain('4 blocks');
+    expect(text).toContain('2–5 m the register measures');
+    expect(text).toContain('mer oregelbunden');
+  });
+
+  it('says so when a ringfort’s street between the groups is an assumption', () => {
+    const text = interiorSection({
+      ...BASE,
+      tradition: 'limestone-ringfort',
+      buildings: {
+        count: 50,
+        countSource: 'measured',
+        countStated: true,
+        layout: 'radial',
+        groups: 2,
+        blocks: null,
+        streetWidthM: null,
+        sector: null,
+        template: null,
+        fallbacks: ['buildings.streetWidthM'],
+        source: 'measured',
+      },
+    }).paragraphs.join('\n');
+    expect(text).toContain('measures no street between the groups');
+    expect(text).toContain('buildings.streetWidthM');
+    expect(text).not.toContain('blocks by streets');
+  });
+
+  it('leaves a mainland fort’s paragraph alone', () => {
+    // The same buildings block, carrying the same street plan, on a mainland
+    // fort: none of §7.5.2's sentences may appear.
+    const text = interiorSection({
+      ...BASE,
+      buildings: {
+        count: 88,
+        countSource: 'measured',
+        countStated: true,
+        layout: 'radial',
+        groups: 2,
+        blocks: 4,
+        streetWidthM: [2, 5],
+        sector: null,
+        template: null,
+        fallbacks: [],
+        source: 'measured',
+      },
+    }).paragraphs.join('\n');
+    expect(text).toContain('radially against the inner wall face');
+    expect(text).not.toContain('limestone ringfort');
+    expect(text).not.toContain('4 blocks');
+  });
+
   it('is present for the real Broborg bundle, badged conjecture, via buildMethodsModel', async () => {
     const { manifest, shoreline, rampart, sites } = await loadBroborg();
     const reconstruction = validateReconstruction(
