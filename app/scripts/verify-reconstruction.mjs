@@ -32,6 +32,13 @@
  *     for a release this file switched reconstruction mode through `setEnabled`
  *     and never clicked the HUD button, so the button could have been broken
  *     without any check noticing.
+ *   • **§7.5.2's Öland/Gotland branch is taken on `interior.tradition` and on
+ *     nothing else**: the same record, the same seed and the same terrain are
+ *     drawn twice, once as `limestone-ringfort` and once as `mainland`, and the
+ *     two must produce different geometry while the mainland one places exactly
+ *     what it placed before the branch existed. The panel has to name which of
+ *     the ringfort's numbers are the register's — and the one thing the app
+ *     draws more tidily than the register describes it.
  *
  * **One live page at a time.** Each patched fixture opens its own context and the
  * previous one is closed before it does. Under a software rasterizer each live
@@ -83,6 +90,18 @@ const FRAMES = Number(opt('frames', '16'));
  * would only turn a slow box into a failed feature.
  */
 const CLICK_TIMEOUT_MS = Number(opt('click-timeout', String(TIMEOUT_MS)));
+/**
+ * How many of Ismantorp's 88 houses the **mainland** layout seats on Broborg's
+ * measured crest ring — the number that existed before §7.5.2's limestone branch
+ * did, pinned so the branch cannot move it.
+ *
+ * It is low because the fixture is deliberately mismatched: 88 houses stated for
+ * a 127 m ringfort, laid out inside a 65 m Uppland crest. That is the honest
+ * result (§15.3: "the count is an upper bound; the terrain is not regraded to
+ * meet it"), and it is exactly what makes it a good regression pin — a layout
+ * change that silently loosened the placement rules would move it.
+ */
+const MAINLAND_PLACED = Number(opt('mainland-placed', '13'));
 
 // Unlike verify-sites.mjs this never needs the agent proxy: the whole check runs
 // against a locally previewed build with repo-relative bundles, and routing a
@@ -525,6 +544,12 @@ try {
     countStated: true,
     layout: 'radial',
     groups: 2,
+    // §7.5.2's street plan, from the same sentence and the one after it: "genom
+    // fyra gator uppdelade i lika många kvarter" and "De båda husgrupperna
+    // skiljs av en 2-5 m br ringgata". A mainland fort ignores both; the
+    // limestone branch below draws them.
+    blocks: 4,
+    streetWidthM: [2, 5],
     sector: null,
     fallbacks: [],
     source: 'measured',
@@ -711,6 +736,10 @@ try {
     requested: patchedOn.summary.requested,
     vertices: patchedOn.vertices,
   };
+  // Kept for the mainland-unchanged check at the end of the run: this page is
+  // the same fixture with `tradition: mainland`, and it has to have ignored the
+  // street plan the limestone branch draws.
+  const mainlandSummary = patchedOn.summary;
 
   // --- §0 again, with the houses on --------------------------------------
   const houseExaggeration = await patched.patchedPage.evaluate(() => {
@@ -837,6 +866,171 @@ try {
   );
   await closePatched(patched);
   patched = null;
+
+  // --- §7.5.2: the Öland / Gotland ringfort branch ------------------------
+  // The same buildings block as every check above, with one field changed:
+  // `interior.tradition`. That is the whole switch, and running both sides of it
+  // against the same data on the same terrain is the only way to show that the
+  // limestone layout reaches the renderer *and* that a mainland fort is left
+  // alone — the half of the acceptance that is easy to assume and easy to get
+  // wrong, because nothing in a mainland screenshot would look different if the
+  // branch had quietly swallowed it.
+  const RINGFORT = (interior) => {
+    interior.tradition = 'limestone-ringfort';
+    interior.buildings = ISMANTORP_BUILDINGS;
+  };
+  patched = await openPatched(RINGFORT);
+  await patched.patchedPage.click('.hud-interior-state[data-state="settlement"]', {
+    timeout: CLICK_TIMEOUT_MS,
+  });
+  const ringfort = await patched.patchedPage.evaluate(() => {
+    const app = window.__app;
+    const meshes = app.reconstruction.layer.group.children.filter((child) =>
+      child.name.includes('#settlement'),
+    );
+    return {
+      summary: app.reconstruction.interior,
+      visible: meshes.filter((mesh) => mesh.visible).length,
+      pressed: document
+        .querySelector('.hud-interior-state[data-state="settlement"]')
+        ?.getAttribute('aria-pressed'),
+    };
+  });
+  const ringfortHouses = await patched.patchedPage.evaluate(SETTLEMENT_SIGNATURE);
+  check(
+    'ringfort-branch-drawn-from-the-record',
+    ringfort.summary.tradition === 'limestone-ringfort' &&
+      ringfort.summary.layout === 'radial' &&
+      ringfort.summary.blocks === 4 &&
+      Array.isArray(ringfort.summary.streetWidthM) &&
+      ringfort.visible > 0 &&
+      ringfort.summary.placed > 0 &&
+      ringfort.pressed === 'true',
+    `${ringfort.summary.placed} of ${ringfort.summary.requested} placed in ` +
+      `${ringfort.summary.blocks} blocks with a ` +
+      `${(ringfort.summary.streetWidthM ?? []).join('–')} m street — drawn by one click on ` +
+      `the control`,
+  );
+  check(
+    'ringfort-count-is-still-an-upper-bound',
+    ringfort.summary.placed <= ringfort.summary.requested &&
+      (ringfort.summary.placed === ringfort.summary.requested ||
+        ringfort.summary.warnings.length > 0),
+    ringfort.summary.warnings.join(' | ') || 'every stated building placed',
+  );
+  // The branch actually reached the geometry: the same record, the same seed and
+  // the same terrain, laid out two different ways.
+  check(
+    'ringfort-geometry-differs-from-the-mainland-layout',
+    ringfortHouses.length > 0 && firstHouses.length > 0 && ringfortHouses !== firstHouses,
+    `${ringfortHouses.split('|').length} ringfort batches against ` +
+      `${firstHouses.split('|').length} mainland ones, on identical data`,
+  );
+  // §7.5.2's honesty clause, in the DOM rather than in a comment: the panel has
+  // to say the layout is a tradition branch and not a lower bar for evidence,
+  // and it has to own the one thing the app draws more tidily than the register
+  // describes it.
+  await patched.patchedPage.click('.hud-interior-evidence', { timeout: CLICK_TIMEOUT_MS });
+  const ringfortPanel = await patched.patchedPage.evaluate(() => {
+    const section = document.querySelector('.methods-section[data-section="interior"]');
+    return (section?.textContent ?? '').replace(/\s+/g, ' ');
+  });
+  check(
+    'ringfort-panel-says-which-numbers-are-the-registers',
+    /limestone ringfort/i.test(ringfortPanel) &&
+      /radial blocks/i.test(ringfortPanel) &&
+      /never a lower bar/i.test(ringfortPanel) &&
+      /4 blocks/.test(ringfortPanel) &&
+      /2–5 m/.test(ringfortPanel) &&
+      /oregelbunden/.test(ringfortPanel),
+    `${ringfortPanel.length} characters naming the tradition, the four blocks, the 2–5 m ` +
+      `street and the irregularity the app does not draw`,
+  );
+  report.ringfort = {
+    placed: ringfort.summary.placed,
+    requested: ringfort.summary.requested,
+    blocks: ringfort.summary.blocks,
+    streetWidthM: ringfort.summary.streetWidthM,
+  };
+  await closePatched(patched);
+  patched = null;
+
+  // --- the other reference ringfort, drawn as it parses -------------------
+  // Eketorp's record counts ~75 house foundations and states no grouping and no
+  // street plan, and the house size it gives two sentences later is not
+  // reachable from the sentence that counts them — KMR's own text for that fort
+  // has lost a full stop mid-sentence. So the plan is §6.H's 20–40 m literature
+  // default, and the check is that the app *says* so rather than passing the
+  // default off as the register's: `fallbacks` names it and the shortfall is a
+  // warning, not 75 houses forced into a courtyard that will not hold them.
+  const EKETORP = (interior) => {
+    interior.tradition = 'limestone-ringfort';
+    interior.buildings = {
+      ...ISMANTORP_BUILDINGS,
+      count: 75,
+      groups: null,
+      blocks: null,
+      streetWidthM: null,
+      template: null,
+      fallbacks: ['buildings.template.lengthM', 'buildings.template.widthM'],
+    };
+  };
+  patched = await openPatched(EKETORP);
+  await patched.patchedPage.click('.hud-interior-state[data-state="settlement"]', {
+    timeout: CLICK_TIMEOUT_MS,
+  });
+  const eketorp = await patched.patchedPage.evaluate(() => {
+    const app = window.__app;
+    return {
+      summary: app.reconstruction.interior,
+      visible: app.reconstruction.layer.group.children.filter(
+        (child) => child.name.includes('#settlement') && child.visible,
+      ).length,
+    };
+  });
+  await patched.patchedPage.click('.hud-interior-evidence', { timeout: CLICK_TIMEOUT_MS });
+  const eketorpPanel = await patched.patchedPage.evaluate(() => {
+    const section = document.querySelector('.methods-section[data-section="interior"]');
+    return (section?.textContent ?? '').replace(/\s+/g, ' ');
+  });
+  check(
+    'ringfort-without-a-street-plan-draws-none-and-says-so',
+    eketorp.summary.tradition === 'limestone-ringfort' &&
+      eketorp.summary.blocks === null &&
+      eketorp.summary.streetWidthM === null &&
+      eketorp.summary.requested === 75 &&
+      eketorp.summary.placed > 0 &&
+      eketorp.summary.placed < 75 &&
+      eketorp.summary.warnings.length > 0 &&
+      eketorp.visible > 0 &&
+      /buildings\.template\.lengthM/.test(eketorpPanel) &&
+      /20–40 m default/.test(eketorpPanel) &&
+      !/blocks by streets/.test(eketorpPanel),
+    `${eketorp.summary.placed} of 75 placed at §6.H's default plan, no invented street plan, ` +
+      `and the panel names the fallback`,
+  );
+  report.eketorp = {
+    placed: eketorp.summary.placed,
+    requested: eketorp.summary.requested,
+    fallbacks: eketorp.summary.fallbacks,
+  };
+  await closePatched(patched);
+  patched = null;
+
+  // --- and the mainland fort the branch must not have touched -------------
+  // `report.settlement` above is the *same* fixture with `tradition: mainland`,
+  // carrying the same `blocks` and `streetWidthM` the limestone run used. It has
+  // to ignore both and place exactly what it placed before this branch existed.
+  check(
+    'mainland-layout-unchanged',
+    report.settlement.placed === MAINLAND_PLACED &&
+      mainlandSummary.tradition === 'mainland' &&
+      mainlandSummary.blocks === 4 &&
+      mainlandSummary.layout === 'radial',
+    `${report.settlement.placed} placed (${MAINLAND_PLACED} before the branch), tradition ` +
+      `${mainlandSummary.tradition} — the same street plan in the data, and the mainland ` +
+      `layout drew none of it`,
+  );
 
 } catch (error) {
   check('run', false, error instanceof Error ? error.message : String(error));

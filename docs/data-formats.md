@@ -6,7 +6,9 @@ hydrology in §9–§10), v1.4 (2026-08-21, additive — far-field rings, §11),
 v1.5 (2026-08-22, additive — the §1a web grid layout and the §12 connectivity
 delta, the two Phase-9a encoding wins), v1.6 (2026-08-22, additive — far-field
 land cover, §13), v1.7 (2026-08-26, additive — reconstruction mode, §14),
-v1.8 (2026-09-12, additive — fort interiors, §15).** This
+v1.8 (2026-09-12, additive — fort interiors, §15),
+v1.8.1 (2026-09-16, additive — §7.5.2's ringfort street plan, two optional keys in
+§15.1's `buildings`).** This
 file and the `manifest.json` schema below are the single source of truth for what the
 Python pipeline writes under `app/public/data/<siteId>/` and what the TypeScript app
 reads. Derived from PLAN.md §1, §4.1–§4.6 (incl. the [phase-0 verified] corrections).
@@ -1207,6 +1209,10 @@ them. Both the state and the evidence it rests on have to reach the app as data,
     "countStated": true,           // false = inferred from the itemisation, as §14's field.count
     "layout": "radial",            // "radial" (against the inner wall face) | "grouped" | "free"
     "groups": 2,                   // null = not stated
+    "blocks": 4,                   // §7.5.2: the inner group's radial blocks (*kvarter*),
+                                   // where the record states them; null = not stated
+    "streetWidthM": [2.0, 5.0],    // the street between the groups (*ringgata*), as a range;
+                                   // null = not stated ⇒ `fallbacks` names it and the app assumes one
     "sector": null,                // restrict placement to this compass sector; null = whole interior
     "template": { /* one building spec — see §15.2 */ },
     "source": "measured"
@@ -1314,13 +1320,24 @@ actually found*:
 - **`count` is an upper bound.** The sampler may place fewer buildings than a stated count if
   the extent will not hold them; the shortfall is a monument `warnings` entry, never a silent
   truncation.
+- **The Öland/Gotland street plan is the record's or it is absent.** `blocks` and
+  `streetWidthM` are §7.5.2's radial-**block** layout drivers, and they are parsed from the
+  fort's own description or left `null`. Replayed over all 1 304 national descriptions each
+  matches **exactly one** fort, `l1957-426` (Ismantorp) — *"genom fyra gator uppdelade i lika
+  många kvarter"* and *"en 2-5 m br ringgata"* — so neither can drift onto the mainland
+  default. Where a layout in more than one group states no street width the app assumes one
+  and `fallbacks` carries `buildings.streetWidthM`, like every other assumption.
+- **`tradition` selects the layout, never the gate.** `limestone-ringfort` changes where the
+  sampler puts a house and nothing about whether it may put one there: `settlementOffered` is
+  decided by §7.5.2's gate, which is identical on both islands and the mainland.
 - **Validation** (`reconstruct.validate_document`, with the app's `schema.ts` as a second
   line): `interior.state` ∈ {`cleared`, `settlement`} and is `cleared` in v1.8;
   `tradition` ∈ {`mainland`, `limestone-ringfort`}; `evidence.gate` ∈ {`pass`, `fail`} and
   `pass` ⇔ `settlementOffered`; every citation carries a `channel` and the field its channel
   requires (`sentence`, `id`, or `reference`); `hipPitchDeg ≥ roofPitchDeg`;
   `wallHeightM ≥ 1.0`; `aisleFraction` ∈ [0.3, 0.6]; every range `[min, max]` with
-  `min ≤ max`; `farm` present only on `archetype: "farmstead"`, `interior` only on a site
+  `min ≤ max`; `blocks` an integer in [2, 12] or null and `streetWidthM` a positive band or
+  null; `farm` present only on `archetype: "farmstead"`, `interior` only on a site
   whose `monuments` contain a `fort`.
 - **Provenance.** Nothing here changes the `reconstruction` layer's `conjecture` provenance
   (§14, PLAN §6.1): it is already the floor of the range. `interior.ground` is Model over
@@ -1331,6 +1348,9 @@ actually found*:
 **Compatibility.** A pre-v1.8 `reconstruction.json` has no `interior` and no `farm`: the
 app opens every fort on `cleared`, offers no `settlement` state anywhere, and keeps the flat
 marker for every `farmstead` record, which is precisely the pre-amendment behaviour. A v1.8
-file in a pre-v1.8 app ignores both blocks (§2's rules) and renders as before. A
+file in a pre-v1.8 app ignores both blocks (§2's rules) and renders as before. A v1.8 file
+with no `blocks` and no `streetWidthM` — which is every fort in the country but Ismantorp —
+is a v1.8.1 file: the keys are optional, absent means "the register drew no street plan",
+and the layout then draws none. A
 `settlement` state the app cannot draw yet falls back to `cleared`, never to an empty
 interior with the control still showing.

@@ -1677,6 +1677,66 @@ _GROUPS = re.compile(
 )
 _RADIAL = re.compile(r"radie[lr]|radialt|radiellt|radiella|radiart")
 
+# --- §7.5.2's Öland/Gotland branch: the street plan, where KMR draws it ------ #
+#
+# Ismantorp's own sentence is the whole reason these two exist, and it is the
+# only sentence in the country that carries either of them. It states the block
+# division — *"…en inre, mer oregelbunden grupp, genom **fyra gator** uppdelade i
+# lika många **kvarter**"* — and, one sentence on, the street between the two
+# groups: *"De båda husgrupperna skiljs av en **2-5 m br ringgata**."* A radial
+# **block** layout needs both numbers, and inventing either of them would be
+# exactly the thing this app refuses. Replayed over all 1 304 national
+# descriptions each pattern matches **one** fort, `l1957-426`, and nothing else
+# (`test_the_street_plan_is_ismantorps_alone`), so neither can leak onto the
+# mainland default by accident.
+_STREET_WIDTH = re.compile(
+    rf"(?:{CA})?({NUM})\s*(?:-\s*(?:{CA})?({NUM})\s*)?m(?:eter)?\s*br(?:ed|)[^.]{{0,40}}?"
+    r"(?:ring)?gat(?:a|an|or|orna)\b"
+)
+_BLOCKS = re.compile(
+    rf"({NUM}|{'|'.join(fold(w) for w in _SWEDISH_NUMERALS)})\s+"
+    r"(?:lika\s+manga\s+)?(?:gator|kvarter)"
+)
+
+
+def _swedish_int(token: str) -> int | None:
+    """`"fyra"` or `"4"` → `4`. The register writes counts both ways."""
+    if token.isdigit():
+        return int(token)
+    return next((value for word, value in _SWEDISH_NUMERALS.items() if fold(word) == token), None)
+
+
+def parse_interior_streets(text: str) -> dict:
+    """The ring street and the block division, from the fort's own description.
+
+    Both are **layout drivers the register states**, not archetype defaults, and
+    they are read from the interior sentences rather than only from the sentences
+    that carry a `husgrund` hit — Ismantorp writes the ring street's width in the
+    sentence *after* the one that counts its houses, and a street is a street
+    wherever the surveyor put the full stop.
+
+    Returns `{"blocks": int | None, "streetWidthM": [lo, hi] | None}`; the normal
+    case nationally is both `None`, because the normal fort has no street plan
+    written down.
+    """
+    blocks: int | None = None
+    width: list[float] | None = None
+    for sentence in interior_sentences(text):
+        folded = fold(sentence)
+        if blocks is None:
+            match = _BLOCKS.search(folded)
+            if match:
+                value = _swedish_int(match.group(1))
+                # A block division of one is not a division; a fort is not laid
+                # out in fifty quarters either. Both would be a misread.
+                if value is not None and 2 <= value <= 12:
+                    blocks = value
+        if width is None:
+            match = _STREET_WIDTH.search(folded)
+            if match:
+                width = _range(_to_float(match.group(1)), _to_float(match.group(2)))
+    return {"blocks": blocks, "streetWidthM": width}
+
 
 def _stated_count(hit: dict) -> int | None:
     """A house count stated immediately before the term KMR wrote.
@@ -1721,7 +1781,7 @@ def _stated_plan(sentence: str) -> dict | None:
     return None
 
 
-def interior_buildings(hits: list[dict], tradition: str) -> dict | None:
+def interior_buildings(hits: list[dict], tradition: str, text: str = "") -> dict | None:
     """The sampler spec for the `settlement` state, from the record's own words.
 
     §7.5.1: count, dimensions and layout come from the source the fort passed the
@@ -1767,11 +1827,21 @@ def interior_buildings(hits: list[dict], tradition: str) -> dict | None:
         # out radially against the inner wall face. It never admits a fort.
         layout = "radial" if tradition == "limestone-ringfort" else "free"
 
+    # §7.5.2's layout branch needs a street plan, and takes it from the record
+    # where the record draws one. Ismantorp is the only fort in the country that
+    # does; everywhere else both come back `None` and the app draws no streets.
+    streets = parse_interior_streets(text or " ".join(hit["sentence"] for hit in hits))
+
     fallbacks: list[str] = []
     if plan is None:
         fallbacks.extend(["buildings.template.lengthM", "buildings.template.widthM"])
     if not counts:
         fallbacks.append("buildings.count")
+    # A layout in more than one group has to put *something* between the rings,
+    # so where the record does not measure that gap the app assumes one — and a
+    # gap the app assumed is named here like every other assumption.
+    if groups and groups > 1 and streets["streetWidthM"] is None:
+        fallbacks.append("buildings.streetWidthM")
 
     template = {
         "kind": "longhouse",
@@ -1804,6 +1874,10 @@ def interior_buildings(hits: list[dict], tradition: str) -> dict | None:
         "countStated": bool(counts),
         "layout": layout,
         "groups": groups,
+        # §7.5.2's radial **blocks**: the number of quarters the inner group is
+        # cut into, and the width of the street that cuts it. Ismantorp's alone.
+        "blocks": streets["blocks"],
+        "streetWidthM": streets["streetWidthM"],
         "sector": sector,
         "template": template,
         "fallbacks": fallbacks,
@@ -1904,7 +1978,7 @@ def build_interior(
             "discarded": discarded,
             "survey": INTERIOR_SURVEY,
         },
-        "buildings": interior_buildings(counted, tradition),
+        "buildings": interior_buildings(counted, tradition, text),
     }
 
 
@@ -2525,6 +2599,22 @@ def validate_interior(document: dict) -> None:
     sector = buildings.get("sector")
     if sector is not None and sector not in BEARINGS:
         raise ReconstructError(f"interior.buildings.sector must be a compass point (§15.3).")
+    blocks = buildings.get("blocks")
+    if blocks is not None and (not isinstance(blocks, int) or not 2 <= blocks <= 12):
+        raise ReconstructError(
+            "interior.buildings.blocks must be a stated block count of 2–12, or null (§15.1)."
+        )
+    street = buildings.get("streetWidthM")
+    if street is not None:
+        if (
+            not isinstance(street, list)
+            or len(street) != 2
+            or not all(isinstance(value, (int, float)) for value in street)
+            or not 0 < street[0] <= street[1]
+        ):
+            raise ReconstructError(
+                "interior.buildings.streetWidthM must be a positive [lo, hi] band or null (§15.1)."
+            )
     template = buildings.get("template")
     if template is not None:
         validate_building_template(template)
@@ -2662,7 +2752,9 @@ def run(site_id: str, params: TransformParams = DEFAULT_PARAMS) -> dict:
             print(
                 f"   buildings: count {buildings['count']} "
                 f"({'stated' if buildings['countStated'] else 'not stated'}), "
-                f"layout {buildings['layout']}, sector {buildings['sector']}"
+                f"layout {buildings['layout']}, sector {buildings['sector']}, "
+                f"groups {buildings['groups']}, blocks {buildings['blocks']}, "
+                f"street {buildings['streetWidthM']}"
             )
         ground = interior["ground"]
         print(
