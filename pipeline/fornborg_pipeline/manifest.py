@@ -85,6 +85,71 @@ def _raa_attribution(fetched: str) -> dict:
     }
 
 
+#: The stable head of the KMR credit line, used to find that entry again in a
+#: manifest that was written by an earlier run (the tail carries the date).
+RAA_ATTRIBUTION_PREFIX = "Fornlämningsinformation från Riksantikvarieämbetet"
+#: What separates the credit from its date. The published pilot manifests end at
+#: exactly this string with nothing after it — see `set_raa_attribution`.
+RAA_FETCHED_MARKER = "hämtad "
+
+
+def raa_attribution_date(manifest: dict) -> str | None:
+    """The date the manifest's KMR credit states.
+
+    `""` for the dangling `"… hämtad "` the Phase-9b pilot batch published (the
+    batch ran with an empty `kmr_fetched`, so the credit was built without one),
+    and `None` when the manifest carries no KMR credit at all.
+    """
+    for entry in manifest.get("attribution", []):
+        text = str(entry.get("text", ""))
+        if text.startswith(RAA_ATTRIBUTION_PREFIX):
+            head, marker, tail = text.partition(RAA_FETCHED_MARKER)
+            return tail.strip() if marker else ""
+    return None
+
+
+def set_raa_attribution(manifest: dict, fetched: str) -> str:
+    """Give the KMR credit the date it is missing, in place. Returns what it did.
+
+    The pilot bundles were published with a credit line ending in a dangling
+    `"hämtad "`, while the bundle's own `sites.json` carries the `fetched` date the
+    records were actually pulled on. This copies that date across — a repair of a
+    *visible attribution string*, and the only manifest field this module changes
+    that is not the §14 asset itself.
+
+    It never overwrites a date that is already there. A manifest whose credit
+    disagrees with its own `sites.json` is reporting something real (two different
+    fetches ended up in one bundle), and quietly picking one of them would be the
+    same class of mistake as inventing a measurement:
+
+      * ``"filled"``    — the credit had no date and now carries `fetched`;
+      * ``"unchanged"`` — the credit already states exactly `fetched`;
+      * ``"conflict"``  — the credit states a *different* date; left as published;
+      * ``"no-date"``   — `fetched` is empty, so there is nothing to copy;
+      * ``"absent"``    — this manifest carries no KMR credit to repair.
+    """
+    attribution = manifest.get("attribution", [])
+    index = next(
+        (
+            i
+            for i, entry in enumerate(attribution)
+            if str(entry.get("text", "")).startswith(RAA_ATTRIBUTION_PREFIX)
+        ),
+        None,
+    )
+    if index is None:
+        return "absent"
+    current = raa_attribution_date(manifest)
+    if current and current == fetched:
+        return "unchanged"
+    if current:
+        return "conflict"
+    if not fetched:
+        return "no-date"
+    attribution[index] = _raa_attribution(fetched)
+    return "filled"
+
+
 def local_bounds(bounds3006: tuple[float, float, float, float], origin_e: float, origin_n: float):
     """EPSG:3006 bounds -> scene-local bounds (docs/data-formats.md §0).
 
