@@ -37,7 +37,7 @@ against a fake object store, and **has never been run against R2**.
 | thing | result |
 |---|---|
 | `R2_ACCOUNT_ID` / `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` / `R2_BUCKET` | **all four absent** |
-| write path `https://<account>.r2.cloudflarestorage.com` | **unreachable** |
+| write path `https://<account>.r2.cloudflarestorage.com` | **unreachable** (HTTP 000, measured before this run; not re-tested here, since with no account id and no key there is nothing to reach it with) |
 | public read base (`publicBaseUrl` in `pipeline/r2-config.json`) | HTTP 200 for every object read below |
 
 One correction to the 2026-08-30 note, which reported uniform HTTP 403s through
