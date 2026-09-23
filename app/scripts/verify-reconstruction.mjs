@@ -32,6 +32,11 @@
  *     for a release this file switched reconstruction mode through `setEnabled`
  *     and never clicked the HUD button, so the button could have been broken
  *     without any check noticing.
+ *   • **a stated bearing is drawn at the stated bearing**: `plan.orientationDeg`
+ *     is usually a *measured* value, so a fixture with an asymmetric one (30°,
+ *     which no wrong frame maps to itself) is patched in at the door and the
+ *     drawn angle is measured off the live scene graph — for both a monument and
+ *     a longhouse, which must come out parallel;
  *   • **§7.5.2's Öland/Gotland branch is taken on `interior.tradition` and on
  *     nothing else**: the same record, the same seed and the same terrain are
  *     drawn twice, once as `limestone-ringfort` and once as `mainland`, and the
@@ -603,6 +608,10 @@ try {
     interior.evidence.citations = [];
   };
 
+  /**
+   * `mutate(interior, body)` — the second argument is the whole §14 file, for
+   * the one fixture below that has to reach a monument rather than the interior.
+   */
   const openPatched = async (mutate = (interior) => void (interior.buildings = ISMANTORP_BUILDINGS)) => {
     const patchedContext = await browser.newContext({ viewport: { width: 1280, height: 800 } });
     const patchedPage = await patchedContext.newPage();
@@ -616,7 +625,7 @@ try {
       try {
         const response = await route.fetch();
         const body = await response.json();
-        if (body && body.interior) mutate(body.interior);
+        if (body && body.interior) mutate(body.interior, body);
         await route.fulfill({
           status: 200,
           contentType: 'application/json',
@@ -1013,6 +1022,146 @@ try {
     placed: eketorp.summary.placed,
     requested: eketorp.summary.requested,
     fallbacks: eketorp.summary.fallbacks,
+  };
+  await closePatched(patched);
+  patched = null;
+
+  // --- a stated bearing is drawn AT the stated bearing --------------------
+  // `plan.orientationDeg` is frequently a **measured** value: the bearing the
+  // KMR record states for a plan's long axis, parsed off the register's own
+  // `9x6 m (Ö-V)`. Broborg ships three of them. Drawing one at the wrong angle
+  // is the app misrepresenting something it claims to have read off the record,
+  // which is worse than any conjectural geometry being ugly — and it is exactly
+  // what `shapes.buildShape` did: it turned the plan by the bearing itself while
+  // `lib/coords` has north = −z, so a stated bearing came out at bearing + 90°,
+  // and a stone setting and a longhouse carrying the same stated bearing were
+  // drawn at right angles to each other.
+  //
+  // So this measures the drawn angle **on the live scene graph**, on an
+  // asymmetric bearing. 0° and 90° would pass against several wrong frames —
+  // a mirror about the 45° line fixes both — but 30° passes against one.
+  const BEARING_DEG = 30;
+  /**
+   * One long, thin monument on a stated bearing, and one longhouse on the same
+   * stated bearing.
+   *
+   * The monument has to be alone in its batch to be measurable: batches are
+   * keyed by archetype, so every other `mound` — the records and the ones the
+   * grave-field sampler places — becomes a `cairn`, which draws in the stone
+   * batch instead. Nothing else about the file changes, and no committed data
+   * is touched.
+   */
+  const BEARING = (interior, body) => {
+    interior.buildings = {
+      ...ISMANTORP_BUILDINGS,
+      count: 1,
+      groups: 1,
+      // Not `radial`: a radial house takes its bearing from where it stands
+      // round the wall, and the stated orientation is what is under test here.
+      layout: 'free',
+      blocks: null,
+      streetWidthM: null,
+      template: { ...ISMANTORP_BUILDINGS.template, orientationDeg: BEARING_DEG },
+    };
+    let target = null;
+    for (const monument of body.monuments) {
+      const classes = monument.field ? [...(monument.field.classes ?? []), ...(monument.field.farField ?? [])] : [];
+      for (const entry of classes) if (entry.archetype === 'mound') entry.archetype = 'cairn';
+      if (monument.archetype !== 'mound') continue;
+      if (target) monument.archetype = 'cairn';
+      else target = monument;
+    }
+    // 24 × 4 m: long enough that the principal axis of the drawn mesh is the
+    // stated one and not an artefact of the rim wobble.
+    target.plan = {
+      ...target.plan,
+      form: 'rectangular',
+      diameterM: 12,
+      lengthM: 24,
+      widthM: 4,
+      orientationDeg: BEARING_DEG,
+    };
+    target.profile = { ...target.profile, diameterM: 12, presentDiameterM: 12, heightM: 1.2 };
+  };
+
+  patched = await openPatched(BEARING);
+  await patched.patchedPage.click('.hud-interior-state[data-state="settlement"]', {
+    timeout: CLICK_TIMEOUT_MS,
+  });
+  const bearings = await patched.patchedPage.evaluate(() => {
+    /** The major axis of a cloud of drawn `(x, z)`, as a compass bearing 0–180. */
+    const axisBearing = (points) => {
+      if (points.length < 24) return null;
+      let mx = 0;
+      let mz = 0;
+      for (const [x, z] of points) {
+        mx += x;
+        mz += z;
+      }
+      mx /= points.length;
+      mz /= points.length;
+      let sxx = 0;
+      let szz = 0;
+      let sxz = 0;
+      for (const [x, z] of points) {
+        sxx += (x - mx) ** 2;
+        szz += (z - mz) ** 2;
+        sxz += (x - mx) * (z - mz);
+      }
+      // Principal axis of the covariance — exact for a plan symmetric about both
+      // its own axes, which every archetype's plan is.
+      const theta = 0.5 * Math.atan2(2 * sxz, sxx - szz);
+      // `lib/coords`: east = +x, north = −z, so this is where it points on a map.
+      const bearing = (Math.atan2(Math.cos(theta), -Math.sin(theta)) * 180) / Math.PI;
+      return ((bearing % 180) + 180) % 180;
+    };
+    const pointsOf = (matches) => {
+      const out = [];
+      for (const child of window.__app.reconstruction.layer.group.children) {
+        if (!matches(child.name)) continue;
+        const attribute = child.geometry?.getAttribute?.('position');
+        if (!attribute) continue;
+        const array = attribute.array;
+        for (let i = 0; i < array.length; i += 3) out.push([array[i], array[i + 2]]);
+      }
+      return out;
+    };
+    const monument = pointsOf((name) => name === 'reconstruction-mound:turf');
+    const houses = pointsOf((name) => name.includes('#settlement'));
+    return {
+      monument: axisBearing(monument),
+      houses: axisBearing(houses),
+      monumentVertices: monument.length,
+      houseVertices: houses.length,
+    };
+  });
+  /** How far two axis bearings are apart, the short way round. */
+  const axisDelta = (a, b) => {
+    if (a === null || b === null) return Infinity;
+    const delta = Math.abs((((a - b) % 180) + 180) % 180);
+    return Math.min(delta, 180 - delta);
+  };
+  check(
+    'stated-bearing-drawn-at-the-stated-bearing',
+    axisDelta(bearings.monument, BEARING_DEG) < 2 &&
+      // …and not at either of the two ways it has been wrong: mirrored about the
+      // 45° line (30 → 60), or turned by 90° as `buildShape` turned it (30 → 120).
+      axisDelta(bearings.monument, 60) > 25 &&
+      axisDelta(bearings.monument, 120) > 25,
+    `stated ${BEARING_DEG}°, drawn ${bearings.monument === null ? 'nothing' : `${bearings.monument.toFixed(2)}°`} ` +
+      `over ${bearings.monumentVertices} vertices (mirror would be 60°, the old frame 120°)`,
+  );
+  check(
+    'one-orientation-frame-for-every-archetype',
+    axisDelta(bearings.monument, bearings.houses) < 2 && bearings.houseVertices > 24,
+    `monument ${bearings.monument === null ? 'n/a' : bearings.monument.toFixed(2)}° against ` +
+      `longhouse ${bearings.houses === null ? 'n/a' : bearings.houses.toFixed(2)}° on the same stated ` +
+      `bearing — §6's monument and §3's longhouse read it the same way`,
+  );
+  report.bearing = {
+    statedDeg: BEARING_DEG,
+    monumentDeg: bearings.monument,
+    longhouseDeg: bearings.houses,
   };
   await closePatched(patched);
   patched = null;
