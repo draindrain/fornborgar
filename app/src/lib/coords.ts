@@ -146,11 +146,13 @@ export function boundsLocalFrom3006(
  *   • hence θ = atan2(−cos β, sin β), which is β − 90° — **not** β.
  *
  * Using β directly draws a stated N–S axis east–west. That was a live bug in
- * `shapes.buildShape` (Phase 13 §8): a *measured* bearing — one the KMR record
- * states and the parser records as `source: "parsed"` — came out at 90° to
- * itself, while §3's longhouse, which already converted correctly, drew the same
- * stated bearing at a different angle from the stone setting beside it. There is
- * deliberately no second implementation of this anywhere in `app/src`.
+ * `shapes.buildShape`: a *measured* bearing — one the KMR record states and the
+ * parser records as `source: "parsed"` — came out at 90° to itself, while the
+ * longhouse code, whose own copy of this helper converted correctly, drew the
+ * same stated bearing at a right angle to the stone setting beside it. Hence one
+ * implementation, here: there is deliberately no second one in `app/src`, and a
+ * test asserts that `longhouse.bearingRotation` is this function and not a
+ * twin of it.
  */
 export function bearingRotation(bearingDeg: number): number {
   const radians = (bearingDeg * Math.PI) / 180;

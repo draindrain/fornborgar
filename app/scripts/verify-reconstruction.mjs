@@ -1038,8 +1038,9 @@ try {
   // drawn at right angles to each other.
   //
   // So this measures the drawn angle **on the live scene graph**, on an
-  // asymmetric bearing. 0° and 90° would pass against several wrong frames —
-  // a mirror about the 45° line fixes both — but 30° passes against one.
+  // asymmetric bearing. A cardinal bearing would pass against several wrong
+  // frames — a mirror about the 45° line maps 0° and 90° to themselves, and an
+  // axis swap does the same — while at 30° only the right frame passes.
   const BEARING_DEG = 30;
   /**
    * One long, thin monument on a stated bearing, and one longhouse on the same
