@@ -31,6 +31,7 @@
  * palisade's jitter and the vegetation's placement already keep.
  */
 
+import { bearingRotation } from '../../lib/coords';
 import { mulberry32, streamSeed } from '../../lib/random';
 import type { FieldClass, Monument, PlanForm, Range } from './schema';
 
@@ -145,7 +146,11 @@ export function fieldRings(monument: Monument, position: { x: number; z: number 
   const a = (monument.plan.lengthM ?? monument.plan.diameterM) / 2;
   const b = (monument.plan.widthM ?? monument.plan.diameterM) / 2;
   if (!(a > 0) || !(b > 0)) return null;
-  const rotation = ((monument.plan.orientationDeg ?? 0) * Math.PI) / 180;
+  // "245x140 m (N-S)" is a measured bearing like any other, so it goes through
+  // the app's one conversion (`lib/coords.bearingRotation`) — an extent ellipse
+  // turned 90° from the sentence it was read off would scatter the field's
+  // monuments over ground the record does not put them on.
+  const rotation = bearingRotation(monument.plan.orientationDeg ?? 0);
   const ring: Array<[number, number]> = [];
   for (let i = 0; i < 48; i++) {
     const theta = (i / 48) * Math.PI * 2;

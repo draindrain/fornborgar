@@ -52,6 +52,7 @@
 
 import * as THREE from 'three';
 import type { GroundSampler } from '../../camera/firstPerson';
+import { bearingRotation } from '../../lib/coords';
 import { mulberry32, streamSeed } from '../../lib/random';
 import type { SiteRecord, SitesFile } from '../sites';
 import {
@@ -1012,7 +1013,10 @@ export class ReconstructionLayer {
       localY: 0,
       sizeM: Math.max(0.35, item.diameterM * 0.6),
       heightM: item.heightM,
-      rotation: (item.orientationDeg * Math.PI) / 180,
+      // The stone's broad face, in the app's frame. The sampler's own bearing is
+      // conjecture (§6.F) rather than a measurement, but it is still a bearing,
+      // and it goes through the same conversion as every other one.
+      rotation: bearingRotation(item.orientationDeg),
       tilt: (random() * 2 - 1) * 0.03,
       color: colour(SURFACE_COLOURS.cairnStone).clone().lerp(colour(SURFACE_COLOURS.settingStoneDark), random()),
     });

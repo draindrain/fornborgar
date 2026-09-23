@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  bearingFromLocal,
+  bearingRotation,
   boundsLocalFrom3006,
   enFromLocal,
   gridFromLocal,
@@ -158,5 +160,60 @@ describe('height sampling', () => {
   it('clamps at the edges instead of wrapping', () => {
     expect(heightAtLocal(heights, -100, -100, grid)).toBeCloseTo(0, 6);
     expect(heightAtLocal(heights, 500, 500, grid)).toBeCloseTo(22, 6);
+  });
+});
+
+// --------------------------------------------------------------------------- //
+// bearings — the one conversion from a stated compass bearing to a drawn angle
+// --------------------------------------------------------------------------- //
+
+/** Where the local +x axis, turned by `rotationRad`, is pointing. */
+function axisOf(rotationRad: number): { x: number; z: number } {
+  return { x: Math.cos(rotationRad), z: Math.sin(rotationRad) };
+}
+
+describe('bearingRotation (north = −z)', () => {
+  it('sends a stated N–S axis along ±z and an E–W one along ±x', () => {
+    const north = axisOf(bearingRotation(0));
+    expect(north.x).toBeCloseTo(0, 12);
+    expect(north.z).toBeCloseTo(-1, 12); // north is −z, not +z and not +x
+    const east = axisOf(bearingRotation(90));
+    expect(east.x).toBeCloseTo(1, 12);
+    expect(east.z).toBeCloseTo(0, 12);
+    const south = axisOf(bearingRotation(180));
+    expect(south.x).toBeCloseTo(0, 12);
+    expect(south.z).toBeCloseTo(1, 12);
+  });
+
+  it('keeps asymmetric bearings apart, which the cardinal cases cannot show', () => {
+    // 0° and 90° survive several wrong conventions — a mirror about the 45° line
+    // fixes both, and so does swapping the axes. 30° and 60° do not: under the
+    // mirror they change places, and under the +90° rotation that `buildShape`
+    // used they land on each other's neighbours. So the pin is asymmetric.
+    const thirty = axisOf(bearingRotation(30));
+    const sixty = axisOf(bearingRotation(60));
+    expect(bearingFromLocal(thirty.x, thirty.z)).toBeCloseTo(30, 9);
+    expect(bearingFromLocal(sixty.x, sixty.z)).toBeCloseTo(60, 9);
+    // …and 30° is not 60° mirrored, nor 120° rotated.
+    expect(Math.abs(bearingFromLocal(thirty.x, thirty.z) - 60)).toBeGreaterThan(29);
+    expect(Math.abs(bearingFromLocal(thirty.x, thirty.z) - 120)).toBeGreaterThan(89);
+  });
+
+  it('round-trips every bearing through bearingFromLocal', () => {
+    for (let bearing = 0; bearing < 360; bearing += 7.5) {
+      const axis = axisOf(bearingRotation(bearing));
+      const back = (bearingFromLocal(axis.x, axis.z) + 360) % 360;
+      expect(back).toBeCloseTo(bearing % 360, 9);
+    }
+  });
+
+  it('agrees with lib/coords’ own north: +north is −z on the ground', () => {
+    // Walk 100 m along a stated bearing of 0° and the northing must go **up**.
+    const axis = axisOf(bearingRotation(0));
+    const { n } = enFromLocal(axis.x * 100, axis.z * 100, ORIGIN);
+    expect(n).toBeCloseTo(ORIGIN.n + 100, 6);
+    const east = axisOf(bearingRotation(90));
+    const { e } = enFromLocal(east.x * 100, east.z * 100, ORIGIN);
+    expect(e).toBeCloseTo(ORIGIN.e + 100, 6);
   });
 });

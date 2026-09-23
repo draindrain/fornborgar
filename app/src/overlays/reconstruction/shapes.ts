@@ -22,6 +22,7 @@
  */
 
 import * as THREE from 'three';
+import { bearingRotation } from '../../lib/coords';
 import { mulberry32, streamSeed } from '../../lib/random';
 import type { Monument, PlanForm, Range } from './schema';
 
@@ -290,7 +291,11 @@ export function buildShape(spec: ShapeSpec): ShapeBuild {
   const b = Math.max(0.3, (spec.widthM ?? spec.diameterM) / 2);
   const height = Math.max(0.02, spec.heightM);
   const stone = Math.max(0.05, mid(spec.stoneM));
-  const rotation = ((spec.orientationDeg ?? 0) * Math.PI) / 180;
+  // The record's own bearing, in the app's frame. `bearingRotation` is the one
+  // conversion (`lib/coords`), and it has to be: `orientationDeg` is usually a
+  // *measured* value — a bearing the KMR record states — and turning the plan by
+  // the bearing itself drew a stated N–S monument east–west.
+  const rotation = bearingRotation(spec.orientationDeg ?? 0);
   const { spokes, rings } = tessellation(Math.max(a, b), stone);
   const meanRadius = (a + b) / 2;
 
@@ -459,7 +464,9 @@ export function kerbPlacements(spec: ShapeSpec, kerbStone: Range | null): StoneP
   const a = Math.max(0.4, (spec.lengthM ?? spec.diameterM) / 2);
   const b = Math.max(0.3, (spec.widthM ?? spec.diameterM) / 2);
   const size = Math.max(0.15, mid(kerbStone ?? spec.stoneM));
-  const rotation = ((spec.orientationDeg ?? 0) * Math.PI) / 180;
+  // The same one conversion the surface uses: a kerb that ran round a plan
+  // turned to a different angle than the plan itself would be a new bug.
+  const rotation = bearingRotation(spec.orientationDeg ?? 0);
   const random = mulberry32(spec.seed ^ 0x6b3d);
 
   // One stone per stone-width of perimeter: the kerb is a contiguous chain, which
