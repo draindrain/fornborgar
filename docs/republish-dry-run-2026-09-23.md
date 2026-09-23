@@ -29,7 +29,7 @@ reports exactly which object keys a later, credentialled run would write.
   claimed.** See "What is still blocked".
 
 The driver is `pipeline/fornborg_pipeline/republish.py`; its tests are
-`pipeline/tests/test_republish.py` (25 tests). The upload half is written, tested
+`pipeline/tests/test_republish.py` (27 tests). The upload half is written, tested
 against a fake object store, and **has never been run against R2**.
 
 ## The environment check, restated
@@ -309,10 +309,11 @@ Neither was faked or weakened. What was produced in their place:
   re-created from this paragraph.
 * **Pipeline-side validation** on all 27: `validate_document`,
   `validate_interior`, `validate_manifest` — twice.
-* **25 new pipeline tests**, including the three that make the band trap
-  impossible to "fix" by skipping validation.
-* Full suites green: `pytest` 748 passed / 8 skipped (723 + 25 new),
-  `npm test` 793 passed.
+* **27 new pipeline tests**, including the three that make the band trap
+  impossible to "fix" by skipping validation, and one that asserts the default
+  CLI run never even builds an object-store client.
+* Full suites green: `pytest` 750 passed / 8 skipped (723 + 27 new),
+  `npm test` 793 passed (unchanged — this phase does not touch `app/`).
 
 ## The upload, for an environment that has credentials
 
@@ -327,20 +328,24 @@ pip install -e '.[upload]'
 # 1. rehearse — reads the public base, writes only to build/republish/, uploads nothing
 python3 -m fornborg_pipeline.republish --out-dir build/republish --json-out build/republish.json
 
-# 2. one slug first, and look at it in a browser before doing the other 26
-python3 -m fornborg_pipeline.republish --slug l1957-426 --out-dir build/republish --upload
-#    then open  <publicBaseUrl>/…  →  the app at ?site=l1957-426
+# 2. the same, but against the real bucket: reads every remote ETag, sends nothing
+python3 -m fornborg_pipeline.republish --out-dir build/republish --plan-upload
 
-# 3. the rest
+# 3. one slug first, and look at it in a browser before doing the other 26
+python3 -m fornborg_pipeline.republish --slug l1957-426 --out-dir build/republish --upload
+#    then open the app at ?site=l1957-426
+
+# 4. the rest
 python3 -m fornborg_pipeline.republish --out-dir build/republish --upload
 ```
 
-`--dry-run` is the default; `--upload` is the only way to write, and it is the
-only code path that reads an `R2_*` variable at all. Step 3 re-sends nothing that
-step 2 already uploaded: each object's ETag is compared first, and a match is
-skipped.
+`--dry-run` is the default; `--upload` is the only way to write. Steps 1 and 2
+write nothing, and step 1 does not so much as construct an object-store client —
+`--upload` and `--plan-upload` are the only paths that read an `R2_*` variable at
+all. Step 4 re-sends nothing step 3 already uploaded: each object's ETag is
+compared first, and a match is skipped.
 
-What step 3 writes: the 54 objects in table B, each with
+What step 4 writes: the 54 objects in table B, each with
 `Content-Type: application/json` and `Cache-Control: public, max-age=3600`, each
 verified after the PUT by re-reading its ETag and comparing it to the md5 of the
 file that was validated locally — a mismatch raises rather than reporting

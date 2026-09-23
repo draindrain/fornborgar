@@ -560,6 +560,15 @@ def _print_prepared(prepared: Prepared) -> None:
     show_default=True,
     help="Upload the changed objects. Off by default: the default run writes nothing.",
 )
+@click.option(
+    "--plan-upload",
+    is_flag=True,
+    default=False,
+    help=(
+        "Read the remote ETags and print what --upload would send, without sending it. "
+        "Needs credentials; still writes nothing."
+    ),
+)
 def cli(
     slugs: tuple[str, ...],
     out_dir: Path,
@@ -567,13 +576,17 @@ def cli(
     generated: str | None,
     json_out: Path | None,
     upload: bool,
+    plan_upload: bool,
 ) -> None:
     """Regenerate (and optionally republish) the §14 asset of published bundles."""
+    if upload and plan_upload:
+        raise SystemExit("--upload and --plan-upload are mutually exclusive.")
     targets = list(slugs) or pilot_slugs()
     config = None
     client = None
-    if upload:
-        # Only reached with --upload. A default run never asks for credentials.
+    if upload or plan_upload:
+        # Only reached with --upload/--plan-upload. A default run never asks for
+        # credentials, and never touches the object store at all.
         from .upload import config_from_env, make_client
 
         config = config_from_env()
@@ -593,8 +606,10 @@ def cli(
             continue
         _print_prepared(prepared)
         entry = prepared.as_json()
-        if upload and config is not None:
-            summary = upload_prepared(prepared, config, client=client, dry_run=False)
+        if config is not None:
+            summary = upload_prepared(
+                prepared, config, client=client, dry_run=not upload
+            )
             entry["upload"] = summary
             for obj in summary["objects"]:
                 print(f"   {obj['action']:20} {obj['key']}")
@@ -604,6 +619,7 @@ def cli(
         f"\n-- {len(results) - len(failures)}/{len(targets)} slugs prepared"
         + (f", {len(failures)} failed" if failures else "")
         + (" (nothing uploaded — dry run)" if not upload else "")
+        + (" — remote ETags read, nothing sent" if plan_upload else "")
     )
     if json_out is not None:
         json_out.parent.mkdir(parents=True, exist_ok=True)

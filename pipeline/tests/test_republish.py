@@ -425,3 +425,40 @@ def test_fetching_a_bundle_reads_only_what_it_declares(
     assert reconstruction is None
     assert manifest["site"]["id"] == PILOT_SLUG
     assert sites is published_sites
+
+
+# --------------------------------------------------------------------------- #
+# the CLI — the default run must never reach for a credential
+# --------------------------------------------------------------------------- #
+
+
+def test_the_cli_default_prepares_and_uploads_nothing(tmp_path: Path, monkeypatch) -> None:
+    """`--dry-run` is the default, and it does not so much as build a client."""
+    from click.testing import CliRunner
+
+    calls: list[str] = []
+
+    def fake_prepare_slug(slug, out_root, **kwargs):
+        calls.append(slug)
+        raise RP.RepublishError("stop here — the point is what was NOT called")
+
+    def refuse(*_args, **_kwargs):  # pragma: no cover - must never run
+        raise AssertionError("the default run must not touch the object store")
+
+    monkeypatch.setattr(RP, "prepare_slug", fake_prepare_slug)
+    monkeypatch.setattr("fornborg_pipeline.upload.make_client", refuse)
+    monkeypatch.setattr("fornborg_pipeline.upload.config_from_env", refuse)
+
+    result = CliRunner().invoke(RP.cli, ["--slug", PILOT_SLUG, "--out-dir", str(tmp_path)])
+    assert calls == [PILOT_SLUG]
+    assert result.exit_code == 1  # the fake prepare failed; no credential was read
+
+
+def test_upload_and_plan_upload_are_mutually_exclusive(tmp_path: Path) -> None:
+    from click.testing import CliRunner
+
+    result = CliRunner().invoke(
+        RP.cli, ["--slug", PILOT_SLUG, "--out-dir", str(tmp_path), "--upload", "--plan-upload"]
+    )
+    assert result.exit_code != 0
+    assert "mutually exclusive" in result.output
