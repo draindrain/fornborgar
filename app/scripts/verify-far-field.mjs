@@ -38,9 +38,12 @@ if (!SITE) {
 
 // Same proxy note as verify-sites.mjs: Chromium needs the proxy handed over
 // explicitly, bypassing localhost so the page still comes from the local server.
+// A localhost base skips the proxy entirely rather than relying on the bypass
+// list — see verify-sites.mjs for the 405 this prevents.
 const PROXY = process.env.HTTPS_PROXY ?? process.env.https_proxy ?? '';
+const LOCAL_BASE = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:|\/|$)/.test(BASE);
 const launchOptions = { executablePath: EXECUTABLE };
-if (PROXY) launchOptions.proxy = { server: PROXY, bypass: 'localhost,127.0.0.1,::1' };
+if (PROXY && !LOCAL_BASE) launchOptions.proxy = { server: PROXY, bypass: 'localhost,127.0.0.1,::1' };
 
 const browser = await chromium.launch(launchOptions);
 const page = await (await browser.newContext({ viewport: { width: 1280, height: 800 } })).newPage();

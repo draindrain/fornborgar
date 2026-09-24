@@ -48,9 +48,18 @@ if (SITES.length === 0) {
 // with or without this setting — including hosts the session can reach with
 // curl. That is the sandbox, not the object host or its CORS policy, and the
 // way to tell them apart is to curl the same URL.
+//
+// A **localhost** base skips the proxy entirely rather than relying on the
+// bypass list, which is what verify-night-sky.mjs and verify-reconstruction.mjs
+// already do and for the same measured reason: handing Chromium a proxy and
+// trusting `bypass` has been observed not to take, and a localhost request that
+// reaches this sandbox's egress proxy comes back `405 Method Not Allowed`. That
+// read as four console errors and a site that never became ready — a failure of
+// the harness wearing the mask of a failure of the app.
 const PROXY = process.env.HTTPS_PROXY ?? process.env.https_proxy ?? '';
+const LOCAL = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:|\/|$)/.test(BASE);
 const launchOptions = { executablePath: EXECUTABLE };
-if (PROXY) {
+if (PROXY && !LOCAL) {
   launchOptions.proxy = { server: PROXY, bypass: 'localhost,127.0.0.1,::1' };
   console.error(`(routing browser traffic through ${PROXY}, bypassing localhost)`);
 }
