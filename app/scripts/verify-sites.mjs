@@ -16,6 +16,8 @@
 
 import { chromium } from 'playwright';
 
+import { describeEnvironmental, triageConsoleErrors } from './console-triage.mjs';
+
 const args = process.argv.slice(2);
 function opt(name, fallback = null) {
   const i = args.indexOf(`--${name}`);
@@ -46,9 +48,18 @@ if (SITES.length === 0) {
 // with or without this setting — including hosts the session can reach with
 // curl. That is the sandbox, not the object host or its CORS policy, and the
 // way to tell them apart is to curl the same URL.
+//
+// A **localhost** base skips the proxy entirely rather than relying on the
+// bypass list, which is what verify-night-sky.mjs and verify-reconstruction.mjs
+// already do and for the same measured reason: handing Chromium a proxy and
+// trusting `bypass` has been observed not to take, and a localhost request that
+// reaches this sandbox's egress proxy comes back `405 Method Not Allowed`. That
+// read as four console errors and a site that never became ready — a failure of
+// the harness wearing the mask of a failure of the app.
 const PROXY = process.env.HTTPS_PROXY ?? process.env.https_proxy ?? '';
+const LOCAL = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:|\/|$)/.test(BASE);
 const launchOptions = { executablePath: EXECUTABLE };
-if (PROXY) {
+if (PROXY && !LOCAL) {
   launchOptions.proxy = { server: PROXY, bypass: 'localhost,127.0.0.1,::1' };
   console.error(`(routing browser traffic through ${PROXY}, bypassing localhost)`);
 }
@@ -61,14 +72,18 @@ for (const site of SITES) {
   const page = await context.newPage();
   const consoleErrors = [];
   const pageErrors = [];
-  const failedRequests = [];
+  // Transport failures and HTTP failures are kept apart. Only the first kind
+  // can ever be excused as environmental, and only for a resource the app is
+  // documented not to depend on — see scripts/console-triage.mjs.
+  const requestFailures = [];
+  const httpFailures = [];
 
   page.on('console', (msg) => {
-    if (msg.type() === 'error') consoleErrors.push(msg.text());
+    if (msg.type() === 'error') consoleErrors.push({ text: msg.text(), url: msg.location()?.url });
   });
   page.on('pageerror', (error) => pageErrors.push(String(error)));
   page.on('requestfailed', (request) => {
-    failedRequests.push(`${request.method()} ${request.url()} — ${request.failure()?.errorText}`);
+    requestFailures.push({ url: request.url(), errorText: request.failure()?.errorText ?? '' });
   });
   page.on('response', (response) => {
     if (response.status() < 400) return;
@@ -76,7 +91,7 @@ for (const site of SITES) {
     // a repo-relative build ships two fixtures and has nothing to pick between,
     // so the app asks once, gets a 404, and leaves the picker off.
     if (new URL(response.url()).pathname.endsWith('/index.json')) return;
-    failedRequests.push(`${response.status()} ${response.url()}`);
+    httpFailures.push(`${response.status()} ${response.url()}`);
   });
 
   // `&debug=1` keeps the model layers off, so this stays a check of *loading*
@@ -108,9 +123,18 @@ for (const site of SITES) {
     record.errors.push(`load: ${error instanceof Error ? error.message : String(error)}`);
   }
 
+  const triage = triageConsoleErrors({ consoleErrors, requestFailures });
   record.errors.push(...pageErrors.map((e) => `pageerror: ${e}`));
-  record.errors.push(...consoleErrors.map((e) => `console.error: ${e}`));
-  record.errors.push(...failedRequests.map((e) => `request: ${e}`));
+  record.errors.push(...triage.pageErrors.map((e) => `console.error: ${e.text}`));
+  record.errors.push(
+    ...triage.unexpectedRequestFailures.map((r) => `request: ${r.url} — ${r.errorText}`),
+  );
+  record.errors.push(...httpFailures.map((e) => `request: ${e}`));
+  // Not a verdict: the part of the run no commit in this repo can fix.
+  record.environment = { excusedResourceFailures: triage.environmental };
+  for (const line of describeEnvironmental(triage.environmental)) {
+    console.error(`NOTE environment — ${line}`);
+  }
   record.ok = record.ready && record.errors.length === 0 && (!REQUIRE_RINGS || record.rings?.done === true);
   results.push(record);
 
