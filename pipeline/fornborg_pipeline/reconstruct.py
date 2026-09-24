@@ -240,15 +240,59 @@ def _round(value: float | None, digits: int = 2) -> float | None:
     return None if value is None else round(value + 0.0, digits)
 
 
+#: §10 — the register's lost punctuation. KMR's descriptions in this corpus were
+#: hard-wrapped at about 64 characters and then had their line breaks removed
+#: **without gaining a space**, so every wrap point glued two words together
+#: (`belägenpå`, `denkallmurade`, `Muren är 2 m h.Inne i fornborgens N del`).
+#: 1 034 of the 1 304 national descriptions carry no `\n` at all and the other
+#: 270 keep one only as a paragraph mark: not one description in the corpus still
+#: carries its wrap, and the damage is of the order of 14 800 lost joins.
+#:
+#: Exactly one class of those joins can be repaired without guessing, and this is
+#: it: a sentence-ending mark **immediately** followed by a capital that opens a
+#: lower-case word. No Swedish word straddles a full stop, so the join position is
+#: known exactly and the repair cannot split a compound — which is the failure
+#: mode that rules out repairing the far commoner lower-to-lower glue (`belägenpå`
+#: needs a lexicon to place, and Swedish compounds are themselves exactly
+#: "frequent word + frequent word": `stensträng`, `blockvall`, `bergbrant`).
+#: `docs/kmr-text-normalisation-2026-09-24.md` measures both.
+#:
+#: The lower-case second letter is the guard that keeps the register's own
+#: orientation strings (`Ö20gr.S-V20gr.N`) and its single-letter abbreviations
+#: (`i den. Ö hälften`) intact: those are followed by a bare compass letter, not
+#: by a word.
+SENTENCE_JOIN_RE = re.compile(rf"(?<=[.!?])(?=[A-ZÅÄÖ][a-zåäö][{LETTER}]*)")
+
+
+def count_sentence_joins(text: str) -> int:
+    """How many lost sentence boundaries `normalise` will put back (§10)."""
+    return len(SENTENCE_JOIN_RE.findall(unicodedata.normalize("NFC", text or "")))
+
+
 def normalise(text: str) -> str:
-    """Collapse whitespace and NFC-normalise, leaving the words untouched.
+    """Collapse whitespace, NFC-normalise, and put back the lost full-stop space.
 
     KMR text arrives with hard-wrapped line breaks glued into words (`"ca7 m"`,
-    `"medmedelstora"`). Whitespace is normalised; the glue is not repaired,
-    because repairing it would mean guessing, and the numeric patterns below
-    tolerate a missing space after `ca` anyway.
+    `"medmedelstora"`). Two different things follow from that, and this function
+    does one of them and refuses the other:
+
+    * **repaired** — a line break lost at a sentence end, `…anlagda.Den övre
+      muren…`. The position is not guessed: a full stop is not part of any
+      Swedish word, so the only thing that can have been there is the space.
+      Without this, §3's `split_clauses` runs one sentence into the next and
+      reads the *next* sentence's compass bearing as the entrance bearing of
+      this one's wall — 112 entrances nationally that the register never placed
+      on a wall at all.
+    * **not repaired** — the same break lost mid-sentence, `belägenpå`. Splitting
+      that needs a lexicon, and the lexicon cannot tell a lost break from a
+      genuine compound, because Swedish compounds are built out of exactly the
+      same frequent words (`sten`+`vall`, `block`+`vall`, `berg`+`brant`). A
+      repair that splits a real compound is worse than the corruption, so the
+      glue is left where it is and the stems that suffer most from it are matched
+      with `stem_pattern` instead.
     """
-    return re.sub(r"\s+", " ", unicodedata.normalize("NFC", text)).strip()
+    repaired = SENTENCE_JOIN_RE.sub(" ", unicodedata.normalize("NFC", text))
+    return re.sub(r"\s+", " ", repaired).strip()
 
 
 def word_pattern(*stems: str) -> re.Pattern[str]:
@@ -260,6 +304,27 @@ def word_pattern(*stems: str) -> re.Pattern[str]:
     """
     body = "|".join(stems)
     return re.compile(rf"(?<![{LETTER}])(?:{body})(?![{LETTER}])", re.IGNORECASE)
+
+
+def stem_pattern(*stems: str) -> re.Pattern[str]:
+    """`word_pattern`'s counterpart for a stem no unrelated Swedish word contains.
+
+    Two different things defeat a whole-word rule on this corpus, and this one
+    pattern answers both: the register's own inflection (`kallmurade`,
+    `ringvallens`, `kallmursteknik` — 47 of the 63 forts `_DRYSTONE` was missing)
+    and §10's lost line breaks, which glue the stem to its neighbour
+    (`ikallmur`, `denkallmurade`, `inomringvallen` — the other 16).
+
+    It is **only** admissible for a stem that cannot occur inside an unrelated
+    word, which is a claim about the language and therefore a claim that has to
+    be checked: `test_the_glue_tolerant_stems_admit_nothing_but_their_own_word`
+    enumerates every surface form each stem admits across all 1 304 national
+    descriptions, so a stem that starts admitting something else fails there
+    rather than quietly widening a criterion. `hög` or `vall` could never be
+    passed here; `kallmur` and `ringvall` can.
+    """
+    body = "|".join(stems)
+    return re.compile(rf"[{LETTER}]*(?:{body})[{LETTER}]*", re.IGNORECASE)
 
 
 def split_clauses(text: str) -> list[str]:
@@ -385,7 +450,14 @@ _DAMAGE = word_pattern(
     "bortodlad", "borttagen", "förstörd", "sönderodlad", "omplockad", "omplockat",
 )
 _KERB = word_pattern("kantkedja", "kantkedjan", "kantkedjor", "kantkedjer")
-_DRYSTONE = word_pattern("kallmurning", "kallmurad", "kallmur", "kallmurar", "kallmurat")
+#: §6.A.1's heaviest criterion, worth 0.40 of a fort's confidence score, so the
+#: five-inflection word list it used to be was the single most expensive
+#: whole-word rule in the module: 338 national descriptions say `kallmur*` and it
+#: fired on 275. The 63-fort gap was 47 forts of plain inflection the list did
+#: not carry (`kallmurade` alone is in 53 descriptions, `kallmurningen`,
+#: `kallmuren`, `kallmursteknik`) and 16 of §10's glue (`ikallmur`,
+#: `denkallmurade`, `kvartstårkallmurning`). One stem closes both.
+_DRYSTONE = stem_pattern("kallmur")
 _PIT = word_pattern("grop", "gropen", "gropar", "groparna")
 
 
@@ -976,7 +1048,11 @@ _ENTRANCE = word_pattern("ingång", "ingången", "ingångar", "ingångarna", "ö
 _STEEP = re.compile(
     r"brant(?:a|)\s+(?:slutt|stup|berg)|stupar|otillgängl", re.IGNORECASE
 )
-_RING = word_pattern("ringvall", "ringvallar", "ringvallen", "ringmur")
+#: Same treatment as `_DRYSTONE`, same two causes: the genitives and plurals the
+#: word list did not carry (`ringvallens`, `ringmurar`, `ringvallarna`) and §10's
+#: glue (`inomringvallen`, `mellerstaringvallen`). 63 descriptions name a
+#: ringvall or a ringmur; the whole-word rule saw 57.
+_RING = stem_pattern("ringvall", "ringmur")
 
 
 def parse_rampart(text: str, clause: str, params: TransformParams, scope: str | None = None) -> dict:
@@ -2026,6 +2102,13 @@ class ParseStats:
     #: Monuments the grave-field sampler will place, over and above the records.
     sampled: int = 0
     warned: int = 0
+    #: §10 — records whose description had at least one lost sentence boundary put
+    #: back by `normalise`, and how many boundaries that was in total. Counted and
+    #: written into the file because this project does not edit its sources
+    #: silently: the repair is one inserted space per count, and removing them
+    #: again reproduces the register's text byte for byte.
+    repaired_records: int = 0
+    repaired_joins: int = 0
     by_archetype: dict[str, int] = field(default_factory=dict)
 
 
@@ -2044,6 +2127,9 @@ def build_monument(
     archetype = ARCHETYPES.get(lamningstyp)
     if stats:
         stats.records += 1
+        joins = count_sentence_joins(record.get("description") or "")
+        stats.repaired_joins += joins
+        stats.repaired_records += joins > 0
     if archetype is None:
         if stats:
             stats.unmapped += 1
@@ -2260,7 +2346,13 @@ DERIVATION_DESCRIPTION = (
     "flatness is the type. Where a field cannot be parsed the archetype default is used, "
     "the field's source reads \"assumed\", its name appears in the monument's fallbacks "
     "list, and parseConfidence drops; nothing is invented silently. Positions and extent "
-    "polygons are not repeated here — this file joins back to sites.json by id."
+    "polygons are not repeated here — this file joins back to sites.json by id. The KMR "
+    "text itself reaches this parser with its hard line breaks removed and no space in "
+    "their place, which glues words and sentences together; exactly one class of that is "
+    "repaired here — a space put back after a full stop that runs straight into the next "
+    "sentence's capital — and coverage.sentenceJoinsRepaired counts every one, because a "
+    "repair is an edit to the source and has to be visible. Glue inside a sentence "
+    "(\"belägenpå\") is left exactly as the register sent it."
 )
 
 
@@ -2331,6 +2423,9 @@ def build_document(
         "graveFieldsWithStatedCount": stats.field_counts,
         "sampledMonuments": stats.sampled,
         "withWarnings": stats.warned,
+        # §10: how much of the register's lost punctuation this parse put back.
+        "recordsTextRepaired": stats.repaired_records,
+        "sentenceJoinsRepaired": stats.repaired_joins,
         # §15: what the interior parse actually found. `null` is "not a fort site"
         # and is a different statement from `"fail"`, which is "a fort, and the
         # register records nothing built inside it".
