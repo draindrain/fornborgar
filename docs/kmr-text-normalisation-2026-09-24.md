@@ -21,7 +21,12 @@ fort's full `beskrivning`, which is exactly the input the live path (`sites.json
 KMR's descriptions were hard-wrapped at about 64 characters and then had their line breaks
 removed **without a space put in their place**, so every wrap point glued two words together.
 There are of the order of **14 800** such joins in the corpus. **616 of them can be put back
-without guessing. The other ~14 200 cannot, and this document is mostly about why.**
+without guessing. The other ~14 200 cannot, and §2.4 is the measurement that says so.**
+
+Putting those 616 back is not free either: three rules in this module were reading a
+measurement out of a clause they only happened to share with it, and correct sentence
+boundaries strand the measurement and substitute an archetype default. §3.2 repairs those
+scopes, and §10 records how nearly that went unnoticed.
 
 ---
 
@@ -109,7 +114,7 @@ error rate. Class C is left exactly as the register sent it.
 
 ## 3. What was repaired, and where
 
-**In `normalise()`, once, on ingest** — so no downstream rule needs its own workaround:
+### 3.1 The one placeable class, in `normalise()`, once on ingest
 
 ```python
 SENTENCE_JOIN_RE = re.compile(rf"(?<=[.!?])(?=[A-ZÅÄÖ][a-zåäö][{LETTER}]*)")
@@ -121,6 +126,9 @@ cannot split a compound — the property class C lacks. The lower-case second le
 that leaves the register's own `Ö20gr.S-V20gr.N` orientation strings and its `0,5 m st.N om
 vallen` abbreviations alone; 19 dot-plus-bare-bearing sequences in the corpus are skipped by it.
 
+Putting it in `normalise()` rather than in each rule means every rule benefits and no rule needs
+its own workaround, which was the point.
+
 **Recorded, and reversible.** Each repair is one inserted space. Every `reconstruction.json` the
 parser writes now carries `coverage.recordsTextRepaired` and `coverage.sentenceJoinsRepaired`, and
 `derivation.description` states the rule and says outright that mid-sentence glue is left
@@ -128,6 +136,42 @@ untouched. Deleting the counted spaces reproduces the register's bytes.
 
 **Class B is not repaired.** It is placeable, but it buys nothing measurable — no rule in the
 module keys on a capitalised word — and every edit to a source has to earn itself.
+
+### 3.2 Two scopes the repair exposed, and why they could not be left
+
+Correct sentence boundaries are not free. Three rules in this module read a measurement out of
+"the clause that names X", and the register's habit is to name X in one sentence and measure it in
+the next. While the full stop was missing, those two sentences were one clause and the rules
+worked by accident. Separating them **replaces a stated measurement with an archetype default**,
+which is worse than losing it, because the default ships under the same `measured` badge.
+
+Both were found by re-reading the committed Broborg bundle line by line rather than by trusting
+the aggregate, and both are fixed here rather than deferred:
+
+1. **A wall is anchored on the clause that *describes* it, not the first that names it.**
+   `l2004-6478` writes *"Vallarna består av en inre vall,en yttre något osäker vall, samt två
+   tvärvallar."* and then *"Den inre vallen är ca 320 m l, 0.5-5 m br och 0.5-1.5 m h."* The first
+   sentence names both walls and measures neither. `parse_fort` now takes the first clause that
+   names the wall **and** states a length, width or height, falling back to the first mention; and
+   a wall always owns at least its own clause, where two walls named in one sentence used to leave
+   the first with an empty scope.
+
+2. **A stone calibre is taken from the sentence the register states it in.** *"Den inre vallen är
+   ca 320 m l, 0.5-5 m br och 0.5-1.5 m h."* / *"Stenarna är 0.1-2.5 m st."*; *"De rektangulära
+   stensättningarna är 4-6x3 m (Ö 10cg S-V 10cg N och NV-SÖ)."* / *"Övertorvade med i ytan enstaka
+   synliga stenar, 0,1-0,3 m st."* `continuation_calibre_clause` (walls) and
+   `continuation_calibre` (grave-field classes) take **only the calibre**, **only** from the
+   immediately following clause, and only when that clause states a calibre, names no wall or
+   constituent class of its own, and states no length, width, height or plan size. A kerb's
+   *"Kantkedja, 0,2-0,3 m h"* is therefore not a continuation, and the next class's sentence can
+   never be read as this one's tail.
+
+Audited over all 62 grave-field classes in the committed Broborg bundle: **every** class's calibre
+now comes from the clause immediately after the one its plan size came from — **zero mismatches**.
+Where several classes share a size sentence because the register only describes one of them, they
+share its continuation too, which is the behaviour the plan size already had; the calibre is now
+*consistent with the size it is quoted beside* instead of being an archetype default wearing a
+`measured` badge.
 
 ---
 
@@ -182,40 +226,50 @@ Both gaps are **closed**, not bounded.
 
 | | Before | After |
 |---|---:|---:|
-| Forts at or above the 0.60 threshold | **433** (33.2 %) | **458** (35.1 %) |
+| Forts at or above the 0.60 threshold | **433** (33.2 %) | **459** (35.2 %) |
 
-Of the 63 forts recovered by the drystone stem, 27 were already above the threshold on the other
-three criteria, **25 cross it**, and 11 stay below. This is the one number here a visitor can
+24 of the 26 come from the drystone stem — of the 63 forts it recovers, 28 were already above the
+threshold on the other three criteria, 24 cross it and 11 stay below — and 2 from the wall-scope
+repair of §3.2, where a wall now reads its own height. This is the one number here a visitor can
 see: at or above 0.60 a registered `Fornborg` renders as a standing Migration Period rampart,
-below it as a low bank. 25 forts change how they are drawn, each because its own record says
-`kallmurade` and the old rule could not read the word.
+below it as a low bank.
 
-### 5.3 Rampart detail — the sentence repair pays for itself and costs a little
+`confidence_join.py`'s word-list counterfactual prints **435 → 459**, not 433 → 459, because its
+comparison arm is scored on *this* parser, scope repairs included. 433 is the pre-phase figure.
 
-Replaying all 1 304 records through `build_monument`, attributable to the class-A repair alone:
+### 5.3 Rampart detail — the national parse gains measurements, and loses two false ones
+
+Replaying all 1 304 records through `build_monument`, against the pre-phase parser (`3f8744b`):
 
 | | Before | After | Δ |
 |---|---:|---:|---:|
-| Entrance bearings attributed to a wall | 1 355 | 1 243 | **−112** |
-| Ramparts with a parsed present height | 1 021 | 1 018 | −3 |
-| Ramparts with a parsed length | 889 | 887 | −2 |
+| Ramparts with a parsed present height | 1 021 | **1 039** | **+18** |
+| …with a parsed length | 889 | **902** | **+13** |
+| …with a parsed stone calibre | 913 | **949** | **+36** |
+| Walls whose `source` reads `measured` | 979 | **994** | **+15** |
+| Entrance bearings attributed to a wall | 1 355 | **1 235** | **−120** |
 
-**The −112 is the point of the repair.** Without the space, §3's clause splitter runs a sentence
-into the next and the entrance parser reads the *following* sentence's compass bearing as an
-entrance on this sentence's wall. Sampled by hand, the dropped bearings are things like
+**The −120 is the point of the sentence repair.** Without the space, §3's clause splitter runs a
+sentence into the next and the entrance parser reads the *following* sentence's compass bearing as
+an entrance on this sentence's wall. Sampled by hand, the dropped bearings are things like
 `l1958-5850`'s *"…ett kallmurat parti i fem skift.Ingången är i Ö"* — where `N`, belonging to the
 masonry patch, was being drawn as a second gateway — and `l1958-6759`'s *"…en 2,5 m br
 öppning.Omedelbart intill och S om nr 1 är: 6) …"*, where `S` describes where a **neighbouring
-monument** lies. Those are invented features in the project's own terms, and there were 112 of
-them.
+monument** lies. Those are invented features in the project's own terms, and there were 120.
 
-**The −5 is the price, and it is honest about a different weakness.** `parse_fort` gives each
-named wall the clauses from its own name to the next wall's. When two wall names fall in one
-clause (`l2004-6478`: *"en inre vall,en yttre något osäker vall"*) the first wall's scope is
-empty, so a dimension stated in the *following* sentence is now out of reach where under-splitting
-used to sweep it in. That fort drops 1.00 → 0.70. **The corruption was silently compensating for
-a narrow scope in the parser**, and removing it makes the weakness visible. Widening wall scope is
-a §3 change, not a §10 one, and is left as a named follow-up.
+**Every value that changed rather than appeared was checked by hand against the register's own
+words.** Across all 1 304 forts, exactly four walls differ in a way that is not a gain:
+
+| Fort / wall | Change | Verdict |
+|---|---|---|
+| `l1985-6761` outer | 35 m, 1–4 m br, 0.3–0.6 m h, 0.2–0.5 m st → none; `measured` → `assumed` | **correction.** Those are the *inner* wall's numbers. *"Det yttre muren ligger nedanför berget"* and *"Den inre muren … är ca 35 m l …"* were one clause, so both walls were drawn on the inner wall's measurement. The outer now says it has none. |
+| `l2004-6478` outer | 1.0–1.5 m h, 2 m br, 0.8–2 m st → none; `measured` → `assumed` | **correction.** Those came from the *tvärmur*'s sentence, merged into the outer wall's clause. Its stated length (15–20 m) is kept. |
+| `l2015-9211` outer | 50 m → 90 m, 0.3–0.5 → 0.2–0.4 m h, 1.5–3 → 1–2 m br | **correction.** The record describes two outer walls; the old values came from *"En yttre mur i N…"*, the new ones from *"Den yttre muren i Ö … är ca 90 m l …"* — the sentence that names the wall. |
+| `l1984-1190` outer | 0.3–0.3 → 0.3–0.7 m st | **correction.** The old value came from *"Vallen är av ca 0.3 m st stenar"*, the **inner** wall's calibre; the outer's own sentence says *"av 0.3-0.7 m st stenar"*. |
+
+**No value goes from right to wrong.** The two walls that lose their measurements lose them
+because they never had any of their own, and they say so — `presentHeightM: null`, `source:
+assumed` — instead of being drawn on a neighbour's numbers.
 
 ### 5.4 The interior gate: nothing moved
 
@@ -232,26 +286,27 @@ re-measured today**, and it is not retro-edited.
 ### 5.5 The committed Broborg bundle — one open step
 
 A fresh parse of `app/public/data/broborg/sites.json` repairs 26 joins across 25 of its 127
-records. Against the committed `reconstruction.json` it differs in exactly four places: the two
-new `coverage` counters, the `derivation.description` sentence, and one substantive number.
-`L1943:7229`'s rectangular stone-setting class moves from
-`stoneM 0.1–0.3` to `0.2–0.4`. The register states that calibre in the sentence *after* the one
-naming the class, and the glue was joining the two. The value it falls back to is the one the
-**round** class in the *same record* already took from the same rule, where the register's space
-happened to survive — so the change makes the record self-consistent, at the cost of one number
-that was right by accident. Same follow-up as §5.3.
+records. Against the committed `reconstruction.json` it differs in three places:
+
+* `coverage.recordsTextRepaired` and `coverage.sentenceJoinsRepaired`, new;
+* the `derivation.description` sentence naming the repair;
+* **38 stone-calibre endpoints across 33 grave-field classes**, every one moving from an archetype
+  default to the calibre the record states one clause after the class's plan size (§3.2). The
+  register's formula is visible right across the bundle: *"De runda stensättningarna är 4-6 m diam
+  och 0,2-0,4 m h."* / *"Övertorvade med i ytan enstaka synliga stenar, 0,2-0,3 m st."*
+
+No rampart, mound, cairn or interior geometry changes, so the regeneration does not need the app's
+checker run.
 
 **The committed file is not regenerated in this branch**, because `app/` is out of this phase's
-scope. `test_the_committed_file_matches_a_fresh_parse` therefore fails, which is exactly what that
-test is for — it exists so that a parser change that was never re-run shows up here rather than as
-a stale scene. One command closes it:
+scope and the write was refused to this session. `test_the_committed_file_matches_a_fresh_parse`
+therefore fails, which is exactly what that test is for — it exists so a parser change that was
+never re-run shows up here rather than as a stale scene, and it is the reason the grave-field
+regression above was caught before it could be baked in. One command closes it:
 
 ```
 cd pipeline && python3 -m fornborg_pipeline.reconstruct --site broborg
 ```
-
-No rampart, mound, cairn or interior geometry is touched by that regeneration, so it does not
-need the app's checker run; the diff is the four items listed above.
 
 ---
 
@@ -259,14 +314,14 @@ need the app's checker run; the diff is the four items listed above.
 
 `docs/confidence-join-2026-09-12.md` §7 concluded that interior-building evidence does **not**
 track `fortConfidence` once description length is controlled for: Mantel–Haenszel OR 1.08,
-p = 0.91. Re-running `pipeline/spike/confidence_join.py` unchanged against the new rule:
+p = 0.91. Re-running `pipeline/spike/confidence_join.py` unchanged against the new rules:
 
 | Measure (refined) | 2026-09-12 | 2026-09-24 |
 |---|---|---|
-| Crude | OR 1.92, p 0.026 | OR 2.22, p 0.005 |
-| **MH pooled over length bands** | **OR 1.079, χ² 0.013, p 0.910** | **OR 1.207, χ² 0.239, p 0.625** |
-| MH pooled over length deciles | OR 1.113, p 0.828 | OR 1.236, p 0.569 |
-| Spearman(chars, confidence) | 0.481 | 0.500 |
+| Crude | OR 1.92, p 0.026 | OR 2.21, p 0.005 |
+| **MH pooled over length bands** | **OR 1.079, χ² 0.013, p 0.910** | **OR 1.205, χ² 0.233, p 0.630** |
+| MH pooled over length deciles | OR 1.113, p 0.828 | OR 1.232, p 0.575 |
+| Spearman(chars, confidence) | 0.481 | 0.502 |
 
 **The null result survives.** The crude association strengthened and the stratified one did not,
 which is the confound §7 named — a longer description has more room to say `kallmurade` *and* more
@@ -274,8 +329,8 @@ room to say `husgrund` — showing up more clearly now that the drystone criteri
 descriptions properly. Nothing in §7's verdict is reopened.
 
 `confidence_join.py`'s drystone sensitivity block is **inverted rather than deleted**: it now
-scores the five-form word list as the counterfactual, so the dated doc's own numbers (275, 433,
-MH OR 1.079, p 0.910) remain reproducible from live code, printed beside the shipped ones.
+scores the five-form word list as the counterfactual, so the dated doc's own comparison stays
+reproducible from live code, printed beside the shipped one.
 
 ---
 
@@ -292,8 +347,16 @@ MH OR 1.079, p 0.910) remain reproducible from live code, printed beside the shi
    are ordinary words in compound (`hus`+`grund`), so dropping the left boundary would start
    admitting compounds whose head is not a house. Measured, then declined.
 5. **Eketorp's house dimensions** — §8.
-6. **Wall scope in `parse_fort` and class scope in `parse_grave_field`** (§5.3, §5.5). Real
-   weaknesses, newly visible, but a §3 change rather than a text-normalisation one.
+6. **`CONSTITUENTS`' size vocabulary.** The mound constituent's size words are `('högarna',)`
+   alone, so a record writing *"Högen är 8 m diam och 0,9 m h"* — a field with a single mound —
+   finds no size sentence and the class is wholly archetype default. `L1943:7229` is one; the
+   coincidence that the mound default `(0.2, 0.3)` equals another class's *stated* calibre in that
+   record is what first made this look like a class→calibre offset. It is a real gap, it is
+   pre-existing, and widening a class's count/size vocabulary is a §3 change with its own national
+   blast radius, so it is named here rather than made.
+7. **Per-field provenance inside a grave-field class.** A class's `source` is decided by its plan
+   size alone, so a defaulted calibre still ships under `measured`. §3.2 removes most of the
+   defaults; it does not fix the badge, which is a §14 contract change.
 
 ---
 
@@ -324,6 +387,11 @@ widens either rule knows this is the case to check. Widening them is a real chan
 app asserts about the best-preserved fort interior in the country and deserves its own argument,
 not a side-effect of a punctuation fix.
 
+Note the difference between this and §3.2. There, a sentence-scope rule was quietly substituting
+an archetype default for a measurement the register states — so it had to be fixed. Here, the
+fallback is **named in `fallbacks`**, so the file says what it did. The rule is not "reach further
+wherever a number exists"; it is "never replace a stated measurement without saying so".
+
 ---
 
 ## 9. Pinned numbers changed by this phase
@@ -332,10 +400,33 @@ not a side-effect of a punctuation fix.
 |---|---:|---:|---|
 | `_DRYSTONE` coverage | 275 / 338 | **338 / 338** | stem replaces a five-inflection word list |
 | `_RING` coverage | 57 / 63 | **63 / 63** | same |
-| `fortConfidence` ≥ 0.60 | 433 (33.2 %) | **458 (35.1 %)** | 25 forts cross on the drystone criterion |
-| Entrance bearings on walls | 1 355 | **1 243** | 112 read out of the following sentence |
-| Rampart heights / lengths parsed | 1 021 / 889 | **1 018 / 887** | wall scope, exposed by correct splitting |
-| MH refined OR (length-stratified) | 1.079, p 0.910 | **1.207, p 0.625** | still null |
-| Broborg `L1943:7229` class 2 `stoneM` | 0.1–0.3 | **0.2–0.4** | §5.5 |
+| `fortConfidence` ≥ 0.60 | 433 (33.2 %) | **459 (35.2 %)** | 24 forts from the drystone stem, 2 from the wall-scope repair |
+| Ramparts with a parsed present height | 1 021 | **1 039** | wall anchored on the clause that measures it |
+| …with a parsed length | 889 | **902** | same |
+| …with a parsed stone calibre | 913 | **949** | the calibre sentence the register writes next |
+| Walls badged `measured` | 979 | **994** | same two repairs |
+| Entrance bearings on walls | 1 355 | **1 235** | 120 read out of the following sentence |
+| Broborg grave-field class calibres | 33 classes on archetype defaults | **stated values** | §3.2; 38 endpoints in the bundle |
+| MH refined OR (length-stratified) | 1.079, p 0.910 | **1.205, p 0.630** | still null |
 | Interior gate: 1304 / 42 / 18 / 7 / 53 / 4.1 % / 13 | — | **unchanged** | the gate reads none of the changed rules |
 | Strong-tier glue hole | `{l1975-712, l1983-1710}`, 0 forts | **unchanged** | re-measured, not assumed |
+
+---
+
+## 10. Postscript: how the one regression in this phase was found
+
+The first version of this change shipped the sentence repair without §3.2 and reported the
+resulting grave-field calibre move — `L1943:7229`'s rectangular stone settings, `0.1–0.3 m st` →
+`0.2–0.4 m st` — as a *correction*, on the reasoning that the value now matched what the round
+class in the same record already got. It was not a correction. `0,1-0,3 m st` is the rectangular
+settings' own stated calibre, in the clause immediately after their size; `0.2–0.4` is the
+`stone-setting` archetype default, which happens to equal the mound's stated calibre in that same
+record, and the round class's `0.2–0.4` was the same default, not a measurement. Three numbers
+that looked like a consistent offset were two defaults and a coincidence.
+
+The lesson is the one the project already states and this phase nearly broke: **an aggregate is
+not a check.** "−5 measurements, +112 false entrances removed" reads like a good trade and hides
+the fact that the five were not all the same kind of loss. A value that goes missing and says so
+is honest; a value replaced by a default under a `measured` badge is the silent assertion §9
+forbids, and it has to be counted separately. Every changed value in §5.3 and §5.5 is now checked
+against the register's own sentence, one at a time.
