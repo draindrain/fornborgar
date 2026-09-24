@@ -56,18 +56,24 @@ from fornborg_pipeline.reconstruct import (  # noqa: E402
     normalise,
 )
 
-#: `reconstruct._DRYSTONE` matches five inflections of *kallmur*; the register
-#: also writes `kallmurade`, `kallmursteknik`, and — where the KMR text lost its
-#: hard line breaks without gaining a space — `ikallmur`, `denkallmurade`. This
-#: deliberately over-wide pattern exists only to bound how much the strictness
-#: of that word list could be hiding (see the sensitivity block below). It is
-#: not a proposed fix and nothing here writes it back into the pipeline.
-_DRYSTONE_WIDE = re.compile(r"kallmur", re.IGNORECASE)
+#: The five-inflection word list `reconstruct._DRYSTONE` used **before** §10
+#: (`docs/kmr-text-normalisation-2026-09-24.md`) replaced it with a single
+#: glue-tolerant stem. The register also writes `kallmurade`, `kallmurningen`,
+#: `kallmursteknik` — and, where the KMR text lost its hard line breaks without
+#: gaining a space, `ikallmur` and `denkallmurade` — none of which a whole-word
+#: rule can see. It is kept here, and only here, so this join can still print the
+#: counterfactual it was first run against: the narrow rule scored 275 forts
+#: drystone and 433 above the threshold, the shipped stem scores 338 and 458.
+_LETTER = "a-zA-ZåäöÅÄÖ"
+_DRYSTONE_NARROW = re.compile(
+    r"(?<![%s])(?:kallmurning|kallmurad|kallmur|kallmurar|kallmurat)(?![%s])" % (_LETTER, _LETTER),
+    re.IGNORECASE,
+)
 
-#: The single inflection that accounts for most of the gap. Counted as a plain
-#: case-insensitive substring over the normalised description, so it also picks
-#: up `kallmuradestenvallar` and `denkallmurade` — see the line-break note in
-#: the report §7.2.
+#: The single inflection that accounted for most of the old rule's gap — 53 of
+#: the 338 descriptions, 39 of them in the 63-fort gap. Counted as a plain
+#: case-insensitive substring so it also picks up `kallmuradestenvallar` and
+#: `denkallmurade`.
 _KALLMURADE = re.compile(r"kallmurade", re.IGNORECASE)
 
 REPO_ROOT = PIPELINE_ROOT.parent
@@ -240,9 +246,9 @@ def score_fort(fort: dict) -> dict:
     )
 
     criteria = shipped["criteria"]
-    wide_dry = bool(_DRYSTONE_WIDE.search(normalised))
-    wide = (
-        0.40 * wide_dry
+    narrow_dry = bool(_DRYSTONE_NARROW.search(normalised))
+    narrow = (
+        0.40 * narrow_dry
         + 0.30 * bool(criteria["wallAtLeast1m"])
         + 0.15 * bool(criteria["wallRoundOrAcross"])
         + 0.15 * bool(criteria["compactEnclosure"])
@@ -251,9 +257,9 @@ def score_fort(fort: dict) -> dict:
     return {
         "confidence": shipped["confidence"],
         "criteria": shipped["criteria"],
-        "drystoneWide": wide_dry,
+        "drystoneNarrow": narrow_dry,
         "kallmurade": bool(_KALLMURADE.search(normalised)),
-        "confidenceWideDrystone": round(wide, 2),
+        "confidenceNarrowDrystone": round(narrow, 2),
         "planSource": monument["plan"]["source"],
         "planSpanM": monument["plan"].get("lengthM") or monument["plan"]["diameterM"],
         "confidenceOnExtentSpan": variant["confidence"],
@@ -517,26 +523,26 @@ def main() -> int:
         ),
     }
 
-    # --- sensitivity: the strictness of the kallmur* word list --------------- #
-    high_w = lambda r: r["confidenceWideDrystone"] >= THRESHOLD  # noqa: E731
-    n_high_wide = sum(1 for r in rows if high_w(r))
+    # --- sensitivity: the five-form word list the criterion used before §10 --- #
+    high_w = lambda r: r["confidenceNarrowDrystone"] >= THRESHOLD  # noqa: E731
+    n_high_narrow = sum(1 for r in rows if high_w(r))
     # The gap between the two rules, broken down so no figure quoted from this
     # block can double-count. A fort can already be high-confidence with the
     # drystone criterion failing — the other three criteria sum to exactly 0.60 —
     # so "score + 0.40 would clear the threshold" is NOT the crossing count and
     # must not be used as one.
-    gap = [r for r in rows if r["drystoneWide"] and not r["criteria"]["kallmurning"]]
-    crossing = [r for r in rows if r["confidence"] < THRESHOLD and high_w(r)]
+    gap = [r for r in rows if r["criteria"]["kallmurning"] and not r["drystoneNarrow"]]
+    crossing = [r for r in rows if high(r) and not high_w(r)]
     sensitivity_dry = {
-        "drystoneWordList": sum(1 for r in rows if r["criteria"]["kallmurning"]),
-        "drystoneSubstring": sum(1 for r in rows if r["drystoneWide"]),
-        "nHighWordList": n_high,
-        "nHighSubstring": n_high_wide,
+        "drystoneWordList": sum(1 for r in rows if r["drystoneNarrow"]),
+        "drystoneStem": sum(1 for r in rows if r["criteria"]["kallmurning"]),
+        "nHighWordList": n_high_narrow,
+        "nHighStem": n_high,
         "gap": {
             "forts": len(gap),
-            "alreadyAtOrAboveThreshold": sum(1 for r in gap if high(r)),
+            "alreadyAtOrAboveThreshold": sum(1 for r in gap if high_w(r)),
             "crossTheThreshold": len(crossing),
-            "stayBelowThreshold": len(gap) - sum(1 for r in gap if high(r)) - len(crossing),
+            "stayBelowThreshold": len(gap) - sum(1 for r in gap if high_w(r)) - len(crossing),
         },
         "kallmurade": {
             "forts": sum(1 for r in rows if r["kallmurade"]),
@@ -610,8 +616,8 @@ def main() -> int:
                 "descriptionChars": r["descriptionChars"],
                 "confidence": r["confidence"],
                 "confidenceOnExtentSpan": r["confidenceOnExtentSpan"],
-                "confidenceWideDrystone": r["confidenceWideDrystone"],
-                "drystoneWide": r["drystoneWide"],
+                "confidenceNarrowDrystone": r["confidenceNarrowDrystone"],
+                "drystoneNarrow": r["drystoneNarrow"],
                 "kallmurade": r["kallmurade"],
                 "criteria": r["criteria"],
                 "planSource": r["planSource"],
@@ -726,17 +732,17 @@ def main() -> int:
             f" OR {s['oddsRatio']}  p {s['fisherP']:.3f}"
         )
 
-    print("\nsensitivity — kallmur* as substring instead of the five-form word list")
+    print("\nsensitivity — the five-form kallmur word list this criterion used before §10")
     print(
         f"  drystone criterion passes {sensitivity_dry['drystoneWordList']} → "
-        f"{sensitivity_dry['drystoneSubstring']} forts; high-confidence "
-        f"{sensitivity_dry['nHighWordList']} → {sensitivity_dry['nHighSubstring']}"
+        f"{sensitivity_dry['drystoneStem']} forts; high-confidence "
+        f"{sensitivity_dry['nHighWordList']} → {sensitivity_dry['nHighStem']}"
     )
     g = sensitivity_dry["gap"]
     print(
-        f"  gap: {g['forts']} forts contain kallmur* but fail the criterion — "
-        f"{g['alreadyAtOrAboveThreshold']} are already >= {THRESHOLD}, "
-        f"{g['crossTheThreshold']} would cross it, {g['stayBelowThreshold']} stay below; "
+        f"  the gap that word list left: {g['forts']} forts contain kallmur* and failed it — "
+        f"{g['alreadyAtOrAboveThreshold']} were already >= {THRESHOLD}, "
+        f"{g['crossTheThreshold']} crossed it, {g['stayBelowThreshold']} stay below; "
         f"kallmurade in {sensitivity_dry['kallmurade']['forts']} descriptions "
         f"({sensitivity_dry['kallmurade']['inGap']} of them in the gap)"
     )

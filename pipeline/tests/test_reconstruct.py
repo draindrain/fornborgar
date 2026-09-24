@@ -1255,13 +1255,20 @@ def test_the_national_gate_rates_are_pinned(survey: dict) -> None:
 
 
 def test_a_glued_strong_term_is_a_known_gap_and_costs_no_fort(survey: dict) -> None:
-    """The register's lost line breaks defeat every word-boundary rule in this
-    module, so the gap is measured rather than assumed. For the strong tier it is
-    two occurrences in the whole country: `sentida stenhusgrund` (a compound, and
+    """The register's lost line breaks defeat every word-boundary rule they touch,
+    so the gap is measured rather than assumed. For the strong tier it is two
+    occurrences in the whole country: `sentida stenhusgrund` (a compound, and
     discarded as modern anyway) and `enhusgrundsterrass` (genuinely glued, in a
     fort that already passes on another sentence). **Repairing the descriptions is
     not this rule's business** — a §2 that quietly widened the gate would be the
-    silent assertion the project forbids — but the size of the hole is."""
+    silent assertion the project forbids — but the size of the hole is.
+
+    §10 re-ran this after normalising the corpus and after giving `kallmur` and
+    `ringvall` the glue-tolerant `stem_pattern`, and the hole is unchanged: the
+    same two forts, still costing none. That is also why the strong tier did
+    *not* get `stem_pattern` — it would buy zero forts, and unlike `kallmur` the
+    terms are built from ordinary words (`hus`+`grund`), so dropping the left
+    boundary would start admitting compounds whose head is not a house."""
     stems = "|".join(sorted((R.fold(t) for t in R.INTERIOR_STRONG_TERMS), key=len, reverse=True))
     glued = re.compile(rf"(?<=[a-z])(?:{stems})[a-z0-9]*")
     affected: set = set()
@@ -1279,6 +1286,231 @@ def test_a_glued_strong_term_is_a_known_gap_and_costs_no_fort(survey: dict) -> N
     repaired = [f for f in survey["forts"] if f["slug"] == "l1975-712"][0]["description"]
     assert "sentida stenhusgrund" in repaired
     assert verdicts(repaired.replace("stenhusgrund", "sten husgrund")) == ["modern"]
+
+
+# --------------------------------------------------------------------------- #
+# §10 — the register's lost punctuation
+#
+# `docs/kmr-text-normalisation-2026-09-24.md` measures the corruption and argues
+# the repair. These tests hold both halves of that argument in place: what is
+# repaired, and — just as important — what deliberately is not, because a rule
+# that started splitting compounds would look like an improvement in the counts
+# and be a fabrication in the text.
+# --------------------------------------------------------------------------- #
+
+
+def test_a_lost_sentence_boundary_is_repaired() -> None:
+    """The one join whose position is known rather than guessed: no Swedish word
+    straddles a full stop, so the only thing that can have been there is the
+    space the line break took with it."""
+    assert R.normalise("Muren är 2 m h.Inne i fornborgens N del är 1 husgrund.") == (
+        "Muren är 2 m h. Inne i fornborgens N del är 1 husgrund."
+    )
+    assert R.normalise("…anlagda.Den övre muren…") == "…anlagda. Den övre muren…"
+    assert R.count_sentence_joins("a.Bb och c.Dd") == 2
+
+
+def test_the_glue_inside_a_sentence_is_left_exactly_as_the_register_sent_it() -> None:
+    """§10's finding, written as a refusal. Splitting `belägenpå` needs a lexicon,
+    and a lexicon cannot tell a lost line break from a genuine Swedish compound —
+    `sten`+`vall`, `block`+`vall`, `berg`+`brant` are all frequent words too. A
+    repair that splits a real compound is worse than the corruption."""
+    for glued in (
+        "Fornborgen är belägenpå ett högt berg.",
+        "Vallen är denkallmurade delen av borgen.",
+        "två kallmuradestenvallar",
+        "Ställvis har vallen endast stensträngskaraktär.",
+    ):
+        assert R.normalise(glued) == glued
+
+
+def test_the_repair_does_not_touch_the_surveyors_own_abbreviations() -> None:
+    """The guard is the *second* letter: a sentence opens with a capital and then
+    a lower-case letter, while the register's orientation strings and abbreviation
+    tails carry a bare compass point."""
+    for untouched in (
+        "ca 180x110 m (Ö20gr.S-V20 gr.N).",
+        "0,5 m st.N om vallen",
+        "4-6x3 m (Ö 10cg S-V 10cg N).",
+    ):
+        assert R.normalise(untouched) == untouched
+
+
+def test_the_corpus_is_hard_wrapped_and_the_wrap_is_gone(survey: dict) -> None:
+    """The characterisation, pinned. 1 034 of the 1 304 descriptions carry no
+    newline at all, and not one of the 270 that do still carries its ~64-character
+    wrap — every surviving `\\n` is a paragraph mark. There is therefore no
+    uncorrupted reference text anywhere in the register to validate a
+    re-segmentation against, which is half the reason §10 does not attempt one."""
+    texts = [f["description"] for f in survey["forts"] if f.get("description")]
+    assert len(survey["forts"]) == 1304
+    assert len(texts) == 1303
+    assert len(survey["forts"]) - sum(1 for t in texts if "\n" in t) == 1034
+    assert sum(1 for t in texts if "\n" in t) == 270
+    assert [t for t in texts if "\n" in t and max(map(len, t.split("\n"))) <= 75] == []
+
+
+def test_the_national_repair_is_bounded_and_counted(survey: dict) -> None:
+    """How much of the register this parser edits, as a number rather than a
+    reassurance: 616 spaces put back across 293 of the 1 304 descriptions, against
+    roughly 14 800 lost joins in 950 820 characters of text. The repair is about
+    4 % of the damage, and it is the 4 % that can be placed without guessing."""
+    joins = [R.count_sentence_joins(f.get("description") or "") for f in survey["forts"]]
+    assert sum(1 for j in joins if j) == 293
+    assert sum(joins) == 616
+
+
+def test_the_file_says_how_much_text_it_repaired(document: dict) -> None:
+    """§9: nothing is edited silently. The bundle carries the count and the
+    derivation block carries the rule, so the repair is inspectable from the file
+    alone and reversible from it — one space per counted join."""
+    coverage = document["coverage"]
+    assert coverage["recordsTextRepaired"] == 25
+    assert coverage["sentenceJoinsRepaired"] == 26
+    assert "sentenceJoinsRepaired" in document["derivation"]["description"]
+
+
+def test_repairing_a_sentence_boundary_stops_the_next_sentences_bearing_leaking(
+    survey_forts: dict, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Why the repair is worth making. `l1958-5850` writes *"På ett mindre avsnitt
+    i N syns ett kallmurat parti i fem skift.Ingången är i Ö, 3,5 m br."* Without
+    the space, §3's clause splitter runs the two together and the parser reads
+    `N` — a bearing belonging to the masonry patch — as a second entrance on the
+    wall. The register places one entrance there, in Ö. Nationally this rule
+    removes 112 of 1 355 entrance bearings that no sentence ever put on a wall."""
+    record = fort_record(survey_forts["l1958-5850"]["description"], "L1958:5850")
+
+    def bearings(monument: dict) -> list[str]:
+        return [e["bearing"] for r in monument["fort"]["ramparts"] for e in r["entrances"]]
+
+    repaired = bearings(R.build_monument(record, R.DEFAULT_PARAMS))
+    assert "Ö" in repaired and "N" not in repaired
+
+    # the same record through the pre-§10 normaliser, which only collapsed space
+    monkeypatch.setattr(R, "normalise", lambda text: re.sub(r"\s+", " ", text).strip())
+    assert "N" in bearings(R.build_monument(record, R.DEFAULT_PARAMS))
+
+
+# --- the two glue-tolerant stems -------------------------------------------- #
+
+
+def test_the_glue_tolerant_stems_admit_nothing_but_their_own_word(survey: dict) -> None:
+    """`stem_pattern` drops both word boundaries, which is only admissible for a
+    stem no unrelated Swedish word contains. That is a claim about the language,
+    so it is checked against every one of the 1 304 national descriptions: 39 and
+    14 surface forms, every one of them the register talking about dry-stone
+    walling or about a ring wall. A stem that starts admitting something else
+    fails here rather than quietly widening a criterion."""
+
+    def forms(pattern: "re.Pattern[str]") -> set:
+        return {
+            match.group(0).lower()
+            for fort in survey["forts"]
+            for match in pattern.finditer(R.normalise(fort.get("description") or ""))
+        }
+
+    drystone = forms(R._DRYSTONE)
+    assert len(drystone) == 39
+    assert all("kallmur" in form for form in drystone)
+    # the three classes §10 separates — inflection, compound, and lost line break
+    assert {"kallmurade", "kallmurningen", "kallmuren", "kallmurarna"} <= drystone
+    assert {"kallmursteknik"} <= drystone
+    assert {"ikallmur", "denkallmurade", "kvartstårkallmurning"} <= drystone
+
+    ring = forms(R._RING)
+    assert len(ring) == 14
+    assert all("ringvall" in form or "ringmur" in form for form in ring)
+    assert {"ringvallens", "ringmurar", "ringvallarna"} <= ring
+    assert {"inomringvallen", "mellerstaringvallen", "tillringvallen"} <= ring
+
+
+def test_the_drystone_criterion_now_sees_every_kallmur_in_the_country(survey: dict) -> None:
+    """§6.A.1's heaviest criterion, worth 0.40 of the score, and so the most
+    expensive whole-word rule in the module. The five-inflection word list saw 275
+    of the 338 descriptions that say `kallmur*`; the stem sees all 338. The
+    63-fort gap splits three ways, and the split is the whole §10 finding in
+    miniature: 44 forts were plain inflection the list did not carry
+    (`kallmurade`, `kallmurningen`, `kallmuren`), 11 carry a form with letters in
+    front of the stem — the one unambiguous signature of a lost line break, since
+    no Swedish word puts letters there — and 8 carry extra letters *after* it
+    (`kallmuratparti`, `kallmuradestenvallar`), where a lost break and a genuine
+    compound look exactly alike and nothing in the text can tell them apart. The
+    corruption is the minority of the gap; morphology was the majority."""
+    narrow = R.word_pattern("kallmurning", "kallmurad", "kallmur", "kallmurar", "kallmurat")
+    substring = re.compile("kallmur", re.IGNORECASE)
+    texts = [R.normalise(f.get("description") or "") for f in survey["forts"]]
+
+    assert sum(1 for t in texts if substring.search(t)) == 338
+    assert sum(1 for t in texts if R._DRYSTONE.search(t)) == 338
+    assert sum(1 for t in texts if narrow.search(t)) == 275
+    assert sum(1 for t in texts if substring.search(t) and not narrow.search(t)) == 63
+
+    # left-glued forms are the unambiguous signature of a lost line break: no
+    # Swedish word puts letters in front of `kallmur`.
+    glued = re.compile(r"[a-zåäö]kallmur", re.IGNORECASE)
+    gap = [t for t in texts if substring.search(t) and not narrow.search(t)]
+    assert sum(1 for t in gap if glued.search(t)) == 11
+
+
+def test_the_ring_criterion_sees_every_ringvall_and_ringmur(survey: dict) -> None:
+    """Same two causes, smaller numbers: genitives and plurals the word list did
+    not carry (`ringvallens`, `ringmurar`) plus four glued forms."""
+    narrow = R.word_pattern("ringvall", "ringvallar", "ringvallen", "ringmur")
+    substring = re.compile("ringvall|ringmur", re.IGNORECASE)
+    texts = [R.normalise(f.get("description") or "") for f in survey["forts"]]
+    assert sum(1 for t in texts if substring.search(t)) == 63
+    assert sum(1 for t in texts if R._RING.search(t)) == 63
+    assert sum(1 for t in texts if narrow.search(t)) == 57
+
+
+def test_the_high_confidence_subset_is_458_forts(survey: dict) -> None:
+    """§6.A.1's threshold decides whether a registered `Fornborg` renders as a
+    standing Migration Period rampart or as a low bank, so this is the number §10
+    moves that a visitor can actually see: 433 of 1 304 (33.2 %) before, 458
+    (35.1 %) after. 27 of the 63 recovered forts were already above the threshold
+    on the other three criteria, 25 cross it, 11 stay below.
+    `docs/confidence-join-2026-09-12.md` is a dated measurement of the 433 and is
+    not retro-edited; `pipeline/spike/confidence_join.py` prints both rules."""
+    high = 0
+    for fort in survey["forts"]:
+        monument = R.build_monument(
+            fort_record(fort.get("description") or "", fort["slug"]), R.DEFAULT_PARAMS
+        )
+        high += monument["fort"]["confidence"] >= R.DEFAULT_PARAMS.fort_confidence_threshold
+    assert high == 458
+    assert round(high / 1304, 3) == 0.351
+
+
+def test_eketorps_stated_house_size_still_does_not_parse(survey_forts: dict) -> None:
+    """§10 was asked whether repairing the text lets Eketorp's *"De förra är ca
+    11x4-5 m"* reach §7.5.1. It does not, and the corruption is not why:
+
+    * the sentence that states the size carries no strong-tier term, and
+      `interior_buildings` reads dimensions only from the sentences the fort
+      passed the gate on — here one sentence, four sentences earlier;
+    * `_RECT` cannot read a ranged second dimension at all. It wants `11x4 m`,
+      and the register wrote `11x4-5 m`.
+
+    Both are parser scope, not lost punctuation, so §10 leaves them alone and the
+    houses keep §6.H's 20–40 m default with both fallbacks named — the honest
+    outcome rather than a silent one. Pinned here so that whoever widens either
+    rule knows Eketorp is the case to check."""
+    text = R.normalise(survey_forts["l1958-4198"]["description"])
+    assert "ca 11x4-5 m" in text
+    assert R._RECT.search("De förra är ca 11x4-5 m, medan de från skede I är ca 7x5-6 m.") is None
+
+    hits = [hit for hit in R.scan_interior_terms(text) if hit["verdict"] == "counted"]
+    assert len(hits) == 1
+    assert "11x4-5" not in hits[0]["sentence"]
+
+    buildings = R.interior_buildings(hits, "limestone-ringfort", text)
+    assert buildings["count"] == 75 and buildings["countStated"] is True
+    assert buildings["template"]["lengthM"] == [20.0, 40.0]
+    assert buildings["fallbacks"] == [
+        "buildings.template.lengthM",
+        "buildings.template.widthM",
+    ]
 
 
 # --- validation (§15.3) ------------------------------------------------------ #
