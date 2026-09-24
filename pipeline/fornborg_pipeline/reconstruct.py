@@ -839,6 +839,51 @@ def parse_class_sizes(text: str) -> dict:
     return out
 
 
+#: Every phrase that names a constituent class, so a continuation clause can be
+#: told from the next class's own sentence. Escaped as written, so `resta stenar`
+#: does not match the `synliga stenar` of a calibre clause.
+_CLASS_WORDS = word_pattern(
+    *[
+        re.escape(phrase)
+        for _archetype, count_words, size_words in CONSTITUENTS
+        for phrase in (*count_words, *size_words)
+    ],
+    *[re.escape(phrase) for _figure, phrases in FIGURES for phrase in phrases],
+)
+
+
+def continuation_calibre(clauses: list[str], index: int) -> list[float] | None:
+    """The stone calibre the register states in the clause *after* a class's own.
+
+    KMR writes a grave-field class in two sentences and puts the calibre in the
+    second: *"De rektangulära stensättningarna är 4-6x3 m (Ö 10cg S-V 10cg N och
+    NV-SÖ)."* then *"Övertorvade med i ytan enstaka synliga stenar, 0,1-0,3 m
+    st."* Reading only the first sentence means a stated measurement is replaced
+    by the archetype default — and, because a class's `source` is decided by its
+    diameter, replaced *under a `measured` badge*. Until §10 that mostly did not
+    show, because the lost line break was holding the two sentences together.
+
+    Deliberately narrow, and only ever the calibre:
+
+    * one clause, the one immediately after;
+    * which names **no** class of its own, so the next class's sentence can never
+      be read as this one's;
+    * and states no size of its own, so a fresh enumeration is not swept in.
+
+    Height and plan size are never taken from it: *"Kantkedja, 0,2-0,3 m h"* is a
+    kerb's height, not the setting's, and the calibre is the only field the
+    register habitually strands.
+    """
+    if index + 1 >= len(clauses):
+        return None
+    following = clauses[index + 1]
+    if _CLASS_WORDS.search(following):
+        return None
+    if parse_class_sizes(following).get("diameterM") is not None:
+        return None
+    return parse_stone(following)
+
+
 def parse_composition(text: str, archetype_default: ArchetypeDefault) -> dict:
     """Turn a grave-field description into a sampler specification (§3.1).
 
@@ -851,18 +896,20 @@ def parse_composition(text: str, archetype_default: ArchetypeDefault) -> dict:
     clauses = split_clauses(text)
     classes: list[dict] = []
 
-    def size_sentence(size_words: tuple[str, ...], modifier: str | None) -> str | None:
-        """The clause stating this class's own dimensions.
+    def size_clause(size_words: tuple[str, ...], modifier: str | None) -> int | None:
+        """Index of the clause stating this class's own dimensions.
 
         Prefers one that also carries the subclass modifier, so "De kvadratiska
-        stensättningarna är …" is not read as the size of the round ones.
+        stensättningarna är …" is not read as the size of the round ones. The
+        index rather than the text, because the calibre is often one clause
+        further on (`continuation_calibre`).
         """
         pattern = word_pattern(*size_words) if size_words else None
         if pattern is None:
             return None
-        best: str | None = None
+        best: int | None = None
         best_rank = -1
-        for clause in clauses:
+        for position, clause in enumerate(clauses):
             if not pattern.search(clause):
                 continue
             if not re.search(rf"(?<![{LETTER}])(är|utgörs|mäter)(?![{LETTER}])", clause, re.I):
@@ -871,7 +918,7 @@ def parse_composition(text: str, archetype_default: ArchetypeDefault) -> dict:
             matched = bool(modifier and word_pattern(modifier).search(clause))
             rank = (2 if matched else 0) + (1 if sized else 0)
             if rank > best_rank:
-                best, best_rank = clause, rank
+                best, best_rank = position, rank
         return best
 
     for archetype, count_words, size_words in CONSTITUENTS:
@@ -907,11 +954,13 @@ def parse_composition(text: str, archetype_default: ArchetypeDefault) -> dict:
             entry["moundLike"] = entry["moundLike"] or mound_like
         for entry in grouped.values():
             modifier = entry.pop("_modifier")
-            sentence = size_sentence(size_words, modifier)
-            sizes = parse_class_sizes(sentence) if sentence else {}
+            index = size_clause(size_words, modifier)
+            sizes = parse_class_sizes(clauses[index]) if index is not None else {}
             entry["diameterM"] = sizes.get("diameterM")
             entry["heightM"] = sizes.get("heightM")
-            entry["stoneM"] = sizes.get("stoneM")
+            entry["stoneM"] = sizes.get("stoneM") or (
+                continuation_calibre(clauses, index) if index is not None else None
+            )
             entry["source"] = "measured" if entry["diameterM"] else "assumed"
             classes.append(entry)
 
@@ -1055,7 +1104,41 @@ _STEEP = re.compile(
 _RING = stem_pattern("ringvall", "ringmur")
 
 
-def parse_rampart(text: str, clause: str, params: TransformParams, scope: str | None = None) -> dict:
+#: Any word that opens a new wall's description, used to stop a wall's calibre
+#: clause running on into the next wall's.
+_WALL_WORDS = word_pattern(
+    "vall", "vallen", "vallar", "vallarna", "vallen", "mur", "muren", "murar", "murarna",
+    "murrest", "ringvall", "ringvallen", "ringmur", "ringmuren",
+)
+
+
+def continuation_calibre_clause(clause: str) -> bool:
+    """Is this clause the tail of the previous wall's or class's description?
+
+    The register habitually states a calibre in a sentence of its own — *"Den
+    inre vallen är ca 320 m l, 0.5-5 m br och 0.5-1.5 m h."* then *"Stenarna är
+    0.1-2.5 m st."* Reading only the first leaves the wall with no calibre at
+    all, which before §10 mostly did not show because the lost line break was
+    holding the two sentences together.
+
+    True only for a clause that states a calibre, names **no** wall of its own,
+    and states no length, width or height — so the next wall's sentence, or a
+    neighbouring monument's, can never be read as this one's tail.
+    """
+    if parse_stone(clause) is None:
+        return False
+    if _WALL_WORDS.search(clause):
+        return False
+    return not (_LENGTH.search(clause) or _WIDTH.search(clause) or _HEIGHT.search(clause))
+
+
+def parse_rampart(
+    text: str,
+    clause: str,
+    params: TransformParams,
+    scope: str | None = None,
+    following: str | None = None,
+) -> dict:
     """One wall: length, spread, present height, stone calibre, entrances.
 
     `clause` is the sentence naming this wall and `scope` the run of text that
@@ -1079,6 +1162,8 @@ def parse_rampart(text: str, clause: str, params: TransformParams, scope: str | 
     spread = _range(_to_float(width.group(1)), _to_float(width.group(2))) if width else None
     height_range = _range(_to_float(height.group(1)), _to_float(height.group(2))) if height else None
     stone = parse_stone(clause)
+    if stone is None and following is not None and continuation_calibre_clause(following):
+        stone = parse_stone(following)
 
     # §5.1 is anchored on the *standing* wall, so the top of the recorded band is
     # the input, not its midpoint: "1-2 m h" means parts of it still stand 2 m.
@@ -1182,15 +1267,41 @@ def parse_fort(text: str, plan: dict, params: TransformParams) -> dict:
     starts: list[tuple[int, str, str]] = []
     for path_id, phrases in RAMPART_IDS:
         pattern = word_pattern(*[re.escape(p) for p in phrases])
-        index = next((i for i, c in enumerate(clauses) if pattern.search(c)), None)
-        if index is not None:
-            starts.append((index, path_id, clauses[index]))
+        named = [i for i, clause in enumerate(clauses) if pattern.search(clause)]
+        if not named:
+            continue
+        # The clause that *describes* the wall, not the one that merely lists it.
+        # *"Vallarna består av en inre vall, en yttre något osäker vall, samt två
+        # tvärvallar."* names both walls and measures neither; the dimensions are
+        # in the next sentence. Before §10 repaired the lost full stops the two
+        # were usually one clause, so taking the first mention happened to work;
+        # with the sentences correctly separated it strands the measurement and
+        # the wall falls back to the archetype default height instead.
+        index = next(
+            (
+                i
+                for i in named
+                if _LENGTH.search(clauses[i])
+                or _HEIGHT.search(clauses[i])
+                or _WIDTH.search(clauses[i])
+            ),
+            named[0],
+        )
+        starts.append((index, path_id, clauses[index]))
     starts.sort()
 
     ramparts: list[dict] = []
     for position, (index, path_id, clause) in enumerate(starts):
-        end = starts[position + 1][0] if position + 1 < len(starts) else len(clauses)
-        entry = parse_rampart(text, clause, params, scope=" ".join(clauses[index:end]))
+        # A wall owns at least its own clause: two walls named in one sentence
+        # would otherwise leave the first one an empty scope.
+        end = max(index + 1, starts[position + 1][0]) if position + 1 < len(starts) else len(clauses)
+        entry = parse_rampart(
+            text,
+            clause,
+            params,
+            scope=" ".join(clauses[index:end]),
+            following=clauses[index + 1] if index + 1 < len(clauses) else None,
+        )
         entry["id"] = path_id
         ramparts.append(entry)
     if not ramparts:

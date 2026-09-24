@@ -1468,12 +1468,17 @@ def test_the_ring_criterion_sees_every_ringvall_and_ringmur(survey: dict) -> Non
     assert sum(1 for t in texts if narrow.search(t)) == 57
 
 
-def test_the_high_confidence_subset_is_458_forts(survey: dict) -> None:
+def test_the_high_confidence_subset_is_459_forts(survey: dict) -> None:
     """§6.A.1's threshold decides whether a registered `Fornborg` renders as a
     standing Migration Period rampart or as a low bank, so this is the number §10
-    moves that a visitor can actually see: 433 of 1 304 (33.2 %) before, 458
-    (35.1 %) after. 27 of the 63 recovered forts were already above the threshold
-    on the other three criteria, 25 cross it, 11 stay below.
+    moves that a visitor can actually see: **433 of 1 304 (33.2 %) before, 459
+    (35.2 %) after**. Two of the 26 come from the wall-scope repair (a wall that
+    now reads its height from its own sentence rather than from the clause that
+    merely lists it, `l2004-6478` among them) and 24 from the drystone stem — of
+    the 63 forts it recovers, 28 were already above the threshold on the other
+    three criteria, 24 cross it and 11 stay below. `confidence_join.py` prints
+    that counterfactual as 435 → 459, because its word-list arm is scored on this
+    parser; 433 is the figure before the scope repairs.
     `docs/confidence-join-2026-09-12.md` is a dated measurement of the 433 and is
     not retro-edited; `pipeline/spike/confidence_join.py` prints both rules."""
     high = 0
@@ -1482,8 +1487,111 @@ def test_the_high_confidence_subset_is_458_forts(survey: dict) -> None:
             fort_record(fort.get("description") or "", fort["slug"]), R.DEFAULT_PARAMS
         )
         high += monument["fort"]["confidence"] >= R.DEFAULT_PARAMS.fort_confidence_threshold
-    assert high == 458
-    assert round(high / 1304, 3) == 0.351
+    assert high == 459
+    assert round(high / 1304, 3) == 0.352
+
+
+# --- §10's scope repairs: what correct sentence boundaries then need --------- #
+#
+# Splitting the register's sentences correctly exposed two places where a rule
+# read a measurement out of a clause it only happened to share. Both were
+# invisible while the lost line break was holding the sentences together, and
+# both produce a *wrong* value rather than a missing one, so neither could be
+# left as a documented cost.
+
+
+def test_a_wall_is_measured_from_the_sentence_that_describes_it(survey_forts: dict) -> None:
+    """`l2004-6478` writes *"Vallarna består av en inre vall,en yttre något osäker
+    vall, samt två tvärvallar."* and then *"Den inre vallen är ca 320 m l, 0.5-5 m
+    br och 0.5-1.5 m h."* The first sentence names both walls and measures
+    neither. Anchoring a wall on its first mention therefore strands the
+    measurement and the wall falls back to the archetype default height — 1.88 m
+    of drawn rampart from nowhere — so the anchor is the first clause that names
+    the wall **and** states a dimension."""
+    monument = R.build_monument(
+        fort_record(survey_forts["l2004-6478"]["description"], "L2004:6478"), R.DEFAULT_PARAMS
+    )
+    inner = next(r for r in monument["fort"]["ramparts"] if r["id"] == "inner")
+    assert inner["lengthM"] == 320.0
+    assert inner["presentHeightM"] == [0.5, 1.5]
+    assert inner["source"] == "measured"
+    assert monument["fort"]["confidence"] == 1.0
+
+
+def test_a_wall_takes_the_calibre_the_register_states_in_the_next_sentence(
+    survey_forts: dict,
+) -> None:
+    """*"Den inre vallen är ca 320 m l, 0.5-5 m br och 0.5-1.5 m h."* then
+    *"Stenarna är 0.1-2.5 m st."* — the calibre is a sentence of its own, and the
+    surveyor writes it that way all over the country. The continuation is taken
+    only from the immediately following clause, only when that clause names no
+    wall and states no size of its own, so the next wall's sentence can never be
+    read as this one's tail."""
+    monument = R.build_monument(
+        fort_record(survey_forts["l2004-6478"]["description"], "L2004:6478"), R.DEFAULT_PARAMS
+    )
+    inner = next(r for r in monument["fort"]["ramparts"] if r["id"] == "inner")
+    assert inner["stoneM"] == [0.1, 2.5]
+
+    assert R.continuation_calibre_clause("Stenarna är 0.1-2.5 m st.")
+    # …and the three things that stop it
+    assert not R.continuation_calibre_clause("Vallen är av 0.3 m st stenar.")     # names a wall
+    assert not R.continuation_calibre_clause("En mur, 10 m l, av 0.3 m st sten.")  # its own size
+    assert not R.continuation_calibre_clause("Muren är kraftigt raserad.")         # no calibre
+
+
+def test_a_grave_field_class_takes_the_calibre_stated_in_its_next_clause() -> None:
+    """The same defect, in `parse_composition`. KMR writes a class in two
+    sentences — *"De rektangulära stensättningarna är 4-6x3 m (…)."* then
+    *"Övertorvade med i ytan enstaka synliga stenar, 0,1-0,3 m st."* — and reading
+    only the first replaces a **stated** calibre with the archetype default,
+    under a `measured` badge. Both classes here state their own, one clause on."""
+    text = (
+        "Gravfält, 65x35 m, bestående av ca 6 fornlämningar. "
+        "Dessa utgöres av 4 runda stensättningar och 2 rektangulära stensättningar. "
+        "De runda stensättningarna är 4-6 m diam och 0,2-0,4 m h. "
+        "Övertorvade med i ytan enstaka synliga stenar, 0,2-0,3 m st. "
+        "De rektangulära stensättningarna är 4-6x3 m (Ö-V). "
+        "Övertorvade med i ytan enstaka synliga stenar, 0,1-0,3 m st."
+    )
+    classes = R.parse_composition(R.normalise(text), R.ARCHETYPE_DEFAULTS["grave-field"])["classes"]
+    by_form = {c["form"]: c for c in classes}
+    assert by_form["round"]["stoneM"] == [0.2, 0.3]
+    assert by_form["rectangular"]["stoneM"] == [0.1, 0.3]
+
+
+def test_a_continuation_clause_never_reaches_the_next_class() -> None:
+    """The guard that makes the rule safe: a clause naming a class of its own is
+    that class's sentence, not the previous class's tail, however adjacent."""
+    clauses = [
+        "De runda stensättningarna är 4-6 m diam.",
+        "De rektangulära stensättningarna är 3x2 m, av 0,1-0,3 m st stenar.",
+    ]
+    assert R.continuation_calibre(clauses, 0) is None
+    # a kerb's height is not a calibre, so it is not a continuation either
+    assert R.continuation_calibre(["Högarna är 8 m diam.", "Kantkedja, 0,2-0,3 m h."], 0) is None
+
+
+def test_correct_sentences_gain_more_measurements_than_they_strand(survey: dict) -> None:
+    """The whole of §10 as one regression target, against the pre-phase parser.
+    Repairing the sentence boundaries *and* fixing the two scopes it exposed
+    leaves the national parse with **more** measured walls, not fewer — the −5 an
+    unaccompanied repair would have cost is repaid many times over — while 120
+    entrance bearings the register never placed on a wall stop being drawn."""
+    heights = lengths = stones = measured = entrances = 0
+    for fort in survey["forts"]:
+        monument = R.build_monument(
+            fort_record(fort.get("description") or "", fort["slug"]), R.DEFAULT_PARAMS
+        )
+        for wall in monument["fort"]["ramparts"]:
+            heights += bool(wall["presentHeightM"])
+            lengths += bool(wall["lengthM"])
+            stones += bool(wall["stoneM"])
+            measured += wall["source"] == "measured"
+            entrances += len(wall["entrances"])
+    assert (heights, lengths, stones) == (1039, 902, 949)   # pre-phase: 1021, 889, 913
+    assert measured == 994                                   # pre-phase: 979
+    assert entrances == 1235                                 # pre-phase: 1355
 
 
 def test_eketorps_stated_house_size_still_does_not_parse(survey_forts: dict) -> None:
