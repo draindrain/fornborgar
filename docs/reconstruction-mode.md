@@ -196,6 +196,31 @@ evidenced. Full reasoning and citations are in §6 and §7.
 construction detail. *Moderate* = measured plan, literature profile and surface.
 *Weak* = position is all we have; everything visible is inference.
 
+**Plan orientation — one conversion, in one place.** Every card whose footprint is a
+non-round plan carries an orientation: the `(<orientation>)` of §3's grammar, parsed to
+`plan.orientationDeg` as the **compass bearing of the long axis, folded onto 0–180°, 0 = N–S**
+(`docs/data-formats.md` §14). It is a *measured* value wherever the record states one —
+Broborg alone ships `9x6 m (Ö-V)`, `190x100 m (NV-SÖ)` and `110x50 m (NÖ-SV)` — so drawing it
+at the wrong angle is the app misrepresenting something it claims to have read off the
+register, which is a worse failure than any conjectural geometry being ugly.
+
+The app's world frame is `app/src/lib/coords.ts`: **east = +x, up = +y, north = −z**. A plan
+is built with its long axis along +x and then turned, so the rotation a stated bearing β
+implies is
+
+> θ = atan2(−cos β, sin β) — that is, **β − 90°**, not β.
+
+Using β itself draws a stated N–S axis east–west. That was live in `shapes.buildShape` and in
+the grave-field extent ellipse until Phase 13 §8: every plan with a stated bearing was drawn
+at **bearing + 90°**, while §6.H's longhouse — which converted correctly — drew the same
+stated bearing at a right angle to the stone setting beside it. There is now exactly one
+implementation of the conversion, `lib/coords.bearingRotation` (with its inverse
+`bearingFromLocal`), every archetype calls it, and a unit test asserts that it is one function
+and not two agreeing copies — two agreeing copies are how the frames drifted apart in the
+first place. `app/scripts/verify-reconstruction.mjs` measures the drawn angle off the live
+scene graph on an **asymmetric** bearing (30°), because a cardinal one passes against both a
+mirror about the 45° line and the 90° rotation this actually was.
+
 ---
 
 ### A. Fort / rampart work — **Strong at Broborg, weak elsewhere**

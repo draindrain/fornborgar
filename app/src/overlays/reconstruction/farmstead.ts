@@ -43,9 +43,9 @@ import {
   type LocalRings,
   type SamplerTerrain,
 } from './graveField';
+import { bearingFromLocal, bearingRotation } from '../../lib/coords';
 import {
   HOUSE_DEFAULTS,
-  bearingRotation,
   footprint,
   houseRadius,
   type BuildingBuild,
@@ -314,11 +314,6 @@ export function inSector(bearingDeg: number, sector: string | null): boolean {
   return delta <= SECTOR_HALF_WIDTH_DEG;
 }
 
-/** Compass bearing of a local direction (`lib/coords`: east = +x, north = −z). */
-function bearingOf(dx: number, dz: number): number {
-  return (Math.atan2(dx, -dz) * 180) / Math.PI;
-}
-
 // ------------------------------------------------- the fort interior (§7.5) --
 
 /**
@@ -408,8 +403,10 @@ export function planInteriorBuildings(
             ...base,
             x: cx + dx * radius,
             z: cz + dz * radius,
-            // Radial: the long axis points at the middle of the interior.
-            rotationRad: Math.atan2(dz, dx),
+            // Radial: the long axis points at the middle of the interior, on
+            // this house's own bearing round the wall — the app's one bearing
+            // conversion rather than a local `atan2(dz, dx)` that agreed with it.
+            rotationRad: bearingRotation(bearing),
             doorSide: 1,
           };
           if (standable(spec, rings, terrain) && clear(spec, placed)) {
@@ -452,7 +449,7 @@ export function planInteriorBuildings(
         const distance = Math.sqrt(random()) * cluster.spread;
         const x = cluster.x + Math.cos(angle) * distance;
         const z = cluster.z + Math.sin(angle) * distance;
-        if (!inSector(bearingOf(x - cx, z - cz), buildings.sector)) continue;
+        if (!inSector(bearingFromLocal(x - cx, z - cz), buildings.sector)) continue;
         const spec: HouseSpec = { ...base, x, z, rotationRad: rotation, doorSide: 1 };
         if (!standable(spec, rings, terrain) || !clear(spec, placed)) continue;
         placed.push(spec);

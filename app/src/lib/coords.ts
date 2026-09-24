@@ -128,3 +128,43 @@ export function boundsLocalFrom3006(
   const se = localFromEN(b.maxE, b.minN, origin); // south-east corner -> (maxX, maxZ)
   return { minX: nw.x, minZ: nw.z, maxX: se.x, maxZ: se.z };
 }
+
+// ------------------------------------------------------------- bearings ----
+
+/**
+ * A compass bearing (0 = N, 90 = Ö/east, as `reconstruct.BEARINGS` writes them)
+ * as a rotation of the local **+x** axis, in radians.
+ *
+ * This is the one place the app converts a stated bearing into a drawn angle,
+ * and it lives here rather than beside any one archetype because the conversion
+ * is a property of the frame, not of the geometry. Every plan in the scene is
+ * built with its long axis along +x and then turned by this angle, so
+ * `rotationRad = bearingRotation(orientationDeg)` is the whole contract:
+ *
+ *   • north = −z (see the header), so a bearing β points at `(sin β, −cos β)`;
+ *   • the local +x axis turned by θ points at `(cos θ, sin θ)`;
+ *   • hence θ = atan2(−cos β, sin β), which is β − 90° — **not** β.
+ *
+ * Using β directly draws a stated N–S axis east–west. That was a live bug in
+ * `shapes.buildShape`: a *measured* bearing — one the KMR record states and the
+ * parser records as `source: "parsed"` — came out at 90° to itself, while the
+ * longhouse code, whose own copy of this helper converted correctly, drew the
+ * same stated bearing at a right angle to the stone setting beside it. Hence one
+ * implementation, here: there is deliberately no second one in `app/src`, and a
+ * test asserts that `longhouse.bearingRotation` is this function and not a
+ * twin of it.
+ */
+export function bearingRotation(bearingDeg: number): number {
+  const radians = (bearingDeg * Math.PI) / 180;
+  return Math.atan2(-Math.cos(radians), Math.sin(radians));
+}
+
+/**
+ * Compass bearing, in degrees, of a local direction `(dx, dz)` — the exact
+ * inverse of `bearingRotation` (`bearingFromLocal(Math.cos(r), Math.sin(r))`
+ * returns the bearing `r` came from). Returns −180…180; fold it yourself when
+ * the axis rather than the direction is what matters.
+ */
+export function bearingFromLocal(dx: number, dz: number): number {
+  return (Math.atan2(dx, -dz) * 180) / Math.PI;
+}

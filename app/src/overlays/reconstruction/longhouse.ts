@@ -278,12 +278,16 @@ export function roofGeometry(spec: HouseSpec): RoofGeometry {
   };
 }
 
-/** A compass bearing (0 = N, 90 = Ö) as a rotation in the app's local frame. */
-export function bearingRotation(bearingDeg: number): number {
-  // `lib/coords`: east = +x, north = −z. A bearing β points at
-  // (sin β, −cos β), and the local +x axis rotated by θ points at (cos θ, sin θ).
-  return Math.atan2(-Math.cos((bearingDeg * Math.PI) / 180), Math.sin((bearingDeg * Math.PI) / 180));
-}
+/**
+ * A compass bearing (0 = N, 90 = Ö) as a rotation in the app's local frame.
+ *
+ * Re-exported, not re-implemented: the conversion is a property of the frame
+ * (`lib/coords`: east = +x, north = −z) and every archetype has to agree on it,
+ * so there is exactly one of it in the app. Two correct-but-separate copies are
+ * how a stone setting and a longhouse came to draw the same stated bearing at
+ * different angles — see `lib/coords.bearingRotation`.
+ */
+export { bearingRotation } from '../../lib/coords';
 
 /** The four corners of a house's footprint, in local scene coordinates. */
 export function footprint(spec: HouseSpec): Array<[number, number]> {

@@ -69,6 +69,10 @@ import {
   planRingfortInterior,
 } from '../src/overlays/reconstruction/ringfort';
 import {
+  bearingFromLocal,
+  bearingRotation as coordsBearingRotation,
+} from '../src/lib/coords';
+import {
   buildShape,
   kerbPlacements,
   planRadius,
@@ -81,6 +85,7 @@ import {
   MAX_SLOPE,
   SPACING_GAP,
   expandComposition,
+  fieldRings,
   pointInRings,
   sampleGraveField,
   type SamplerTerrain,
@@ -423,15 +428,26 @@ describe('buildShape', () => {
     expect(large.rings).toBeGreaterThan(small.rings);
   });
 
-  it('draws a rectangular plan wider than it is deep', () => {
-    const build = buildShape(spec({ form: 'rectangular', lengthM: 9, widthM: 5, orientationDeg: 0 }));
-    let maxX = 0;
-    let maxZ = 0;
-    for (let i = 0; i < build.offsets.length / 3; i++) {
-      maxX = Math.max(maxX, Math.abs(build.offsets[i * 3]));
-      maxZ = Math.max(maxZ, Math.abs(build.offsets[i * 3 + 2]));
-    }
-    expect(maxX).toBeGreaterThan(maxZ * 1.4);
+  it('draws a rectangular plan long along the axis the record states', () => {
+    // `orientationDeg` is the **bearing of the long axis**, 0 = N-S (contract
+    // §14), and north is -z (`lib/coords`). So a 9 x 5 m plan stated N-S is deep
+    // in z and narrow in x, and the same plan stated E-W is the other way round.
+    // This test used to assert that the first case came out wide in x, which is
+    // exactly the bug it was written against: a measured N-S bearing drawn E-W.
+    const extent = (orientationDeg: number): { x: number; z: number } => {
+      const build = buildShape(spec({ form: 'rectangular', lengthM: 9, widthM: 5, orientationDeg }));
+      let x = 0;
+      let z = 0;
+      for (let i = 0; i < build.offsets.length / 3; i++) {
+        x = Math.max(x, Math.abs(build.offsets[i * 3]));
+        z = Math.max(z, Math.abs(build.offsets[i * 3 + 2]));
+      }
+      return { x, z };
+    };
+    const northSouth = extent(0);
+    expect(northSouth.z).toBeGreaterThan(northSouth.x * 1.4);
+    const eastWest = extent(90);
+    expect(eastWest.x).toBeGreaterThan(eastWest.z * 1.4);
   });
 });
 
@@ -448,6 +464,128 @@ describe('kerbPlacements (§5.2, §6.C)', () => {
     const coarse = kerbPlacements(spec(), [1.2, 1.4]);
     expect(coarse[0].sizeM).toBeGreaterThan(fine[0].sizeM * 3);
     expect(coarse.length).toBeLessThan(fine.length);
+  });
+});
+
+// --------------------------------------------------------------------------- //
+// the orientation frame — a stated bearing is drawn at the stated bearing
+// --------------------------------------------------------------------------- //
+
+/**
+ * `orientationDeg` is frequently a **measured** value: a bearing the KMR record
+ * states and the parser writes with `source: "parsed"` (Broborg alone ships
+ * `9x6 m (Ö-V)`, `190x100 m (NV-SÖ)` and `110x50 m (NÖ-SV)`). Drawing one at the
+ * wrong angle is the app asserting something the record does not say, so the
+ * frame is pinned here on the geometry itself and not only on the helper.
+ *
+ * Every case below is **asymmetric on purpose**. 0° and 90° survive a mirror
+ * about the 45° line and an axis swap alike; 30° and 60° survive neither, and a
+ * check made only of cardinal bearings would have passed against the bug.
+ */
+
+/** A bearing folded onto the 0-180 axis the register states plans on. */
+function foldAxis(bearingDeg: number): number {
+  return ((bearingDeg % 180) + 180) % 180;
+}
+
+/** The major axis of a cloud of local `(x, z)` points, as a compass bearing. */
+function axisBearingOf(points: Array<[number, number]>): number {
+  let mx = 0;
+  let mz = 0;
+  for (const [x, z] of points) {
+    mx += x;
+    mz += z;
+  }
+  mx /= points.length;
+  mz /= points.length;
+  let sxx = 0;
+  let szz = 0;
+  let sxz = 0;
+  for (const [x, z] of points) {
+    sxx += (x - mx) ** 2;
+    szz += (z - mz) ** 2;
+    sxz += (x - mx) * (z - mz);
+  }
+  // The principal axis of the covariance: exact for any plan symmetric about
+  // both of its own axes, which every archetype's plan is.
+  const theta = 0.5 * Math.atan2(2 * sxz, sxx - szz);
+  return foldAxis(bearingFromLocal(Math.cos(theta), Math.sin(theta)));
+}
+
+/** How far two axis bearings are apart, in degrees, the short way round. */
+function axisDelta(a: number, b: number): number {
+  const delta = Math.abs(foldAxis(a) - foldAxis(b));
+  return Math.min(delta, 180 - delta);
+}
+
+function shapePoints(build: { offsets: Float32Array }): Array<[number, number]> {
+  const out: Array<[number, number]> = [];
+  for (let i = 0; i < build.offsets.length / 3; i++) {
+    out.push([build.offsets[i * 3], build.offsets[i * 3 + 2]]);
+  }
+  return out;
+}
+
+describe('the orientation frame (§0, lib/coords)', () => {
+  const elongated = (orientationDeg: number): ShapeSpec =>
+    spec({ form: 'rectangular', lengthM: 24, widthM: 4, diameterM: 12, orientationDeg });
+
+  it('draws a monument’s long axis at the bearing the record states', () => {
+    for (const bearing of [0, 30, 45, 60, 90, 112.5, 135, 157.5]) {
+      const drawn = axisBearingOf(shapePoints(buildShape(elongated(bearing))));
+      expect(axisDelta(drawn, bearing)).toBeLessThan(1.5);
+    }
+  });
+
+  it('does not confuse 30° with 60°, which the cardinal cases cannot catch', () => {
+    const thirty = axisBearingOf(shapePoints(buildShape(elongated(30))));
+    const sixty = axisBearingOf(shapePoints(buildShape(elongated(60))));
+    expect(axisDelta(thirty, sixty)).toBeGreaterThan(25);
+    // The two failures this is a test for: the mirror about 45° (30 <-> 60), and
+    // the +90° rotation `buildShape` actually had (30 -> 120).
+    expect(axisDelta(thirty, 60)).toBeGreaterThan(25);
+    expect(axisDelta(thirty, 120)).toBeGreaterThan(25);
+    expect(axisDelta(sixty, 30)).toBeGreaterThan(25);
+  });
+
+  it('runs the kerb round the plan it bounds, not round a plan turned 90°', () => {
+    const stones = kerbPlacements(elongated(30), [0.5, 0.7]);
+    const drawn = axisBearingOf(stones.map((stone) => [stone.x, stone.z] as [number, number]));
+    expect(axisDelta(drawn, 30)).toBeLessThan(1.5);
+  });
+
+  it('draws a stone setting and a longhouse on the same stated bearing parallel', () => {
+    // The acceptance for this phase, in one test: §3's longhouse converted the
+    // bearing correctly and §6's monument did not, so one stated bearing came out
+    // at two different angles depending on which archetype drew it.
+    for (const bearing of [30, 75, 150]) {
+      const monument = axisBearingOf(shapePoints(buildShape(elongated(bearing))));
+      const corners = footprint({
+        ...house(),
+        rotationRad: bearingRotation(bearing),
+        lengthM: 24,
+        widthM: 4,
+      });
+      expect(axisDelta(monument, axisBearingOf(corners))).toBeLessThan(1.5);
+    }
+  });
+
+  it('turns a grave field’s stated extent onto the same bearing', () => {
+    // "245x140 m (N-S)" is a measurement too (§6.G), and the ellipse the sampler
+    // falls back to has to lie where the sentence says it does.
+    const field = {
+      plan: { form: 'oval', diameterM: 120, lengthM: 180, widthM: 60, orientationDeg: 30 },
+    } as unknown as Monument;
+    const rings = fieldRings(field, { x: 100, z: -50 }, null);
+    expect(rings).not.toBeNull();
+    expect(axisDelta(axisBearingOf(rings![0]), 30)).toBeLessThan(1.5);
+  });
+
+  it('has exactly one bearing conversion in the app', () => {
+    // Not a style point. Two correct-but-separate copies of this conversion are
+    // how a stone setting and a longhouse came to disagree in the first place,
+    // so `longhouse.bearingRotation` is a re-export and not a second function.
+    expect(bearingRotation).toBe(coordsBearingRotation);
   });
 });
 

@@ -52,6 +52,7 @@
  * not a licence to reach 88.
  */
 
+import { bearingRotation } from '../../lib/coords';
 import { streamSeed } from '../../lib/random';
 import {
   BUILDING_GAP_M,
@@ -223,8 +224,10 @@ export function planRingfortInterior(
           ...base,
           x: cx + dx * radius,
           z: cz + dz * radius,
-          // Radial: the long axis points at the middle of the interior.
-          rotationRad: Math.atan2(dz, dx),
+          // Radial: the long axis points at the middle of the interior, on the
+          // house's own bearing round the wall — through the app's one bearing
+          // conversion rather than a local `atan2(dz, dx)` that agreed with it.
+          rotationRad: bearingRotation(bearing),
           doorSide: 1,
         };
         if (standable(spec, rings, terrain) && clear(spec, placed)) {
