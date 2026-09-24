@@ -691,7 +691,11 @@ def test_adding_the_asset_is_idempotent() -> None:
 
 def test_the_committed_file_matches_a_fresh_parse(broborg_sites: dict) -> None:
     """The bundle is committed, so a parser change that was never re-run shows up
-    here rather than as a stale scene."""
+    here rather than as a stale scene.
+
+    When this fails after a deliberate parser change, the fix is to re-run the
+    parser — `python3 -m fornborg_pipeline.reconstruct --site broborg` from
+    `pipeline/` — and to read the diff before committing it, not to relax this."""
     committed = json.loads((BUNDLE / "reconstruction.json").read_text(encoding="utf-8"))
     fresh = R.build_document(broborg_sites, "broborg", generated=committed["generated"])
     assert committed == fresh
