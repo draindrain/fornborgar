@@ -839,6 +839,10 @@ def parse_class_sizes(text: str) -> dict:
     return out
 
 
+#: Every inflection of each plan form, so a class counted as "1 rektangulär
+#: stensättning" recognises "Den rektangulära stensättningen är …" as its own.
+_FORM_STEMS: dict[str, tuple[str, ...]] = dict(FORM_WORDS)
+
 #: Every phrase that names a constituent class, so a continuation clause can be
 #: told from the next class's own sentence. Escaped as written, so `resta stenar`
 #: does not match the `synliga stenar` of a calibre clause.
@@ -896,17 +900,31 @@ def parse_composition(text: str, archetype_default: ArchetypeDefault) -> dict:
     clauses = split_clauses(text)
     classes: list[dict] = []
 
-    def size_clause(size_words: tuple[str, ...], modifier: str | None) -> int | None:
+    def size_clause(
+        size_words: tuple[str, ...], form: str | None, sibling_forms: set[str]
+    ) -> int | None:
         """Index of the clause stating this class's own dimensions.
 
-        Prefers one that also carries the subclass modifier, so "De kvadratiska
-        stensättningarna är …" is not read as the size of the round ones. The
-        index rather than the text, because the calibre is often one clause
-        further on (`continuation_calibre`).
+        Prefers one that also names the class's own form in any inflection, so
+        "Den rektangulära stensättningen är …" is found for "1 rektangulär
+        stensättning". A clause naming the form of a *sibling* class is never
+        this class's: without that rule a class whose own sentence scored lower
+        fell through to "De runda stensättningarna är 3-8 m diam" and took the
+        round class's size — and, through `continuation_calibre`, its calibre —
+        under a `measured` badge. No admissible clause means no size, which the
+        caller turns into a disclosed archetype default. The index rather than
+        the text, because the calibre is often one clause further on.
         """
         pattern = word_pattern(*size_words) if size_words else None
         if pattern is None:
             return None
+        own = word_pattern(*_FORM_STEMS[form]) if form else None
+        # A class with a form of its own refuses every other form's sentence (the
+        # sibling may have been counted without one — "1 kvadratiskfylld
+        # stensättning"). A class without one refuses only its siblings' forms,
+        # so "Stensättningarna är runda, 3-8 m diam" still sizes "20 stensättningar".
+        others = [f for f in (_FORM_STEMS if form else sibling_forms) if f != form]
+        foreign = word_pattern(*[s for f in others for s in _FORM_STEMS[f]]) if others else None
         best: int | None = None
         best_rank = -1
         for position, clause in enumerate(clauses):
@@ -914,8 +932,10 @@ def parse_composition(text: str, archetype_default: ArchetypeDefault) -> dict:
                 continue
             if not re.search(rf"(?<![{LETTER}])(är|utgörs|mäter)(?![{LETTER}])", clause, re.I):
                 continue
+            matched = bool(own and own.search(clause))
+            if not matched and foreign and foreign.search(clause):
+                continue
             sized = parse_class_sizes(clause).get("diameterM") is not None
-            matched = bool(modifier and word_pattern(modifier).search(clause))
             rank = (2 if matched else 0) + (1 if sized else 0)
             if rank > best_rank:
                 best, best_rank = position, rank
@@ -952,9 +972,10 @@ def parse_composition(text: str, archetype_default: ArchetypeDefault) -> dict:
             )
             entry["count"] += count
             entry["moundLike"] = entry["moundLike"] or mound_like
+        sibling_forms = {entry["form"] for entry in grouped.values() if entry["form"]}
         for entry in grouped.values():
-            modifier = entry.pop("_modifier")
-            index = size_clause(size_words, modifier)
+            entry.pop("_modifier")
+            index = size_clause(size_words, entry["form"], sibling_forms)
             sizes = parse_class_sizes(clauses[index]) if index is not None else {}
             entry["diameterM"] = sizes.get("diameterM")
             entry["heightM"] = sizes.get("heightM")

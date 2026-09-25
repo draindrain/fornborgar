@@ -168,10 +168,28 @@ the aggregate, and both are fixed here rather than deferred:
 
 Audited over all 62 grave-field classes in the committed Broborg bundle: **every** class's calibre
 now comes from the clause immediately after the one its plan size came from — **zero mismatches**.
-Where several classes share a size sentence because the register only describes one of them, they
-share its continuation too, which is the behaviour the plan size already had; the calibre is now
-*consistent with the size it is quoted beside* instead of being an archetype default wearing a
-`measured` badge.
+That audit was not enough, and the first version of this section went wrong here. It said that where
+several classes share a size sentence they share its continuation too, "which is the behaviour the
+plan size already had". But that shared sentence was never theirs. `size_clause` fell back to *"De
+runda stensättningarna är …"* for any class whose own sentence scored lower. That happened when the
+modifier was inflected differently (`1 rektangulär` / `Den rektangulära`), when the class's sentence
+had no `är` (`Den trekantiga … har 4 m i sida`), or when a typo hid the class noun
+(`stensättningarana`). Ten classes in the bundle carried the round class's diameter. §3.2 would have
+copied the round class's calibre onto them too, under `measured`. Two of those ten were already
+showing their register value, which is also the archetype default, and §3.2 would have replaced it:
+`L1941:9481`'s triangular setting and `L1943:7830`'s rectangular one.
+
+**§3.3, the fix at the source.** `size_clause` now matches a class's own form in any inflection. It
+never takes a sentence that names a different form without naming its own. For a class that has a
+form, that means any other form, because a sibling may have been counted without one
+(*"1 kvadratiskfylld stensättning"*). For a class that has none, it means its siblings' forms, so
+*"Stensättningarna är runda"* still sizes a single-class field. When no sentence is admissible, the
+class has no stated size. It takes the archetype default and is badged `assumed`, which the visitor
+sees, instead of a neighbour's figures badged `measured`. The tests are
+`test_a_class_never_takes_a_sibling_forms_sentence`,
+`test_a_formed_class_refuses_a_form_counted_without_one` and
+`test_an_unformed_class_still_reads_a_sentence_that_names_its_shape`. The first two fail on the
+parser before §3.3.
 
 ---
 
@@ -290,23 +308,35 @@ records. Against the committed `reconstruction.json` it differs in three places:
 
 * `coverage.recordsTextRepaired` and `coverage.sentenceJoinsRepaired`, new;
 * the `derivation.description` sentence naming the repair;
-* **38 stone-calibre endpoints across 33 grave-field classes**, every one moving from an archetype
-  default to the calibre the record states one clause after the class's plan size (§3.2). The
-  register's formula is visible right across the bundle: *"De runda stensättningarna är 4-6 m diam
-  och 0,2-0,4 m h."* / *"Övertorvade med i ytan enstaka synliga stenar, 0,2-0,3 m st."*
+* **34 grave-field classes** in 18 records. Each was checked by hand against its own register
+  sentence:
+  * **24 classes** move a calibre off an archetype default to the one the record states for that
+    class, one clause after its plan size (§3.2). *"De runda stensättningarna är 4-6 m diam och
+    0,2-0,4 m h."* / *"Övertorvade med i ytan enstaka synliga stenar, 0,2-0,3 m st."* Two of
+    the 24 (`L1943:7532`, `L1943:7830`) are "counted in the record's total but not itemised"
+    remainders. They carry that note and copy their record's largest class.
+  * **4 classes** stop borrowing the round class's sentence and take their own stated size (§3.3).
+    These are `L1941:5542` rectangular 9x5 m and 0,2 m h, `L1941:9481` square 4x4 m and 0,2 m h,
+    `L1941:9481` rectangular 8x6 m and 0,3 m h, and `L1943:7247` rectangular 12x10 m and 0,3 m h.
+  * **5 classes** stop borrowing, have no sentence the parser can size, and are now badged
+    `assumed` on archetype defaults. The reasons are a sentence with no `är` (`L1941:5542` and
+    `L1941:9481` triangular), a typo (`L1943:6937` *stensättningarana*), a ship setting stated by
+    length and breadth (`L1943:7532`) and a glue (`L1943:7830` *4x4 moch*). Where the register
+    states their height or calibre, it is still read: `L1943:7532` 0,25 m h and 0,3-0,8 m st,
+    `L1943:7830` 0,1 m h and 0,1-0,2 m st.
+  * **1 class**, `L1943:7035`'s round settings, was already `assumed` because of the typo *äf*. It
+    stops borrowing the rectangular class's height.
+* five `parseConfidence` values, which fall by 0.04–0.10 because of the five `assumed` classes.
 
 No rampart, mound, cairn or interior geometry changes, so the regeneration does not need the app's
 checker run.
 
-**The committed file is not regenerated in this branch**, because `app/` is out of this phase's
-scope and the write was refused to this session. `test_the_committed_file_matches_a_fresh_parse`
-therefore fails, which is exactly what that test is for — it exists so a parser change that was
-never re-run shows up here rather than as a stale scene, and it is the reason the grave-field
-regression above was caught before it could be baked in. One command closes it:
-
-```
-cd pipeline && python3 -m fornborg_pipeline.reconstruct --site broborg
-```
+Regenerated with `cd pipeline && python3 -m fornborg_pipeline.reconstruct --site broborg`.
+`test_the_committed_file_matches_a_fresh_parse` passes. Two things remain disclosed rather than
+fixed. `L1943:7830`'s rectangular setting is uncounted because of the glue in *stensättningoch*, so
+it rides in the "counted in the record's total but not itemised" remainder with that note.
+`L1941:4705`'s *"2 är stenblandade 0,5-1,5 m st block"* covers two of the four mounds and is applied
+to the class.
 
 ---
 
@@ -406,7 +436,7 @@ wherever a number exists"; it is "never replace a stated measurement without say
 | …with a parsed stone calibre | 913 | **949** | the calibre sentence the register writes next |
 | Walls badged `measured` | 979 | **994** | same two repairs |
 | Entrance bearings on walls | 1 355 | **1 235** | 120 read out of the following sentence |
-| Broborg grave-field class calibres | 33 classes on archetype defaults | **stated values** | §3.2; 38 endpoints in the bundle |
+| Broborg grave-field classes | 24 calibres on defaults; 10 classes sized from another class's sentence | **24 stated calibres; 4 own sizes; 5 disclosed `assumed`** | §3.2, §3.3, §5.5 |
 | MH refined OR (length-stratified) | 1.079, p 0.910 | **1.205, p 0.630** | still null |
 | Interior gate: 1304 / 42 / 18 / 7 / 53 / 4.1 % / 13 | — | **unchanged** | the gate reads none of the changed rules |
 | Strong-tier glue hole | `{l1975-712, l1983-1710}`, 0 forts | **unchanged** | re-measured, not assumed |
@@ -430,3 +460,8 @@ the fact that the five were not all the same kind of loss. A value that goes mis
 is honest; a value replaced by a default under a `measured` badge is the silent assertion §9
 forbids, and it has to be counted separately. Every changed value in §5.3 and §5.5 is now checked
 against the register's own sentence, one at a time.
+
+The same rule caught the next one. The regenerated bundle's diff matched its prediction exactly:
+38 endpoints across 33 classes, every one moving off a default. Checking each value against its own
+record then showed that 10 of those classes were taking the round class's figures (§3.3). The shape
+of the diff was right and the provenance of the values was wrong.

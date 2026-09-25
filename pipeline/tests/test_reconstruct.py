@@ -1572,6 +1572,70 @@ def test_a_continuation_clause_never_reaches_the_next_class() -> None:
     assert R.continuation_calibre(["Högarna är 8 m diam.", "Kantkedja, 0,2-0,3 m h."], 0) is None
 
 
+def test_a_class_never_takes_a_sibling_forms_sentence() -> None:
+    """L1941:9481, abridged. The rectangular setting's own sentence is found in
+    another inflection ("1 rektangulär" / "Den rektangulära"). The triangular
+    one's sentence has no "är", so there is no sentence to size it. Before this
+    fix both fell through to "De runda stensättningarna är 3-6 m" and took
+    the round class's diameter and, one clause on, its calibre, while still
+    badged `measured`. The triangular setting also lost the 0,2-0,4 its own
+    sentence states. It now has no stated size, and is badged `assumed`."""
+    text = (
+        "Gravfält, ca 90x70 m bestående av ca 17 fornlämningar. "
+        "Dessa utgöres av 15 runda stensättningar, 1 rektangulär fylld stensättning, "
+        "1 trekantig fylld stensättning. "
+        "De runda stensättningarna är 3-6 m i diam 0,2-0,4m h. "
+        "Övertorvad med i ytan enstaka eller talrika 0,3-0,4 m st stenar. "
+        "Den rektangulära stensättningen är ca 8x6 m (VNV-ÖSÖ) ca 0,3m h. "
+        "Övertorvad. "
+        "Den trekantiga stensättningen som ligger i fältets SV del har 4 m S sida, 0,3 m hög. "
+        "Övertorvad med i ytan talrika 0,2-0,4 m stora stenar."
+    )
+    classes = R.parse_composition(R.normalise(text), R.ARCHETYPE_DEFAULTS["grave-field"])["classes"]
+    by_form = {c["form"]: c for c in classes}
+    assert by_form["round"]["stoneM"] == [0.3, 0.4]
+    rectangular = by_form["rectangular"]
+    assert rectangular["diameterM"] == [6.93, 6.93] and rectangular["source"] == "measured"
+    assert rectangular["heightM"] == [0.3, 0.3]
+    triangular = by_form["triangular"]
+    assert triangular["source"] == "assumed"
+    assert triangular["diameterM"] != [3.0, 6.0] and triangular["stoneM"] != [0.3, 0.4]
+
+
+def test_a_formed_class_refuses_a_form_counted_without_one() -> None:
+    """The glue ("1 kvadratiskfylld stensättning") counts the square setting
+    with no form, so "kvadratiska" names no sibling. It is still not the
+    triangular class's sentence, and neither is the round one."""
+    text = (
+        "Gravfält bestående av ca 7 fornlämningar. "
+        "Dessa utgöres av 5 runda stensättningar, 1 kvadratiskfylld stensättning, "
+        "1 trekantig stensättning. "
+        "De runda stensättningarna är 3-6 m i diam. "
+        "Den trekantiga stensättningen har 4 m i sida. "
+        "Den kvadratiska stensättningen är 4x4 m, ca 0,2 m h."
+    )
+    classes = R.parse_composition(R.normalise(text), R.ARCHETYPE_DEFAULTS["grave-field"])["classes"]
+    unformed = next(c for c in classes if c["form"] is None)
+    triangular = next(c for c in classes if c["form"] == "triangular")
+    assert unformed["diameterM"] == [4.0, 4.0]
+    assert triangular["source"] == "assumed"
+    assert triangular["diameterM"] not in ([4.0, 4.0], [3.0, 6.0])
+
+
+def test_an_unformed_class_still_reads_a_sentence_that_names_its_shape() -> None:
+    """The sibling rule must not strand a single-class field. With no other form
+    counted, "Stensättningarna är runda" is still this class's sentence."""
+    text = (
+        "Gravfält bestående av 20 stensättningar. "
+        "Stensättningarna är runda, 3-8 m diam och 0,2-0,4 m h. "
+        "Övertorvade med i ytan enstaka stenar, 0,2-0,5 m st."
+    )
+    classes = R.parse_composition(R.normalise(text), R.ARCHETYPE_DEFAULTS["grave-field"])["classes"]
+    (settings,) = [c for c in classes if c["archetype"] == "stone-setting"]
+    assert settings["diameterM"] == [3.0, 8.0] and settings["source"] == "measured"
+    assert settings["stoneM"] == [0.2, 0.5]
+
+
 def test_correct_sentences_gain_more_measurements_than_they_strand(survey: dict) -> None:
     """The whole of §10 as one regression target, against the pre-phase parser.
     Repairing the sentence boundaries *and* fixing the two scopes it exposed
