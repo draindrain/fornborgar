@@ -1,10 +1,10 @@
 {
  "schemaVersion": 1,
  "site": "broborg",
- "generated": "2026-09-12",
+ "generated": "2026-09-25",
  "derivation": {
   "method": "kmr-description-parse",
-  "description": "Reconstruction parameters parsed from the KMR free-text descriptions in sites.json, with the ruin→original transforms of docs/reconstruction-mode.md §5 applied. Every number KMR records is a measurement of a ruin, so three stated transforms convert them: (§5.1) a rampart's original height is its still-standing height plus the height its own collapse apron represents, h_orig = h_standing + (W_spread − t_wall)·d_apron·p / t_wall; (§5.2) a mound or cairn whose kantkedja is recorded keeps its measured footprint and is restored to a smooth spherical cap through that kerb, while one with no kerb is rebuilt volume-conserving at its material's angle of repose, which makes the corpus-median mound narrower and taller (7.0 × 0.7 m → 5.7 × 1.6 m); (§5.3) recorded robbing pits are filled, which is a measured operation because the register gives their dimensions. Stone settings and fire-cracked mounds are never inflated — flatness is the type. Where a field cannot be parsed the archetype default is used, the field's source reads \"assumed\", its name appears in the monument's fallbacks list, and parseConfidence drops; nothing is invented silently. Positions and extent polygons are not repeated here — this file joins back to sites.json by id.",
+  "description": "Reconstruction parameters parsed from the KMR free-text descriptions in sites.json, with the ruin→original transforms of docs/reconstruction-mode.md §5 applied. Every number KMR records is a measurement of a ruin, so three stated transforms convert them: (§5.1) a rampart's original height is its still-standing height plus the height its own collapse apron represents, h_orig = h_standing + (W_spread − t_wall)·d_apron·p / t_wall; (§5.2) a mound or cairn whose kantkedja is recorded keeps its measured footprint and is restored to a smooth spherical cap through that kerb, while one with no kerb is rebuilt volume-conserving at its material's angle of repose, which makes the corpus-median mound narrower and taller (7.0 × 0.7 m → 5.7 × 1.6 m); (§5.3) recorded robbing pits are filled, which is a measured operation because the register gives their dimensions. Stone settings and fire-cracked mounds are never inflated — flatness is the type. Where a field cannot be parsed the archetype default is used, the field's source reads \"assumed\", its name appears in the monument's fallbacks list, and parseConfidence drops; nothing is invented silently. Positions and extent polygons are not repeated here — this file joins back to sites.json by id. The KMR text itself reaches this parser with its hard line breaks removed and no space in their place, which glues words and sentences together; exactly one class of that is repaired here — a space put back after a full stop that runs straight into the next sentence's capital — and coverage.sentenceJoinsRepaired counts every one, because a repair is an edit to the source and has to be visible. Glue inside a sentence (\"belägenpå\") is left exactly as the register sent it.",
   "transforms": [
    "rampart-apron-conservation",
    "mound-reprofile",
@@ -212,6 +212,8 @@
   "graveFieldsWithStatedCount": 28,
   "sampledMonuments": 1215,
   "withWarnings": 1,
+  "recordsTextRepaired": 25,
+  "sentenceJoinsRepaired": 26,
   "interiorGate": "pass",
   "interiorBuildingsStated": false
  },
@@ -591,8 +593,8 @@
        1.5
       ],
       "stoneM": [
-       0.2,
-       0.3
+       0.5,
+       1.5
       ],
       "source": "measured"
      }
@@ -1286,8 +1288,8 @@
        1.0
       ],
       "stoneM": [
-       0.4,
-       0.6
+       0.5,
+       0.7
       ],
       "source": "measured"
      }
@@ -1345,7 +1347,7 @@
     "placement": "assumed"
    },
    "fallbacks": [],
-   "parseConfidence": 0.97,
+   "parseConfidence": 0.93,
    "field": {
     "count": 80,
     "countSource": "measured",
@@ -1366,7 +1368,7 @@
       ],
       "stoneM": [
        0.2,
-       0.4
+       0.5
       ],
       "source": "measured"
      },
@@ -1395,12 +1397,12 @@
       "count": 1,
       "moundLike": false,
       "diameterM": [
-       3.0,
-       8.0
+       6.71,
+       6.71
       ],
       "heightM": [
        0.2,
-       0.5
+       0.2
       ],
       "stoneM": [
        0.2,
@@ -1414,18 +1416,18 @@
       "count": 3,
       "moundLike": false,
       "diameterM": [
-       3.0,
-       8.0
+       4.2,
+       7.8
       ],
       "heightM": [
-       0.2,
-       0.5
+       0.24,
+       0.56
       ],
       "stoneM": [
        0.2,
        0.4
       ],
-      "source": "measured"
+      "source": "assumed"
      },
      {
       "archetype": "standing-stone",
@@ -1461,7 +1463,7 @@
       ],
       "stoneM": [
        0.2,
-       0.3
+       0.5
       ],
       "source": "measured"
      }
@@ -2326,7 +2328,7 @@
     "placement": "assumed"
    },
    "fallbacks": [],
-   "parseConfidence": 1.0,
+   "parseConfidence": 0.96,
    "field": {
     "count": 23,
     "countSource": "measured",
@@ -2346,7 +2348,7 @@
        0.4
       ],
       "stoneM": [
-       0.2,
+       0.3,
        0.4
       ],
       "source": "measured"
@@ -2357,12 +2359,12 @@
       "count": 1,
       "moundLike": false,
       "diameterM": [
-       3.0,
-       6.0
+       4.0,
+       4.0
       ],
       "heightM": [
        0.2,
-       0.4
+       0.2
       ],
       "stoneM": [
        0.2,
@@ -2376,12 +2378,12 @@
       "count": 1,
       "moundLike": false,
       "diameterM": [
-       3.0,
-       6.0
+       6.93,
+       6.93
       ],
       "heightM": [
-       0.2,
-       0.4
+       0.3,
+       0.3
       ],
       "stoneM": [
        0.2,
@@ -2395,18 +2397,18 @@
       "count": 1,
       "moundLike": false,
       "diameterM": [
-       3.0,
-       6.0
+       4.2,
+       7.8
       ],
       "heightM": [
-       0.2,
-       0.4
+       0.24,
+       0.56
       ],
       "stoneM": [
        0.2,
        0.4
       ],
-      "source": "measured"
+      "source": "assumed"
      },
      {
       "archetype": "mound",
@@ -2422,8 +2424,8 @@
        1.6
       ],
       "stoneM": [
-       0.2,
-       0.3
+       0.3,
+       0.5
       ],
       "source": "measured"
      }
@@ -3186,7 +3188,7 @@
       ],
       "stoneM": [
        0.2,
-       0.4
+       0.3
       ],
       "source": "measured"
      },
@@ -3477,7 +3479,7 @@
     "placement": "assumed"
    },
    "fallbacks": [],
-   "parseConfidence": 1.0,
+   "parseConfidence": 0.9,
    "field": {
     "count": 8,
     "countSource": "measured",
@@ -3498,7 +3500,7 @@
       ],
       "stoneM": [
        0.2,
-       0.4
+       0.6
       ],
       "source": "measured"
      },
@@ -3508,18 +3510,18 @@
       "count": 2,
       "moundLike": false,
       "diameterM": [
-       4.0,
-       7.0
+       4.2,
+       7.8
       ],
       "heightM": [
-       0.2,
-       0.4
+       0.24,
+       0.56
       ],
       "stoneM": [
        0.2,
        0.4
       ],
-      "source": "measured"
+      "source": "assumed"
      }
     ]
    }
@@ -3703,7 +3705,7 @@
       ],
       "stoneM": [
        0.2,
-       0.4
+       0.3
       ],
       "source": "measured"
      },
@@ -4084,8 +4086,8 @@
        7.8
       ],
       "heightM": [
-       0.2,
-       0.4
+       0.24,
+       0.56
       ],
       "stoneM": [
        0.2,
@@ -4108,7 +4110,7 @@
       ],
       "stoneM": [
        0.2,
-       0.4
+       0.3
       ],
       "source": "assumed"
      },
@@ -4146,7 +4148,7 @@
       ],
       "stoneM": [
        0.2,
-       0.3
+       0.4
       ],
       "source": "assumed"
      }
@@ -5230,7 +5232,7 @@
       ],
       "stoneM": [
        0.2,
-       0.4
+       0.3
       ],
       "source": "measured"
      },
@@ -5462,12 +5464,12 @@
       "count": 1,
       "moundLike": false,
       "diameterM": [
-       6.0,
-       9.0
+       10.95,
+       10.95
       ],
       "heightM": [
        0.3,
-       0.4
+       0.3
       ],
       "stoneM": [
        0.2,
@@ -6340,8 +6342,8 @@
        0.9
       ],
       "stoneM": [
-       0.4,
-       0.6
+       0.2,
+       0.4
       ],
       "source": "measured"
      }
@@ -6549,7 +6551,7 @@
     "placement": "assumed"
    },
    "fallbacks": [],
-   "parseConfidence": 0.92,
+   "parseConfidence": 0.88,
    "field": {
     "count": 26,
     "countSource": "measured",
@@ -6589,7 +6591,7 @@
       ],
       "stoneM": [
        0.2,
-       0.4
+       0.5
       ],
       "source": "measured"
      },
@@ -6599,18 +6601,18 @@
       "count": 1,
       "moundLike": false,
       "diameterM": [
-       3.0,
-       9.0
+       4.2,
+       7.8
       ],
       "heightM": [
-       0.2,
-       0.5
+       0.25,
+       0.25
       ],
       "stoneM": [
-       0.2,
-       0.4
+       0.3,
+       0.8
       ],
-      "source": "measured"
+      "source": "assumed"
      },
      {
       "archetype": "standing-stone",
@@ -6645,7 +6647,7 @@
       ],
       "stoneM": [
        0.2,
-       0.4
+       0.5
       ],
       "moundLike": false,
       "source": "assumed",
@@ -7281,7 +7283,7 @@
       ],
       "stoneM": [
        0.2,
-       0.4
+       0.3
       ],
       "source": "measured"
      },
@@ -7390,7 +7392,7 @@
       ],
       "stoneM": [
        0.2,
-       0.4
+       0.3
       ],
       "source": "measured"
      },
@@ -7491,7 +7493,7 @@
       ],
       "stoneM": [
        0.2,
-       0.4
+       0.3
       ],
       "source": "measured"
      },
@@ -7510,7 +7512,7 @@
       ],
       "stoneM": [
        0.2,
-       0.3
+       0.4
       ],
       "source": "measured"
      }
@@ -7661,7 +7663,7 @@
        0.25
       ],
       "stoneM": [
-       0.2,
+       0.1,
        0.4
       ],
       "source": "measured"
@@ -7718,8 +7720,8 @@
        1.2
       ],
       "stoneM": [
-       0.4,
-       0.6
+       0.2,
+       0.4
       ],
       "source": "measured"
      }
@@ -8190,7 +8192,7 @@
     "placement": "assumed"
    },
    "fallbacks": [],
-   "parseConfidence": 0.93,
+   "parseConfidence": 0.87,
    "field": {
     "count": 12,
     "countSource": "measured",
@@ -8211,7 +8213,7 @@
       ],
       "stoneM": [
        0.2,
-       0.4
+       0.5
       ],
       "source": "measured"
      },
@@ -8221,18 +8223,18 @@
       "count": 1,
       "moundLike": false,
       "diameterM": [
-       3.0,
-       7.0
+       4.2,
+       7.8
       ],
       "heightM": [
-       0.2,
-       0.3
+       0.1,
+       0.1
       ],
       "stoneM": [
-       0.2,
-       0.4
+       0.1,
+       0.2
       ],
-      "source": "measured"
+      "source": "assumed"
      },
      {
       "archetype": "stone-setting",
@@ -8248,7 +8250,7 @@
       ],
       "stoneM": [
        0.2,
-       0.4
+       0.5
       ],
       "moundLike": false,
       "source": "assumed",
@@ -8335,7 +8337,7 @@
       ],
       "stoneM": [
        0.2,
-       0.4
+       0.5
       ],
       "source": "measured"
      },

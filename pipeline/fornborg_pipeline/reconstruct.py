@@ -240,15 +240,59 @@ def _round(value: float | None, digits: int = 2) -> float | None:
     return None if value is None else round(value + 0.0, digits)
 
 
+#: §10 — the register's lost punctuation. KMR's descriptions in this corpus were
+#: hard-wrapped at about 64 characters and then had their line breaks removed
+#: **without gaining a space**, so every wrap point glued two words together
+#: (`belägenpå`, `denkallmurade`, `Muren är 2 m h.Inne i fornborgens N del`).
+#: 1 034 of the 1 304 national descriptions carry no `\n` at all and the other
+#: 270 keep one only as a paragraph mark: not one description in the corpus still
+#: carries its wrap, and the damage is of the order of 14 800 lost joins.
+#:
+#: Exactly one class of those joins can be repaired without guessing, and this is
+#: it: a sentence-ending mark **immediately** followed by a capital that opens a
+#: lower-case word. No Swedish word straddles a full stop, so the join position is
+#: known exactly and the repair cannot split a compound — which is the failure
+#: mode that rules out repairing the far commoner lower-to-lower glue (`belägenpå`
+#: needs a lexicon to place, and Swedish compounds are themselves exactly
+#: "frequent word + frequent word": `stensträng`, `blockvall`, `bergbrant`).
+#: `docs/kmr-text-normalisation-2026-09-24.md` measures both.
+#:
+#: The lower-case second letter is the guard that keeps the register's own
+#: orientation strings (`Ö20gr.S-V20gr.N`) and its single-letter abbreviations
+#: (`i den. Ö hälften`) intact: those are followed by a bare compass letter, not
+#: by a word.
+SENTENCE_JOIN_RE = re.compile(rf"(?<=[.!?])(?=[A-ZÅÄÖ][a-zåäö][{LETTER}]*)")
+
+
+def count_sentence_joins(text: str) -> int:
+    """How many lost sentence boundaries `normalise` will put back (§10)."""
+    return len(SENTENCE_JOIN_RE.findall(unicodedata.normalize("NFC", text or "")))
+
+
 def normalise(text: str) -> str:
-    """Collapse whitespace and NFC-normalise, leaving the words untouched.
+    """Collapse whitespace, NFC-normalise, and put back the lost full-stop space.
 
     KMR text arrives with hard-wrapped line breaks glued into words (`"ca7 m"`,
-    `"medmedelstora"`). Whitespace is normalised; the glue is not repaired,
-    because repairing it would mean guessing, and the numeric patterns below
-    tolerate a missing space after `ca` anyway.
+    `"medmedelstora"`). Two different things follow from that, and this function
+    does one of them and refuses the other:
+
+    * **repaired** — a line break lost at a sentence end, `…anlagda.Den övre
+      muren…`. The position is not guessed: a full stop is not part of any
+      Swedish word, so the only thing that can have been there is the space.
+      Without this, §3's `split_clauses` runs one sentence into the next and
+      reads the *next* sentence's compass bearing as the entrance bearing of
+      this one's wall — 112 entrances nationally that the register never placed
+      on a wall at all.
+    * **not repaired** — the same break lost mid-sentence, `belägenpå`. Splitting
+      that needs a lexicon, and the lexicon cannot tell a lost break from a
+      genuine compound, because Swedish compounds are built out of exactly the
+      same frequent words (`sten`+`vall`, `block`+`vall`, `berg`+`brant`). A
+      repair that splits a real compound is worse than the corruption, so the
+      glue is left where it is and the stems that suffer most from it are matched
+      with `stem_pattern` instead.
     """
-    return re.sub(r"\s+", " ", unicodedata.normalize("NFC", text)).strip()
+    repaired = SENTENCE_JOIN_RE.sub(" ", unicodedata.normalize("NFC", text))
+    return re.sub(r"\s+", " ", repaired).strip()
 
 
 def word_pattern(*stems: str) -> re.Pattern[str]:
@@ -260,6 +304,27 @@ def word_pattern(*stems: str) -> re.Pattern[str]:
     """
     body = "|".join(stems)
     return re.compile(rf"(?<![{LETTER}])(?:{body})(?![{LETTER}])", re.IGNORECASE)
+
+
+def stem_pattern(*stems: str) -> re.Pattern[str]:
+    """`word_pattern`'s counterpart for a stem no unrelated Swedish word contains.
+
+    Two different things defeat a whole-word rule on this corpus, and this one
+    pattern answers both: the register's own inflection (`kallmurade`,
+    `ringvallens`, `kallmursteknik` — 47 of the 63 forts `_DRYSTONE` was missing)
+    and §10's lost line breaks, which glue the stem to its neighbour
+    (`ikallmur`, `denkallmurade`, `inomringvallen` — the other 16).
+
+    It is **only** admissible for a stem that cannot occur inside an unrelated
+    word, which is a claim about the language and therefore a claim that has to
+    be checked: `test_the_glue_tolerant_stems_admit_nothing_but_their_own_word`
+    enumerates every surface form each stem admits across all 1 304 national
+    descriptions, so a stem that starts admitting something else fails there
+    rather than quietly widening a criterion. `hög` or `vall` could never be
+    passed here; `kallmur` and `ringvall` can.
+    """
+    body = "|".join(stems)
+    return re.compile(rf"[{LETTER}]*(?:{body})[{LETTER}]*", re.IGNORECASE)
 
 
 def split_clauses(text: str) -> list[str]:
@@ -385,7 +450,14 @@ _DAMAGE = word_pattern(
     "bortodlad", "borttagen", "förstörd", "sönderodlad", "omplockad", "omplockat",
 )
 _KERB = word_pattern("kantkedja", "kantkedjan", "kantkedjor", "kantkedjer")
-_DRYSTONE = word_pattern("kallmurning", "kallmurad", "kallmur", "kallmurar", "kallmurat")
+#: §6.A.1's heaviest criterion, worth 0.40 of a fort's confidence score, so the
+#: five-inflection word list it used to be was the single most expensive
+#: whole-word rule in the module: 338 national descriptions say `kallmur*` and it
+#: fired on 275. The 63-fort gap was 47 forts of plain inflection the list did
+#: not carry (`kallmurade` alone is in 53 descriptions, `kallmurningen`,
+#: `kallmuren`, `kallmursteknik`) and 16 of §10's glue (`ikallmur`,
+#: `denkallmurade`, `kvartstårkallmurning`). One stem closes both.
+_DRYSTONE = stem_pattern("kallmur")
 _PIT = word_pattern("grop", "gropen", "gropar", "groparna")
 
 
@@ -767,6 +839,55 @@ def parse_class_sizes(text: str) -> dict:
     return out
 
 
+#: Every inflection of each plan form, so a class counted as "1 rektangulär
+#: stensättning" recognises "Den rektangulära stensättningen är …" as its own.
+_FORM_STEMS: dict[str, tuple[str, ...]] = dict(FORM_WORDS)
+
+#: Every phrase that names a constituent class, so a continuation clause can be
+#: told from the next class's own sentence. Escaped as written, so `resta stenar`
+#: does not match the `synliga stenar` of a calibre clause.
+_CLASS_WORDS = word_pattern(
+    *[
+        re.escape(phrase)
+        for _archetype, count_words, size_words in CONSTITUENTS
+        for phrase in (*count_words, *size_words)
+    ],
+    *[re.escape(phrase) for _figure, phrases in FIGURES for phrase in phrases],
+)
+
+
+def continuation_calibre(clauses: list[str], index: int) -> list[float] | None:
+    """The stone calibre the register states in the clause *after* a class's own.
+
+    KMR writes a grave-field class in two sentences and puts the calibre in the
+    second: *"De rektangulära stensättningarna är 4-6x3 m (Ö 10cg S-V 10cg N och
+    NV-SÖ)."* then *"Övertorvade med i ytan enstaka synliga stenar, 0,1-0,3 m
+    st."* Reading only the first sentence means a stated measurement is replaced
+    by the archetype default — and, because a class's `source` is decided by its
+    diameter, replaced *under a `measured` badge*. Until §10 that mostly did not
+    show, because the lost line break was holding the two sentences together.
+
+    Deliberately narrow, and only ever the calibre:
+
+    * one clause, the one immediately after;
+    * which names **no** class of its own, so the next class's sentence can never
+      be read as this one's;
+    * and states no size of its own, so a fresh enumeration is not swept in.
+
+    Height and plan size are never taken from it: *"Kantkedja, 0,2-0,3 m h"* is a
+    kerb's height, not the setting's, and the calibre is the only field the
+    register habitually strands.
+    """
+    if index + 1 >= len(clauses):
+        return None
+    following = clauses[index + 1]
+    if _CLASS_WORDS.search(following):
+        return None
+    if parse_class_sizes(following).get("diameterM") is not None:
+        return None
+    return parse_stone(following)
+
+
 def parse_composition(text: str, archetype_default: ArchetypeDefault) -> dict:
     """Turn a grave-field description into a sampler specification (§3.1).
 
@@ -779,27 +900,45 @@ def parse_composition(text: str, archetype_default: ArchetypeDefault) -> dict:
     clauses = split_clauses(text)
     classes: list[dict] = []
 
-    def size_sentence(size_words: tuple[str, ...], modifier: str | None) -> str | None:
-        """The clause stating this class's own dimensions.
+    def size_clause(
+        size_words: tuple[str, ...], form: str | None, sibling_forms: set[str]
+    ) -> int | None:
+        """Index of the clause stating this class's own dimensions.
 
-        Prefers one that also carries the subclass modifier, so "De kvadratiska
-        stensättningarna är …" is not read as the size of the round ones.
+        Prefers one that also names the class's own form in any inflection, so
+        "Den rektangulära stensättningen är …" is found for "1 rektangulär
+        stensättning". A clause naming the form of a *sibling* class is never
+        this class's: without that rule a class whose own sentence scored lower
+        fell through to "De runda stensättningarna är 3-8 m diam" and took the
+        round class's size — and, through `continuation_calibre`, its calibre —
+        under a `measured` badge. No admissible clause means no size, which the
+        caller turns into a disclosed archetype default. The index rather than
+        the text, because the calibre is often one clause further on.
         """
         pattern = word_pattern(*size_words) if size_words else None
         if pattern is None:
             return None
-        best: str | None = None
+        own = word_pattern(*_FORM_STEMS[form]) if form else None
+        # A class with a form of its own refuses every other form's sentence (the
+        # sibling may have been counted without one — "1 kvadratiskfylld
+        # stensättning"). A class without one refuses only its siblings' forms,
+        # so "Stensättningarna är runda, 3-8 m diam" still sizes "20 stensättningar".
+        others = [f for f in (_FORM_STEMS if form else sibling_forms) if f != form]
+        foreign = word_pattern(*[s for f in others for s in _FORM_STEMS[f]]) if others else None
+        best: int | None = None
         best_rank = -1
-        for clause in clauses:
+        for position, clause in enumerate(clauses):
             if not pattern.search(clause):
                 continue
             if not re.search(rf"(?<![{LETTER}])(är|utgörs|mäter)(?![{LETTER}])", clause, re.I):
                 continue
+            matched = bool(own and own.search(clause))
+            if not matched and foreign and foreign.search(clause):
+                continue
             sized = parse_class_sizes(clause).get("diameterM") is not None
-            matched = bool(modifier and word_pattern(modifier).search(clause))
             rank = (2 if matched else 0) + (1 if sized else 0)
             if rank > best_rank:
-                best, best_rank = clause, rank
+                best, best_rank = position, rank
         return best
 
     for archetype, count_words, size_words in CONSTITUENTS:
@@ -833,13 +972,16 @@ def parse_composition(text: str, archetype_default: ArchetypeDefault) -> dict:
             )
             entry["count"] += count
             entry["moundLike"] = entry["moundLike"] or mound_like
+        sibling_forms = {entry["form"] for entry in grouped.values() if entry["form"]}
         for entry in grouped.values():
-            modifier = entry.pop("_modifier")
-            sentence = size_sentence(size_words, modifier)
-            sizes = parse_class_sizes(sentence) if sentence else {}
+            entry.pop("_modifier")
+            index = size_clause(size_words, entry["form"], sibling_forms)
+            sizes = parse_class_sizes(clauses[index]) if index is not None else {}
             entry["diameterM"] = sizes.get("diameterM")
             entry["heightM"] = sizes.get("heightM")
-            entry["stoneM"] = sizes.get("stoneM")
+            entry["stoneM"] = sizes.get("stoneM") or (
+                continuation_calibre(clauses, index) if index is not None else None
+            )
             entry["source"] = "measured" if entry["diameterM"] else "assumed"
             classes.append(entry)
 
@@ -976,10 +1118,48 @@ _ENTRANCE = word_pattern("ingång", "ingången", "ingångar", "ingångarna", "ö
 _STEEP = re.compile(
     r"brant(?:a|)\s+(?:slutt|stup|berg)|stupar|otillgängl", re.IGNORECASE
 )
-_RING = word_pattern("ringvall", "ringvallar", "ringvallen", "ringmur")
+#: Same treatment as `_DRYSTONE`, same two causes: the genitives and plurals the
+#: word list did not carry (`ringvallens`, `ringmurar`, `ringvallarna`) and §10's
+#: glue (`inomringvallen`, `mellerstaringvallen`). 63 descriptions name a
+#: ringvall or a ringmur; the whole-word rule saw 57.
+_RING = stem_pattern("ringvall", "ringmur")
 
 
-def parse_rampart(text: str, clause: str, params: TransformParams, scope: str | None = None) -> dict:
+#: Any word that opens a new wall's description, used to stop a wall's calibre
+#: clause running on into the next wall's.
+_WALL_WORDS = word_pattern(
+    "vall", "vallen", "vallar", "vallarna", "vallen", "mur", "muren", "murar", "murarna",
+    "murrest", "ringvall", "ringvallen", "ringmur", "ringmuren",
+)
+
+
+def continuation_calibre_clause(clause: str) -> bool:
+    """Is this clause the tail of the previous wall's or class's description?
+
+    The register habitually states a calibre in a sentence of its own — *"Den
+    inre vallen är ca 320 m l, 0.5-5 m br och 0.5-1.5 m h."* then *"Stenarna är
+    0.1-2.5 m st."* Reading only the first leaves the wall with no calibre at
+    all, which before §10 mostly did not show because the lost line break was
+    holding the two sentences together.
+
+    True only for a clause that states a calibre, names **no** wall of its own,
+    and states no length, width or height — so the next wall's sentence, or a
+    neighbouring monument's, can never be read as this one's tail.
+    """
+    if parse_stone(clause) is None:
+        return False
+    if _WALL_WORDS.search(clause):
+        return False
+    return not (_LENGTH.search(clause) or _WIDTH.search(clause) or _HEIGHT.search(clause))
+
+
+def parse_rampart(
+    text: str,
+    clause: str,
+    params: TransformParams,
+    scope: str | None = None,
+    following: str | None = None,
+) -> dict:
     """One wall: length, spread, present height, stone calibre, entrances.
 
     `clause` is the sentence naming this wall and `scope` the run of text that
@@ -1003,6 +1183,8 @@ def parse_rampart(text: str, clause: str, params: TransformParams, scope: str | 
     spread = _range(_to_float(width.group(1)), _to_float(width.group(2))) if width else None
     height_range = _range(_to_float(height.group(1)), _to_float(height.group(2))) if height else None
     stone = parse_stone(clause)
+    if stone is None and following is not None and continuation_calibre_clause(following):
+        stone = parse_stone(following)
 
     # §5.1 is anchored on the *standing* wall, so the top of the recorded band is
     # the input, not its midpoint: "1-2 m h" means parts of it still stand 2 m.
@@ -1106,15 +1288,41 @@ def parse_fort(text: str, plan: dict, params: TransformParams) -> dict:
     starts: list[tuple[int, str, str]] = []
     for path_id, phrases in RAMPART_IDS:
         pattern = word_pattern(*[re.escape(p) for p in phrases])
-        index = next((i for i, c in enumerate(clauses) if pattern.search(c)), None)
-        if index is not None:
-            starts.append((index, path_id, clauses[index]))
+        named = [i for i, clause in enumerate(clauses) if pattern.search(clause)]
+        if not named:
+            continue
+        # The clause that *describes* the wall, not the one that merely lists it.
+        # *"Vallarna består av en inre vall, en yttre något osäker vall, samt två
+        # tvärvallar."* names both walls and measures neither; the dimensions are
+        # in the next sentence. Before §10 repaired the lost full stops the two
+        # were usually one clause, so taking the first mention happened to work;
+        # with the sentences correctly separated it strands the measurement and
+        # the wall falls back to the archetype default height instead.
+        index = next(
+            (
+                i
+                for i in named
+                if _LENGTH.search(clauses[i])
+                or _HEIGHT.search(clauses[i])
+                or _WIDTH.search(clauses[i])
+            ),
+            named[0],
+        )
+        starts.append((index, path_id, clauses[index]))
     starts.sort()
 
     ramparts: list[dict] = []
     for position, (index, path_id, clause) in enumerate(starts):
-        end = starts[position + 1][0] if position + 1 < len(starts) else len(clauses)
-        entry = parse_rampart(text, clause, params, scope=" ".join(clauses[index:end]))
+        # A wall owns at least its own clause: two walls named in one sentence
+        # would otherwise leave the first one an empty scope.
+        end = max(index + 1, starts[position + 1][0]) if position + 1 < len(starts) else len(clauses)
+        entry = parse_rampart(
+            text,
+            clause,
+            params,
+            scope=" ".join(clauses[index:end]),
+            following=clauses[index + 1] if index + 1 < len(clauses) else None,
+        )
         entry["id"] = path_id
         ramparts.append(entry)
     if not ramparts:
@@ -2026,6 +2234,13 @@ class ParseStats:
     #: Monuments the grave-field sampler will place, over and above the records.
     sampled: int = 0
     warned: int = 0
+    #: §10 — records whose description had at least one lost sentence boundary put
+    #: back by `normalise`, and how many boundaries that was in total. Counted and
+    #: written into the file because this project does not edit its sources
+    #: silently: the repair is one inserted space per count, and removing them
+    #: again reproduces the register's text byte for byte.
+    repaired_records: int = 0
+    repaired_joins: int = 0
     by_archetype: dict[str, int] = field(default_factory=dict)
 
 
@@ -2044,6 +2259,9 @@ def build_monument(
     archetype = ARCHETYPES.get(lamningstyp)
     if stats:
         stats.records += 1
+        joins = count_sentence_joins(record.get("description") or "")
+        stats.repaired_joins += joins
+        stats.repaired_records += joins > 0
     if archetype is None:
         if stats:
             stats.unmapped += 1
@@ -2260,7 +2478,13 @@ DERIVATION_DESCRIPTION = (
     "flatness is the type. Where a field cannot be parsed the archetype default is used, "
     "the field's source reads \"assumed\", its name appears in the monument's fallbacks "
     "list, and parseConfidence drops; nothing is invented silently. Positions and extent "
-    "polygons are not repeated here — this file joins back to sites.json by id."
+    "polygons are not repeated here — this file joins back to sites.json by id. The KMR "
+    "text itself reaches this parser with its hard line breaks removed and no space in "
+    "their place, which glues words and sentences together; exactly one class of that is "
+    "repaired here — a space put back after a full stop that runs straight into the next "
+    "sentence's capital — and coverage.sentenceJoinsRepaired counts every one, because a "
+    "repair is an edit to the source and has to be visible. Glue inside a sentence "
+    "(\"belägenpå\") is left exactly as the register sent it."
 )
 
 
@@ -2331,6 +2555,9 @@ def build_document(
         "graveFieldsWithStatedCount": stats.field_counts,
         "sampledMonuments": stats.sampled,
         "withWarnings": stats.warned,
+        # §10: how much of the register's lost punctuation this parse put back.
+        "recordsTextRepaired": stats.repaired_records,
+        "sentenceJoinsRepaired": stats.repaired_joins,
         # §15: what the interior parse actually found. `null` is "not a fort site"
         # and is a different statement from `"fail"`, which is "a fort, and the
         # register records nothing built inside it".
