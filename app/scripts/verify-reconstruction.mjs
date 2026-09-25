@@ -54,10 +54,25 @@
  * against a page that has gone blocks `context.close()` forever, and a checker
  * that never returns is worse than one that fails.
  *
+ * **A page failure and an environment failure are not the same finding.** The
+ * console check used to fail on every run, on `main`, because the sandbox's
+ * egress proxy substitutes its own certificate and headless Chromium rejects
+ * the drnz.se consent notice that `index.html` loads. That is not a fact about
+ * this app. `scripts/console-triage.mjs` now sorts the two apart: a transport
+ * failure of a resource the app is documented not to depend on is reported
+ * under `environment` and printed as a NOTE, while every JS exception, every
+ * `console.error` from app code, every HTTP error and every transport failure
+ * of anything else still fails. A companion check,
+ * `no-unexpected-request-failures`, is stricter than the console check alone —
+ * it catches a request that died without reaching the console, which is what
+ * a failed object-host data load looks like.
+ *
  * Exit code 0 only if every check passed. The report is JSON on stdout.
  */
 
 import { chromium } from 'playwright';
+
+import { describeEnvironmental, triageConsoleErrors } from './console-triage.mjs';
 
 const args = process.argv.slice(2);
 function opt(name, fallback = null) {
@@ -123,10 +138,23 @@ const page = await context.newPage();
 
 const consoleErrors = [];
 const pageErrors = [];
-page.on('console', (msg) => {
-  if (msg.type() === 'error') consoleErrors.push(msg.text());
-});
-page.on('pageerror', (error) => pageErrors.push(String(error)));
+const requestFailures = [];
+/**
+ * Every page in this run reports to the same three lists, and each console
+ * error keeps the URL it came from — `scripts/console-triage.mjs` needs that to
+ * tell a failure of the app from a failure of the wire between the browser and
+ * a resource the app does not depend on.
+ */
+function watch(target) {
+  target.on('console', (msg) => {
+    if (msg.type() === 'error') consoleErrors.push({ text: msg.text(), url: msg.location()?.url });
+  });
+  target.on('pageerror', (error) => pageErrors.push(String(error)));
+  target.on('requestfailed', (request) =>
+    requestFailures.push({ url: request.url(), errorText: request.failure()?.errorText ?? '' }),
+  );
+}
+watch(page);
 
 const checks = [];
 function check(id, ok, detail) {
@@ -617,10 +645,7 @@ try {
     const patchedPage = await patchedContext.newPage();
     // The same listeners the first page has: a patched load's console errors are
     // this run's errors too.
-    patchedPage.on('console', (msg) => {
-      if (msg.type() === 'error') consoleErrors.push(msg.text());
-    });
-    patchedPage.on('pageerror', (error) => pageErrors.push(String(error)));
+    watch(patchedPage);
     await patchedPage.route('**/reconstruction.json*', async (route) => {
       try {
         const response = await route.fetch();
@@ -1187,7 +1212,30 @@ try {
 }
 
 check('no-page-errors', pageErrors.length === 0, pageErrors.join(' | '));
-check('no-console-errors', consoleErrors.length === 0, consoleErrors.join(' | '));
+
+// Sort the run's console errors into what the page did and what was done to it.
+// Only a transport-level failure of a resource the app is documented not to
+// depend on is excused, and an excused failure is still printed and still
+// reported — see scripts/console-triage.mjs for why that is classification
+// rather than suppression, and for everything it refuses to excuse.
+const triage = triageConsoleErrors({ consoleErrors, requestFailures });
+for (const line of describeEnvironmental(triage.environmental)) {
+  console.error(`NOTE environment — ${line}`);
+}
+check(
+  'no-console-errors',
+  triage.pageErrors.length === 0,
+  triage.pageErrors.map((e) => `${e.text}${e.url ? ` (${e.url})` : ''}`).join(' | '),
+);
+// Stricter than the console check alone: a request that dies at the transport
+// layer fails here whether or not it also reached the console. This is what
+// keeps the excuse above honest when `VITE_DATA_BASE_URL` points the app's data
+// at an object host — a terrain that never loaded cannot pass as environmental.
+check(
+  'no-unexpected-request-failures',
+  triage.unexpectedRequestFailures.length === 0,
+  triage.unexpectedRequestFailures.map((r) => `${r.url} — ${r.errorText}`).join(' | '),
+);
 
 // Teardown that cannot hang, because a checker that never exits is worse than
 // one that fails: a route handler left pending against a page that has gone away
@@ -1206,7 +1254,16 @@ await Promise.race([
   new Promise((resolve) => setTimeout(resolve, 60000)),
 ]);
 
-report = { base: BASE, site: SITE, checks, ...report };
+// `environment` is not a verdict — it is the part of the run that no commit in
+// this repo can fix, written down so it is never invisible and never mistaken
+// for a passing page.
+report = {
+  base: BASE,
+  site: SITE,
+  checks,
+  environment: { excusedResourceFailures: triage.environmental },
+  ...report,
+};
 console.log(JSON.stringify(report, null, 2));
 // Explicit, and the last thing that happens: a stray browser handle must not
 // keep the run alive after its verdict is written.

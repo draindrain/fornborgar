@@ -11,6 +11,10 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "verify:reconstruction": "node scripts/verify-reconstruction.mjs",
+    "verify:sites": "node scripts/verify-sites.mjs",
+    "verify:night-sky": "node scripts/verify-night-sky.mjs",
+    "verify:far-field": "node scripts/verify-far-field.mjs",
     "make-test-dem": "node scripts/make-test-dem.mjs",
     "make-test-rings": "node scripts/make-test-dem.mjs --rings"
   },
@@ -22,6 +26,7 @@
   "devDependencies": {
     "@types/node": "^24.13.3",
     "@types/three": "^0.185.4",
+    "playwright": "1.56.1",
     "typescript": "^5.9.3",
     "vite": "^8.2.2",
     "vitest": "^4.1.11"

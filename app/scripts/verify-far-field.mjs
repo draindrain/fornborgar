@@ -17,6 +17,8 @@
 
 import { chromium } from 'playwright';
 
+import { describeEnvironmental, triageConsoleErrors } from './console-triage.mjs';
+
 const args = process.argv.slice(2);
 function opt(name, fallback = null) {
   const i = args.indexOf(`--${name}`);
@@ -36,17 +38,48 @@ if (!SITE) {
 
 // Same proxy note as verify-sites.mjs: Chromium needs the proxy handed over
 // explicitly, bypassing localhost so the page still comes from the local server.
+// A localhost base skips the proxy entirely rather than relying on the bypass
+// list — see verify-sites.mjs for the 405 this prevents.
 const PROXY = process.env.HTTPS_PROXY ?? process.env.https_proxy ?? '';
+const LOCAL_BASE = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:|\/|$)/.test(BASE);
 const launchOptions = { executablePath: EXECUTABLE };
-if (PROXY) launchOptions.proxy = { server: PROXY, bypass: 'localhost,127.0.0.1,::1' };
+if (PROXY && !LOCAL_BASE) launchOptions.proxy = { server: PROXY, bypass: 'localhost,127.0.0.1,::1' };
 
 const browser = await chromium.launch(launchOptions);
 const page = await (await browser.newContext({ viewport: { width: 1280, height: 800 } })).newPage();
 const errors = [];
+// Console errors keep their URL and failed requests are recorded alongside, so
+// `console-triage.mjs` can tell a failure of the page from a failure of the
+// wire to a resource the app does not depend on. Excused failures are reported
+// under `environment`, never dropped.
+const consoleErrors = [];
+const requestFailures = [];
 page.on('pageerror', (e) => errors.push(String(e).slice(0, 300)));
 page.on('console', (m) => {
-  if (m.type() === 'error') errors.push(m.text().slice(0, 300));
+  if (m.type() === 'error') consoleErrors.push({ text: m.text().slice(0, 300), url: m.location()?.url });
 });
+page.on('requestfailed', (r) =>
+  requestFailures.push({ url: r.url(), errorText: r.failure()?.errorText ?? '' }),
+);
+
+/**
+ * The run's errors, split into what the page is answerable for and what the
+ * environment did to it. Recomputed from the full accumulated lists on every
+ * call and never mutating them, so it is safe to ask at more than one exit —
+ * folding results into `errors` as they arrived would have silently dropped
+ * anything logged after the last call.
+ */
+function settle() {
+  const triage = triageConsoleErrors({ consoleErrors, requestFailures });
+  return {
+    pageIssues: [
+      ...errors,
+      ...triage.pageErrors.map((e) => e.text),
+      ...triage.unexpectedRequestFailures.map((r) => `request failed: ${r.url} — ${r.errorText}`),
+    ],
+    environment: triage.environmental,
+  };
+}
 
 // `&debug=1` restores the pre-redesign layer defaults (every model layer off),
 // which is what the laziness assertion at the bottom of this file describes: the
@@ -69,7 +102,19 @@ while (Date.now() - started < RING_WAIT_MS) {
 
 const record = { site: SITE, ok: false, state, errors };
 if (!state?.ready || !state?.rings?.done) {
-  console.log(JSON.stringify({ ...record, failure: 'rings never completed' }, null, 2));
+  const settled = settle();
+  console.log(
+    JSON.stringify(
+      {
+        ...record,
+        failure: 'rings never completed',
+        errors: settled.pageIssues,
+        environment: { excusedResourceFailures: settled.environment },
+      },
+      null,
+      2,
+    ),
+  );
   await browser.close();
   process.exit(1);
 }
@@ -106,8 +151,15 @@ if (OUT) {
 // The §13 contract, asserted from the outside. A site with no farField block
 // passes trivially (feature off is a valid state, never an error).
 const declaresFarField = record.before.farField !== null;
+const settled = settle();
+record.errors = settled.pageIssues;
+// Not a verdict: the part of the run no commit in this repo can fix.
+record.environment = { excusedResourceFailures: settled.environment };
+for (const line of describeEnvironmental(settled.environment)) {
+  console.error(`NOTE environment — ${line}`);
+}
 record.ok =
-  errors.length === 0 &&
+  settled.pageIssues.length === 0 &&
   (!declaresFarField ||
     (record.before.farCountBeforeEnable === 0 && // lazy until first enable
       record.after.farCount > 0 &&
